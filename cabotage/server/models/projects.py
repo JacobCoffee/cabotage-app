@@ -533,6 +533,8 @@ class Release(db.Model, Timestamp):
 
     @property
     def envconsul_configurations(self):
+        if self.image_object is None or not self.image_object.processes:
+            return {}
         configurations = {}
         environment_statements = "\n".join(
             [

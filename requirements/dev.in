@@ -1,10 +1,15 @@
 bandit
 black
+bunenv
+djlint
 mypy
 pip-tools
+prek
+rcssmin
+rjsmin
 ruff
 sqlalchemy-stubs
-types-PyYAML 
+types-PyYAML
 types-requests
 types-toml
 typing-extensions==4.7.1

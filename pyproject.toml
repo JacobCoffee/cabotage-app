@@ -3,3 +3,12 @@ exclude_dirs = ["bin", "lib"]
 
 [tool.mypy]
 ignore_missing_imports = true
+
+[tool.djlint]
+profile = "jinja"
+indent = 2
+max_line_length = 120
+preserve_blank_lines = true
+format_attribute_template_tags = true
+close_void_tags = true
+ignore = "H006,H020,H021,H030,H031"

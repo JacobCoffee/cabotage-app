@@ -2,7 +2,6 @@ from cabotage.server import create_app, db
 from cabotage.server.models import Organization, User
 from cabotage.server.models.projects import Application, Project
 
-
 app = create_app()
 
 if not app.config["DEBUG"]:

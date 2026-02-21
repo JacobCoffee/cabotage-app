@@ -21,9 +21,7 @@ from dockerfile_parse import DockerfileParser
 from flask import current_app
 from dxf import DXF
 from github import Github
-from github.Auth import AppAuth as GithubAppAuth
 from github.GithubException import GithubException, UnknownObjectException
-from github.GithubIntegration import GithubIntegration
 
 from cabotage.celery.tasks.deploy import run_deploy, run_job
 
@@ -504,11 +502,9 @@ def build_image_buildkit(image=None):
         or image.application.github_app_installation_id
     ):
         try:
-            auth = GithubAppAuth(github_app.app_id, github_app.app_private_key_pem)
-            gi = GithubIntegration(auth=auth)
-            access_token = gi.get_access_token(
+            access_token = github_app.fetch_installation_access_token(
                 image.application.github_app_installation_id
-            ).token
+            )
             if access_token is None:
                 raise Exception
         except Exception:

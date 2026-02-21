@@ -1,5 +1,7 @@
 import collections
 import datetime
+import json
+import re
 import time
 import threading
 import queue
@@ -8,6 +10,7 @@ from flask import (
     Blueprint,
     abort,
     current_app,
+    flash,
     jsonify,
     make_response,
     redirect,
@@ -67,6 +70,7 @@ from cabotage.server.models.projects import (
 from cabotage.server.models.projects import activity_plugin
 
 from cabotage.server.user.forms import (
+    AddOrganizationMemberForm,
     ApplicationScaleForm,
     CreateApplicationForm,
     CreateConfigurationForm,
@@ -77,6 +81,7 @@ from cabotage.server.user.forms import (
     EditConfigurationForm,
     ReleaseDeployForm,
     AddOrganizationUserForm,
+    RemoveOrganizationMemberForm,
 )
 
 from cabotage.utils.docker_auth import (
@@ -107,7 +112,11 @@ user_blueprint = Blueprint(
 def organizations():
     user = current_user
     organizations = user.organizations
-    return render_template("user/organizations.html", organizations=organizations)
+    return render_template(
+        "user/organizations.html",
+        organizations=organizations,
+        org_create_form=CreateOrganizationForm(),
+    )
 
 
 @user_blueprint.route("/organizations/<org_slug>")
@@ -116,7 +125,26 @@ def organization(org_slug):
     organization = Organization.query.filter_by(slug=org_slug).first_or_404()
     if not ViewOrganizationPermission(organization.id).can():
         abort(403)
-    return render_template("user/organization.html", organization=organization)
+    project_form = CreateProjectForm()
+    project_form.organization_id.choices = [(str(organization.id), organization.name)]
+    project_form.organization_id.data = str(organization.id)
+
+    is_admin = AdministerOrganizationPermission(organization.id).can()
+
+    add_member_form = AddOrganizationMemberForm()
+    add_member_form.organization_id.data = str(organization.id)
+
+    remove_member_form = RemoveOrganizationMemberForm()
+    remove_member_form.organization_id.data = str(organization.id)
+
+    return render_template(
+        "user/organization.html",
+        organization=organization,
+        project_create_form=project_form,
+        add_member_form=add_member_form,
+        remove_member_form=remove_member_form,
+        is_admin=is_admin,
+    )
 
 
 @user_blueprint.route("/organizations/create", methods=["GET", "POST"])
@@ -141,9 +169,102 @@ def organization_create():
         db.session.add(org_create)
         db.session.commit()
         return redirect(url_for("user.organization", org_slug=organization.slug))
-    return render_template(
-        "user/organization_create.html", organization_create_form=form
-    )
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(f"{getattr(form, field).label.text}: {error}", "error")
+    return redirect(url_for("user.organizations"))
+
+
+@user_blueprint.route("/organizations/<org_slug>/members/add", methods=["POST"])
+@login_required
+def organization_member_add(org_slug):
+    organization = Organization.query.filter_by(slug=org_slug).first_or_404()
+    if not AdministerOrganizationPermission(organization.id).can():
+        abort(403)
+
+    form = AddOrganizationMemberForm()
+    form.organization_id.data = str(organization.id)
+
+    if form.validate_on_submit():
+        user = User.query.filter_by(username=form.username.data).first()
+        existing = OrganizationMember.query.filter_by(
+            user_id=user.id, organization_id=organization.id
+        ).first()
+        if existing:
+            flash(
+                f"{user.username} is already a member of this organization.", "warning"
+            )
+        else:
+            organization.add_user(user, admin=form.admin.data)
+            db.session.commit()
+            flash(f"Added {user.username} to {organization.name}.", "success")
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{getattr(form, field).label.text}: {error}", "error")
+    return redirect(url_for("user.organization", org_slug=org_slug))
+
+
+@user_blueprint.route("/organizations/<org_slug>/members/remove", methods=["POST"])
+@login_required
+def organization_member_remove(org_slug):
+    organization = Organization.query.filter_by(slug=org_slug).first_or_404()
+    if not AdministerOrganizationPermission(organization.id).can():
+        abort(403)
+
+    form = RemoveOrganizationMemberForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(id=form.user_id.data).first_or_404()
+        admin_count = OrganizationMember.query.filter_by(
+            organization_id=organization.id, admin=True
+        ).count()
+        member = OrganizationMember.query.filter_by(
+            user_id=user.id, organization_id=organization.id
+        ).first()
+        if member and member.admin and admin_count <= 1:
+            flash("Cannot remove the last admin from the organization.", "error")
+        elif member:
+            organization.remove_user(user)
+            db.session.commit()
+            flash(f"Removed {user.username} from {organization.name}.", "success")
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{getattr(form, field).label.text}: {error}", "error")
+    return redirect(url_for("user.organization", org_slug=org_slug))
+
+
+@user_blueprint.route(
+    "/organizations/<org_slug>/members/toggle-admin", methods=["POST"]
+)
+@login_required
+def organization_member_toggle_admin(org_slug):
+    organization = Organization.query.filter_by(slug=org_slug).first_or_404()
+    if not AdministerOrganizationPermission(organization.id).can():
+        abort(403)
+
+    user_id = request.form.get("user_id")
+    if not user_id:
+        abort(400)
+
+    user = User.query.filter_by(id=user_id).first_or_404()
+    member = OrganizationMember.query.filter_by(
+        user_id=user.id, organization_id=organization.id
+    ).first_or_404()
+
+    if member.admin:
+        admin_count = OrganizationMember.query.filter_by(
+            organization_id=organization.id, admin=True
+        ).count()
+        if admin_count <= 1:
+            flash("Cannot demote the last admin.", "error")
+            return redirect(url_for("user.organization", org_slug=org_slug))
+
+    member.admin = not member.admin
+    db.session.commit()
+    action = "Granted admin to" if member.admin else "Removed admin from"
+    flash(f"{action} {user.username}.", "success")
+    return redirect(url_for("user.organization", org_slug=org_slug))
 
 
 @user_blueprint.route("/organizations/<org_slug>/projects")
@@ -191,17 +312,25 @@ def organization_project_create(org_slug):
                 project_slug=project.slug,
             )
         )
-    return render_template(
-        "user/organization_project_create.html",
-        organization=organization,
-        organization_project_create_form=form,
-    )
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(f"{getattr(form, field).label.text}: {error}", "error")
+    return redirect(url_for("user.organization", org_slug=org_slug))
 
 
 @user_blueprint.route("/projects")
 @login_required
 def projects():
-    return render_template("user/projects.html", projects=current_user.projects)
+    user = current_user
+    project_form = CreateProjectForm()
+    project_form.organization_id.choices = [
+        (str(o.organization_id), o.organization.name) for o in user.organizations
+    ]
+    return render_template(
+        "user/projects.html",
+        projects=user.projects,
+        project_create_form=project_form,
+    )
 
 
 @user_blueprint.route("/projects/<org_slug>/<project_slug>")
@@ -214,7 +343,17 @@ def project(org_slug, project_slug):
     if not ViewProjectPermission(project.id).can():
         abort(403)
 
-    return render_template("user/project.html", project=project)
+    app_form = CreateApplicationForm()
+    app_form.organization_id.choices = [(str(organization.id), organization.name)]
+    app_form.project_id.choices = [(str(project.id), project.name)]
+    app_form.organization_id.data = str(organization.id)
+    app_form.project_id.data = str(project.id)
+
+    return render_template(
+        "user/project.html",
+        project=project,
+        app_create_form=app_form,
+    )
 
 
 @user_blueprint.route("/projects/create", methods=["GET", "POST"])
@@ -256,7 +395,10 @@ def project_create():
                 project_slug=project.slug,
             )
         )
-    return render_template("user/project_create.html", project_create_form=form)
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(f"{getattr(form, field).label.text}: {error}", "error")
+    return redirect(url_for("user.projects"))
 
 
 @user_blueprint.route("/projects/<org_slug>/<project_slug>/applications/<app_slug>")
@@ -284,15 +426,28 @@ def project_application(org_slug, project_slug, app_slug):
 
     scale_form = ApplicationScaleForm()
     scale_form.application_id.data = str(application.id)
+
+    config_create_form = CreateConfigurationForm()
+    config_create_form.application_id.data = str(application.id)
+
+    view_releases = (
+        version_class(Release)
+        .query.filter_by(application_id=application.id)
+        .order_by(desc(version_class(Release).version_id))
+        .limit(5)
+    )
+    releases = application.releases.order_by(Release.version.desc()).limit(10).all()
+    images = application.images.order_by(Image.version.desc()).limit(10).all()
+
     return render_template(
         "user/project_application.html",
         application=application,
         deploy_form=ReleaseDeployForm(),
         scale_form=scale_form,
-        view_releases=version_class(Release)
-        .query.filter_by(application_id=application.id)
-        .order_by(desc(version_class(Release).version_id))
-        .limit(5),
+        config_create_form=config_create_form,
+        view_releases=view_releases,
+        releases=releases,
+        images=images,
         DEFAULT_POD_CLASS=DEFAULT_POD_CLASS,
         pod_classes=pod_classes,
         pod_class_info=pod_class_info,
@@ -316,6 +471,7 @@ def project_application_logs(org_slug, project_slug, app_slug):
 
     return render_template(
         "user/project_application_logs.html",
+        application=application,
         org_slug=org_slug,
         project_slug=project_slug,
         app_slug=app_slug,
@@ -443,6 +599,7 @@ def project_application_shell(org_slug, project_slug, app_slug):
 
     return render_template(
         "user/project_application_shell.html",
+        application=application,
         org_slug=org_slug,
         project_slug=project_slug,
         app_slug=app_slug,
@@ -598,11 +755,11 @@ def project_application_create(org_slug, project_slug):
                 app_slug=application.slug,
             )
         )
-    return render_template(
-        "user/project_application_create.html",
-        project_application_create_form=form,
-        org_slug=org_slug,
-        project_slug=project_slug,
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(f"{getattr(form, field).label.text}: {error}", "error")
+    return redirect(
+        url_for("user.project", org_slug=org_slug, project_slug=project_slug)
     )
 
 
@@ -658,9 +815,6 @@ def project_application_configuration_create(org_slug, project_slug, app_slug):
         abort(403)
 
     form = CreateConfigurationForm()
-    form.application_id.choices = [
-        (str(application.id), f"{organization.slug}/{project.slug}: {application.slug}")
-    ]
     form.application_id.data = str(application.id)
 
     if form.validate_on_submit():
@@ -714,6 +868,162 @@ def project_application_configuration_create(org_slug, project_slug, app_slug):
 
 
 @user_blueprint.route(
+    "/projects/<org_slug>/<project_slug>/applications/<app_slug>/config/bulk",
+    methods=["POST"],
+)
+@login_required
+def project_application_configuration_bulk(org_slug, project_slug, app_slug):
+    organization = Organization.query.filter_by(slug=org_slug).first_or_404()
+    project = Project.query.filter_by(
+        organization_id=organization.id, slug=project_slug
+    ).first_or_404()
+    application = Application.query.filter_by(
+        project_id=project.id, slug=app_slug
+    ).first_or_404()
+    if not AdministerApplicationPermission(application.id).can():
+        abort(403)
+
+    raw_text = request.form.get("raw_text", "").strip()
+    fmt = request.form.get("format", "env")
+    name_re = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+    # Parse input into {name: value} dict
+    parsed = {}
+    errors = []
+    if fmt == "json":
+        try:
+            parsed = json.loads(raw_text)
+            if not isinstance(parsed, dict):
+                errors.append("JSON must be an object with string keys and values.")
+                parsed = {}
+            else:
+                parsed = {str(k): str(v) for k, v in parsed.items()}
+        except (json.JSONDecodeError, ValueError) as e:
+            errors.append(f"Invalid JSON: {e}")
+    else:
+        for line in raw_text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            name, _, value = line.partition("=")
+            name = name.strip()
+            value = value.strip()
+            if name:
+                parsed[name] = value
+
+    if errors:
+        for err in errors:
+            flash(err, "error")
+        return redirect(
+            url_for(
+                "user.project_application",
+                org_slug=org_slug,
+                project_slug=project_slug,
+                app_slug=app_slug,
+            )
+        )
+
+    # Build lookup of existing configs (case-insensitive via CIText)
+    existing = {c.name: c for c in application.configurations}
+
+    created = 0
+    updated = 0
+    skipped = 0
+    validation_errors = []
+
+    for name, value in parsed.items():
+        if not name_re.match(name):
+            validation_errors.append(f"Invalid name: {name}")
+            continue
+        if len(value) > 2048:
+            validation_errors.append(f"{name}: value too long (max 2048 chars)")
+            continue
+
+        existing_config = existing.get(name)
+        if existing_config:
+            if existing_config.secret:
+                skipped += 1
+                continue
+            existing_config.value = value
+            try:
+                key_slugs = config_writer.write_configuration(
+                    org_slug, project_slug, app_slug, existing_config
+                )
+            except Exception:
+                raise
+            existing_config.key_slug = key_slugs["config_key_slug"]
+            existing_config.build_key_slug = key_slugs["build_key_slug"]
+            db.session.flush()
+            activity = Activity(
+                verb="edit",
+                object=existing_config,
+                data={
+                    "user_id": str(current_user.id),
+                    "timestamp": datetime.datetime.utcnow().isoformat(),
+                },
+            )
+            db.session.add(activity)
+            updated += 1
+        else:
+            configuration = Configuration(
+                application_id=application.id,
+                name=name,
+                value=value,
+                secret=False,
+                buildtime=False,
+            )
+            try:
+                key_slugs = config_writer.write_configuration(
+                    org_slug, project_slug, app_slug, configuration
+                )
+            except Exception:
+                raise
+            configuration.key_slug = key_slugs["config_key_slug"]
+            configuration.build_key_slug = key_slugs["build_key_slug"]
+            db.session.add(configuration)
+            db.session.flush()
+            activity = Activity(
+                verb="create",
+                object=configuration,
+                data={
+                    "user_id": str(current_user.id),
+                    "timestamp": datetime.datetime.utcnow().isoformat(),
+                },
+            )
+            db.session.add(activity)
+            created += 1
+
+    db.session.commit()
+
+    parts = []
+    if created:
+        parts.append(f"Created {created}")
+    if updated:
+        parts.append(f"updated {updated}")
+    if skipped:
+        parts.append(f"skipped {skipped} secret{'s' if skipped != 1 else ''}")
+    if validation_errors:
+        parts.append(
+            f"{len(validation_errors)} validation error{'s' if len(validation_errors) != 1 else ''}"
+        )
+    if parts:
+        flash(", ".join(parts) + ".", "success" if not validation_errors else "warning")
+    for err in validation_errors:
+        flash(err, "error")
+
+    return redirect(
+        url_for(
+            "user.project_application",
+            org_slug=org_slug,
+            project_slug=project_slug,
+            app_slug=app_slug,
+        )
+    )
+
+
+@user_blueprint.route(
     "/projects/<org_slug>/<project_slug>/applications/<app_slug>/config/<config_id>/edit",
     methods=["GET", "POST"],
 )
@@ -733,12 +1043,6 @@ def project_application_configuration_edit(org_slug, project_slug, app_slug, con
         abort(403)
 
     form = EditConfigurationForm(obj=configuration)
-    form.application_id.choices = [
-        (
-            str(configuration.application.id),
-            f"{organization.slug}/{project.slug}: {application.slug}",
-        )
-    ]
     form.application_id.data = str(configuration.application.id)
     form.name.data = str(configuration.name)
     form.secure.data = configuration.secret
@@ -801,15 +1105,6 @@ def project_application_settings(application_id):
         abort(403)
 
     form = EditApplicationSettingsForm(obj=application)
-    form.application_id.choices = [
-        (
-            str(application.id),
-            (
-                f"{application.project.organization.slug}/{application.project.slug}: "
-                f"{application.slug}"
-            ),
-        )
-    ]
     form.application_id.data = str(application.id)
 
     if form.validate_on_submit():
@@ -863,6 +1158,10 @@ def project_application_configuration_delete(
         abort(403)
 
     if len(application.configurations) <= 1:
+        abort(400)
+
+    SYSTEM_VARS = {"CABOTAGE_SENTINEL"}
+    if configuration.name in SYSTEM_VARS:
         abort(400)
 
     if request.method == "GET":
@@ -1042,6 +1341,24 @@ def application_releases(application_id):
     )
 
 
+@user_blueprint.route("/applications/<application_id>/deployments")
+@login_required
+def application_deployments(application_id):
+    application = Application.query.filter_by(id=application_id).first_or_404()
+    if not ViewApplicationPermission(application.id).can():
+        abort(403)
+    page = request.args.get("page", 1, type=int)
+    deployments = application.deployments.order_by(Deployment.created.desc()).paginate(
+        page, 20, False
+    )
+    return render_template(
+        "user/application_deployments.html",
+        page=page,
+        application=application,
+        deployments=deployments.items,
+    )
+
+
 @user_blueprint.route("/release/<release_id>")
 @login_required
 def release_detail(release_id):
@@ -1060,6 +1377,7 @@ def release_detail(release_id):
     return render_template(
         "user/release_detail.html",
         release=release,
+        deploy_form=ReleaseDeployForm(),
         docker_pull_credentials=docker_pull_credentials,
         image_pull_secrets=image_pull_secrets,
     )
@@ -1260,6 +1578,15 @@ def application_release_create(application_id):
     return redirect(url_for("user.release_detail", release_id=release.id))
 
 
+@user_blueprint.route("/guide")
+@login_required
+def guide():
+    return render_template(
+        "user/guide.html",
+        github_app_url=current_app.config.get("GITHUB_APP_URL", "https://github.com"),
+    )
+
+
 @user_blueprint.route("/docker/auth")
 def docker_auth():
     secret = current_app.config["REGISTRY_AUTH_SECRET"]
@@ -1293,6 +1620,20 @@ def application_images_build_fromsource(application_id):
     project_slug = project.slug
     application_slug = application.slug
     repository_name = f"cabotage/{organization_slug}/{project_slug}/{application_slug}"
+
+    if not application.auto_deploy_branch:
+        flash(
+            "Cannot build from source: no deploy branch configured for this application.",
+            "error",
+        )
+        return redirect(
+            url_for(
+                "user.project_application",
+                org_slug=organization_slug,
+                project_slug=project_slug,
+                app_slug=application_slug,
+            )
+        )
 
     image = Image(
         application_id=application.id,
@@ -1330,157 +1671,167 @@ def application_clear_cache(application_id):
     application_slug = application.slug
     repository_name = f"cabotage/{organization_slug}/{project_slug}/{application_slug}"
 
-    api_client = kubernetes_ext.kubernetes_client
-    core_api_instance = kubernetes.client.CoreV1Api(api_client)
-    batch_api_instance = kubernetes.client.BatchV1Api(api_client)
-    image = application.images.first()
-    if image is not None and current_app.config["KUBERNETES_ENABLED"]:
-        from cabotage.celery.tasks.deploy import run_job
-        from cabotage.celery.tasks.build import fetch_image_build_cache_volume_claim
+    try:
+        api_client = kubernetes_ext.kubernetes_client
+        core_api_instance = kubernetes.client.CoreV1Api(api_client)
+        batch_api_instance = kubernetes.client.BatchV1Api(api_client)
+        image = application.images.first()
+        if image is not None and current_app.config["KUBERNETES_ENABLED"]:
+            from cabotage.celery.tasks.deploy import run_job
+            from cabotage.celery.tasks.build import fetch_image_build_cache_volume_claim
 
-        buildkit_image = current_app.config["BUILDKIT_IMAGE"]
+            buildkit_image = current_app.config["BUILDKIT_IMAGE"]
 
-        volume_claim = fetch_image_build_cache_volume_claim(core_api_instance, image)
-        job_object = kubernetes.client.V1Job(
-            metadata=kubernetes.client.V1ObjectMeta(
-                name=f"clear-cache-{volume_claim.metadata.name}"[:63],
-                labels={
-                    "organization": image.application.project.organization.slug,
-                    "project": image.application.project.slug,
-                    "application": image.application.slug,
-                    "process": "clear-cache",
-                    "resident-job.cabotage.io": "true",
-                },
-            ),
-            spec=kubernetes.client.V1JobSpec(
-                active_deadline_seconds=1800,
-                backoff_limit=0,
-                parallelism=1,
-                completions=1,
-                template=kubernetes.client.V1PodTemplateSpec(
-                    metadata=kubernetes.client.V1ObjectMeta(
-                        labels={
-                            "organization": image.application.project.organization.slug,  # noqa: E501
-                            "project": image.application.project.slug,
-                            "application": image.application.slug,
-                            "process": "clear-cache",
-                            "ca-admission.cabotage.io": "true",
-                            "resident-pod.cabotage.io": "true",
-                        },
-                        annotations={
-                            "container.apparmor.security.beta.kubernetes.io/clear-cache": "unconfined",  # noqa: E501
-                        },
-                    ),
-                    spec=kubernetes.client.V1PodSpec(
-                        restart_policy="Never",
-                        security_context=kubernetes.client.V1PodSecurityContext(
-                            fs_group=1000,
-                            fs_group_change_policy="OnRootMismatch",
+            volume_claim = fetch_image_build_cache_volume_claim(
+                core_api_instance, image
+            )
+            job_object = kubernetes.client.V1Job(
+                metadata=kubernetes.client.V1ObjectMeta(
+                    name=f"clear-cache-{volume_claim.metadata.name}"[:63],
+                    labels={
+                        "organization": image.application.project.organization.slug,
+                        "project": image.application.project.slug,
+                        "application": image.application.slug,
+                        "process": "clear-cache",
+                        "resident-job.cabotage.io": "true",
+                    },
+                ),
+                spec=kubernetes.client.V1JobSpec(
+                    active_deadline_seconds=1800,
+                    backoff_limit=0,
+                    parallelism=1,
+                    completions=1,
+                    template=kubernetes.client.V1PodTemplateSpec(
+                        metadata=kubernetes.client.V1ObjectMeta(
+                            labels={
+                                "organization": image.application.project.organization.slug,  # noqa: E501
+                                "project": image.application.project.slug,
+                                "application": image.application.slug,
+                                "process": "clear-cache",
+                                "ca-admission.cabotage.io": "true",
+                                "resident-pod.cabotage.io": "true",
+                            },
+                            annotations={
+                                "container.apparmor.security.beta.kubernetes.io/clear-cache": "unconfined",  # noqa: E501
+                            },
                         ),
-                        containers=[
-                            kubernetes.client.V1Container(
-                                name="clear-cache",
-                                image=buildkit_image,
-                                command=["buildctl-daemonless.sh"],
-                                args=["prune", "--all"],
-                                env=[
-                                    kubernetes.client.V1EnvVar(
-                                        name="BUILDKITD_FLAGS",
-                                        value="--oci-worker-no-process-sandbox",  # noqa: E501
-                                    ),
-                                ],
-                                security_context=kubernetes.client.V1SecurityContext(
-                                    seccomp_profile=kubernetes.client.V1SeccompProfile(
-                                        type="Unconfined",
-                                    ),
-                                    run_as_user=1000,
-                                    run_as_group=1000,
-                                ),
-                                volume_mounts=[
-                                    kubernetes.client.V1VolumeMount(
-                                        mount_path="/home/user/.local/share/buildkit",
-                                        name="build-cache",
-                                    ),
-                                ],
+                        spec=kubernetes.client.V1PodSpec(
+                            restart_policy="Never",
+                            security_context=kubernetes.client.V1PodSecurityContext(
+                                fs_group=1000,
+                                fs_group_change_policy="OnRootMismatch",
                             ),
-                        ],
-                        volumes=[
-                            kubernetes.client.V1Volume(
-                                name="build-cache",
-                                persistent_volume_claim=kubernetes.client.V1PersistentVolumeClaimVolumeSource(
-                                    claim_name=volume_claim.metadata.name
+                            containers=[
+                                kubernetes.client.V1Container(
+                                    name="clear-cache",
+                                    image=buildkit_image,
+                                    command=["buildctl-daemonless.sh"],
+                                    args=["prune", "--all"],
+                                    env=[
+                                        kubernetes.client.V1EnvVar(
+                                            name="BUILDKITD_FLAGS",
+                                            value="--oci-worker-no-process-sandbox",  # noqa: E501
+                                        ),
+                                    ],
+                                    security_context=kubernetes.client.V1SecurityContext(
+                                        seccomp_profile=kubernetes.client.V1SeccompProfile(
+                                            type="Unconfined",
+                                        ),
+                                        run_as_user=1000,
+                                        run_as_group=1000,
+                                    ),
+                                    volume_mounts=[
+                                        kubernetes.client.V1VolumeMount(
+                                            mount_path="/home/user/.local/share/buildkit",
+                                            name="build-cache",
+                                        ),
+                                    ],
                                 ),
-                            ),
-                        ],
+                            ],
+                            volumes=[
+                                kubernetes.client.V1Volume(
+                                    name="build-cache",
+                                    persistent_volume_claim=kubernetes.client.V1PersistentVolumeClaimVolumeSource(
+                                        claim_name=volume_claim.metadata.name
+                                    ),
+                                ),
+                            ],
+                        ),
                     ),
                 ),
-            ),
+            )
+
+            job_complete, job_logs = run_job(
+                core_api_instance, batch_api_instance, "default", job_object
+            )
+
+        def auth(dxf, response):
+            dxf.token = generate_docker_registry_jwt(
+                access=[
+                    {"type": "repository", "name": repository_name, "actions": ["*"]}
+                ]
+            )
+
+        registry = current_app.config["REGISTRY_BUILD"]
+        registry_secure = current_app.config["REGISTRY_SECURE"]
+        _tlsverify = False
+        if registry_secure:
+            _tlsverify = current_app.config["REGISTRY_VERIFY"]
+            if _tlsverify == "True":
+                _tlsverify = True
+        client = DXF(
+            host=registry,
+            repo=repository_name,
+            auth=auth,
+            insecure=(not registry_secure),
+            tlsverify=_tlsverify,
         )
 
-        job_complete, job_logs = run_job(
-            core_api_instance, batch_api_instance, "default", job_object
-        )
-
-    def auth(dxf, response):
-        dxf.token = generate_docker_registry_jwt(
-            access=[{"type": "repository", "name": repository_name, "actions": ["*"]}]
-        )
-
-    registry = current_app.config["REGISTRY_BUILD"]
-    registry_secure = current_app.config["REGISTRY_SECURE"]
-    _tlsverify = False
-    if registry_secure:
-        _tlsverify = current_app.config["REGISTRY_VERIFY"]
-        if _tlsverify == "True":
-            _tlsverify = True
-    client = DXF(
-        host=registry,
-        repo=repository_name,
-        auth=auth,
-        insecure=(not registry_secure),
-        tlsverify=_tlsverify,
-    )
-
-    try:
-        client.get_alias("image-buildcache")
         try:
-            client.del_alias("image-buildcache")
+            client.get_alias("image-buildcache")
+            try:
+                client.del_alias("image-buildcache")
+            except (
+                HTTPError
+            ) as e:  # Exception based error handling vs returning a None :upsidedownsmile:
+                if e.response.status_code == 404:
+                    pass  # Suppose there could be a race that the get_alias didn't find
+                elif e.response.status_code == 405:
+                    pass  # The registry may not be configured to allow deletes
+                else:
+                    raise
         except (
             HTTPError
-        ) as e:  # Exception based error handling vs returning a None :upsidedownsmile:
+        ) as e:  # Exception based error handling vs just returning a None :upsidedownsmile:
             if e.response.status_code == 404:
-                pass  # Suppose there could be a race that the get_alias didn't find
-            elif e.response.status_code == 405:
-                pass  # The registry may not be configured to allow deletes
+                pass
             else:
                 raise
-    except (
-        HTTPError
-    ) as e:  # Exception based error handling vs just returning a None :upsidedownsmile:
-        if e.response.status_code == 404:
-            pass
-        else:
-            raise
-    try:
-        client.get_alias("release-buildcache")
         try:
-            client.del_alias("release-buildcache")
+            client.get_alias("release-buildcache")
+            try:
+                client.del_alias("release-buildcache")
+            except (
+                HTTPError
+            ) as e:  # Exception based error handling vs returning a None :upsidedownsmile:
+                if e.response.status_code == 404:
+                    pass  # Suppose there could be a race that the get_alias didn't find
+                elif e.response.status_code == 405:
+                    pass  # The registry may not be configured to allow deletes
+                else:
+                    raise
         except (
             HTTPError
-        ) as e:  # Exception based error handling vs returning a None :upsidedownsmile:
+        ) as e:  # Exception based error handling vs just returning a None :upsidedownsmile:
             if e.response.status_code == 404:
-                pass  # Suppose there could be a race that the get_alias didn't find
-            elif e.response.status_code == 405:
-                pass  # The registry may not be configured to allow deletes
+                pass
             else:
                 raise
-    except (
-        HTTPError
-    ) as e:  # Exception based error handling vs just returning a None :upsidedownsmile:
-        if e.response.status_code == 404:
-            pass
-        else:
-            raise
+
+        flash("Build cache cleared successfully!", "success")
+    except Exception:
+        current_app.logger.exception("Failed to clear build cache")
+        flash("Failed to clear build cache!", "danger")
 
     return redirect(
         url_for(

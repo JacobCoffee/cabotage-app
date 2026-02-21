@@ -4,3 +4,12 @@ __pycache__
 /buildanddeploy
 /celerybeat-schedule
 /dev
+
+# Frontend tooling (bunenv)
+.bunenv/
+node_modules/
+bun.lock
+
+# Minified assets (generated)
+*.min.css
+*.min.js

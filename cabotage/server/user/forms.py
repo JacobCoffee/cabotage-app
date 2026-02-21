@@ -20,7 +20,7 @@ from wtforms.validators import (
     ValidationError,
 )
 
-from cabotage.server.models.auth import Organization
+from cabotage.server.models.auth import Organization, User
 from cabotage.server.models.projects import (
     Application,
     Configuration,
@@ -184,10 +184,9 @@ class DeleteApplicationForm(FlaskForm):
 
 
 class CreateConfigurationForm(FlaskForm):
-    application_id = SelectField(
+    application_id = HiddenField(
         "Application",
         [DataRequired()],
-        description="Application this Configuration belongs to.",
     )
     name = StringField(
         "Name",
@@ -219,7 +218,7 @@ class CreateConfigurationForm(FlaskForm):
     buildtime = BooleanField(
         "Expose during Build",
         [],
-        description="Set this Enviornment Variable during Image builds.",
+        description="Set this Environment Variable during Image builds.",
     )
 
     def validate_name(form, field):
@@ -237,10 +236,9 @@ class CreateConfigurationForm(FlaskForm):
 
 
 class EditApplicationSettingsForm(FlaskForm):
-    application_id = SelectField(
+    application_id = HiddenField(
         "Application",
         [DataRequired()],
-        description="Application this Configuration belongs to.",
     )
     github_repository = StringField(
         "GitHub Repository",
@@ -321,10 +319,9 @@ class EditApplicationSettingsForm(FlaskForm):
 
 
 class EditConfigurationForm(FlaskForm):
-    application_id = SelectField(
+    application_id = HiddenField(
         "Application",
         [DataRequired()],
-        description="Application this Configuration belongs to.",
     )
     name = StringField(
         "Name",
@@ -356,7 +353,7 @@ class EditConfigurationForm(FlaskForm):
     buildtime = BooleanField(
         "Expose during Build",
         [],
-        description="Set this Enviornment Variable during Image builds.",
+        description="Set this Environment Variable during Image builds.",
     )
 
     def validate_name(form, field):
@@ -417,6 +414,40 @@ class ReleaseDeployForm(FlaskForm):
         "Release ID",
         [InputRequired()],
         description="Release to deploy.",
+    )
+
+
+class AddOrganizationMemberForm(FlaskForm):
+    organization_id = HiddenField(
+        "Organization ID",
+        [DataRequired()],
+    )
+    username = StringField(
+        "Username",
+        [InputRequired()],
+        description="Username of the person to add.",
+    )
+    admin = BooleanField(
+        "Organization Admin",
+        [],
+        description="Grant admin privileges for this organization.",
+    )
+
+    def validate_username(form, field):
+        user = User.query.filter_by(username=field.data).first()
+        if user is None:
+            raise ValidationError("User not found.")
+        return True
+
+
+class RemoveOrganizationMemberForm(FlaskForm):
+    organization_id = HiddenField(
+        "Organization ID",
+        [DataRequired()],
+    )
+    user_id = HiddenField(
+        "User ID",
+        [DataRequired()],
     )
 
 

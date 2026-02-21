@@ -1,53 +1,101 @@
-.PHONY: default \
-	lint reformat type-check security-check \
-	start stop rebuild destroy \
-	migrate create-admin \
-	routes migrations
+BUNENV_DIR := .bunenv
+ACTIVATE  := . $(BUNENV_DIR)/bin/activate &&
+DOCKER    := docker compose
+EXEC      := docker-compose exec cabotage-app
+RUN       := $(DOCKER) run --build --rm base
 
-default:
-	@echo "Call a specific subcommand:"
-	@echo
-	@$(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null\
-	| awk -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}'\
-	| sort\
-	| egrep -v -e '^[^[:alnum:]]' -e '^$@$$'
-	@echo
-	@exit 1
+.DEFAULT_GOAL := help
 
-start:
+##@ Help
+help: ## Show this help
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} \
+		/^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 } \
+		/^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) }' $(MAKEFILE_LIST)
+
+##@ Development
+start: ## Start all services
 	docker-compose up --build --detach
 
-rebuild: start
-
-stop:
+stop: ## Stop all services
 	docker-compose down
 
-destroy:
+destroy: ## Stop and remove volumes
 	docker-compose down --volumes
 
-migrations:
-	docker-compose exec cabotage-app python3 -m flask db revision --autogenerate -m "$(filter-out $@,$(MAKECMDGOALS))"
+routes: ## Show Flask routes
+	$(EXEC) python3 -m flask routes
 
-migrate:
-	docker-compose exec cabotage-app python3 -m flask db upgrade
+create-admin: ## Create admin user
+	$(EXEC) python3 -m cabotage.scripts.create_admin
 
-create-admin:
-	docker-compose exec cabotage-app python3 -m cabotage.scripts.create_admin
+##@ Database
+migrate: ## Run database migrations
+	$(EXEC) python3 -m flask db upgrade
 
-routes:
-	docker-compose exec cabotage-app python3 -m flask routes
+migrations: ## Generate a new migration (usage: make migrations "description")
+	$(EXEC) python3 -m flask db revision --autogenerate -m "$(filter-out $@,$(MAKECMDGOALS))"
+
+##@ Setup
+setup: setup-frontend ## Set up all dev tooling
+
+setup-frontend: ## Create bunenv and install frontend packages
+	bunenv $(BUNENV_DIR)
+	$(ACTIVATE) bun install
 
 requirements/%.txt: requirements/%.in
-	docker compose run --build --rm base pip-compile --allow-unsafe --generate-hashes --output-file=$@ $(F) $<
+	$(RUN) pip-compile --allow-unsafe --generate-hashes --output-file=$@ $(F) $<
 
-reformat:
-	docker compose run --build --rm base black .
+##@ Formatting
+fmt: fmt-py fmt-templates fmt-frontend ## Format everything
 
-lint:
-	docker compose run --build --rm base bin/lint
+fmt-py: ## Format Python (black)
+	$(RUN) black .
 
-security-check:
-	docker compose run --build --rm base bandit -c pyproject.toml -r .
+fmt-templates: ## Format Jinja2/HTML templates (djlint, 2-space indent)
+	$(RUN) djlint cabotage/client/templates/ --reformat
 
-type-check:
-	docker compose run --build --rm base mypy --config-file pyproject.toml .
+fmt-frontend: ## Format JS/CSS (oxfmt, 2-space indent)
+	$(ACTIVATE) bun run fmt
+
+##@ Linting
+lint: ## Lint Python
+	$(RUN) bin/lint
+
+lint-templates: ## Lint Jinja2/HTML templates (djlint)
+	$(RUN) djlint cabotage/client/templates/ --lint
+
+lint-frontend: ## Lint JS/CSS (oxlint)
+	$(ACTIVATE) bun run lint
+
+##@ Quality
+type-check: ## Run mypy type checking
+	$(RUN) mypy --config-file pyproject.toml .
+
+security-check: ## Run bandit security scan
+	$(RUN) bandit -c pyproject.toml -r .
+
+##@ Build
+minify: ## Minify CSS/JS via bun (lightningcss + bun build)
+	$(ACTIVATE) bun run minify:css && bun run minify:js
+
+minify-py: ## Minify CSS/JS via Python (no bun required)
+	$(RUN) python3 -c "\
+	import rcssmin, rjsmin, pathlib; \
+	css = pathlib.Path('cabotage/client/static/main.css'); \
+	js = pathlib.Path('cabotage/client/static/main.js'); \
+	css.with_suffix('.min.css').write_text(rcssmin.cssmin(css.read_text())); \
+	js.with_suffix('.min.js').write_text(rjsmin.jsmin(js.read_text()))"
+
+##@ CI
+ci: lint fmt-py fmt-templates type-check security-check ## Run all checks: lint -> fmt -> type-check -> security
+
+# Aliases
+reformat: fmt
+
+.PHONY: help start stop destroy routes create-admin \
+	migrate migrations \
+	setup setup-frontend \
+	fmt fmt-py fmt-templates fmt-frontend \
+	lint lint-templates lint-frontend \
+	type-check security-check \
+	minify minify-py reformat ci
