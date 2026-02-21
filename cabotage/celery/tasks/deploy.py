@@ -1,3 +1,4 @@
+import logging
 import secrets
 import time
 
@@ -21,6 +22,8 @@ from cabotage.server import (
 from cabotage.server.models.projects import Deployment, DEFAULT_POD_CLASS, pod_classes
 
 from cabotage.utils.github import post_deployment_status_update
+
+logger = logging.getLogger(__name__)
 
 
 class DeployError(RuntimeError):
@@ -1234,7 +1237,8 @@ def deploy_release(deployment):
         return False
     except Exception as exc:
         deployment.error = True
-        deployment.error_detail = f"Unexpected Error: {str(exc)}"
+        logger.exception("Unexpected deployment error")
+        deployment.error_detail = "Deployment failed due to an unexpected error. Check server logs for details."
         if (
             deployment.deploy_metadata
             and "installation_id" in deployment.deploy_metadata

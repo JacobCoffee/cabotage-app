@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 import re
 import secrets
@@ -49,6 +50,8 @@ from cabotage.utils.github import post_deployment_status_update
 from cabotage.utils import procfile
 
 Activity = activity_plugin.activity_cls
+
+logger = logging.getLogger(__name__)
 
 
 class BuildError(RuntimeError):
@@ -348,16 +351,20 @@ def build_release_buildkit(release):
                         stderr=subprocess.STDOUT,
                         text=True,
                     )
-                except subprocess.CalledProcessError as exc:
-                    raise BuildError(f"Build subprocess failed: {exc}")
+                except subprocess.CalledProcessError:
+                    logger.exception("Build subprocess failed")
+                    raise BuildError("Build subprocess failed.")
             release.release_build_log = (
                 " ".join(buildctl_command + buildctl_args)
                 + "\n"
                 + completed_subprocess.stdout
             )
             db.session.commit()
-    except Exception as exc:
-        raise BuildError(f"Build failed: {exc}")
+    except Exception:
+        logger.exception("Build failed")
+        raise BuildError(
+            "Build failed due to an internal error. Check server logs for details."
+        )
 
     def auth(dxf, response):
         dxf.token = generate_docker_registry_jwt(
@@ -384,8 +391,11 @@ def build_release_buildkit(release):
             tlsverify=_tlsverify,
         )
         pushed_release = client.get_digest(f"release-{release.version}")
-    except Exception as exc:
-        raise BuildError(f"Release push failed: {exc}")
+    except Exception:
+        logger.exception("Release push failed")
+        raise BuildError(
+            "Release push failed due to an internal error. Check server logs for details."
+        )
 
     return {
         "release_id": pushed_release,
@@ -591,8 +601,9 @@ def build_image_buildkit(image=None):
     dockerfile_env_vars = list(dockerfile_object.envs.keys())
     try:
         processes = procfile.loads(procfile_body)
-    except ValueError as exc:
-        raise BuildError(f"error parsing Procfile: {exc}")
+    except ValueError:
+        logger.exception("Error parsing Procfile")
+        raise BuildError("Error parsing Procfile. Check that your Procfile is valid.")
 
     for process_name in processes.keys():
         if re.search("\s", process_name) is not None:
@@ -903,15 +914,19 @@ def build_image_buildkit(image=None):
                         " ".join(buildctl_command + buildctl_args) + "\n" + exc.output
                     )
                     db.session.commit()
-                    raise BuildError(f"Build subprocess failed: {exc}")
+                    logger.exception("Build subprocess failed")
+                    raise BuildError("Build subprocess failed.")
             image.image_build_log = (
                 " ".join(buildctl_command + buildctl_args)
                 + "\n"
                 + completed_subprocess.stdout
             )
             db.session.commit()
-    except Exception as exc:
-        raise BuildError(f"Build failed: {exc}")
+    except Exception:
+        logger.exception("Build failed")
+        raise BuildError(
+            "Build failed due to an internal error. Check server logs for details."
+        )
 
     def auth(dxf, response):
         dxf.token = generate_docker_registry_jwt(
@@ -938,8 +953,11 @@ def build_image_buildkit(image=None):
             tlsverify=_tlsverify,
         )
         pushed_image = client.get_digest(f"image-{image.version}")
-    except Exception as exc:
-        raise BuildError(f"Image push failed: {exc}")
+    except Exception:
+        logger.exception("Image push failed")
+        raise BuildError(
+            "Image push failed due to an internal error. Check server logs for details."
+        )
 
     return {
         "image_id": pushed_image,
