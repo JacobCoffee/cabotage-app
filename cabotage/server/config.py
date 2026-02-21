@@ -79,6 +79,7 @@ class Config(metaclass=MetaFlaskEnv):
     KUBERNETES_CONTEXT = "cabotage"
     GITHUB_APP_ID = None
     GITHUB_APP_PRIVATE_KEY = None
+    GITHUB_APP_KEY_FILE = None
     GITHUB_WEBHOOK_SECRET = None
     SHELLZ_ENABLED = False
     SIDECAR_IMAGE = "cabotage/sidecar:3"

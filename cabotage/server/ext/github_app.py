@@ -9,6 +9,62 @@ import jwt
 from flask import request
 
 
+def _load_private_key(pem_data):
+    """Load an RSA private key, working around cryptography library PEM parsing bugs.
+
+    Some versions of cryptography reject valid PEM keys with MalformedFraming.
+    This falls back to parsing the key with pyasn1 and reconstructing it.
+    """
+    from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
+    try:
+        return load_pem_private_key(pem_data, password=None)
+    except ValueError:
+        pass
+
+    # Fallback: parse with pyasn1 and reconstruct
+    from pyasn1.codec.der import decoder as der_decoder
+    from pyasn1_modules import rfc2437
+    from cryptography.hazmat.primitives.asymmetric.rsa import (
+        rsa_crt_dmp1,
+        rsa_crt_dmq1,
+        rsa_crt_iqmp,
+        RSAPrivateNumbers,
+        RSAPublicNumbers,
+    )
+
+    lines = pem_data.decode().strip().split("\n")
+    body = "".join(line for line in lines if not line.startswith("-----"))
+    der_data = base64.b64decode(body)
+
+    header = lines[0]
+    if "RSA PRIVATE KEY" in header:
+        rsa_der = der_data
+    else:
+        # PKCS8 wrapper - extract inner RSA key
+        seq, _ = der_decoder.decode(der_data)
+        rsa_der = bytes(seq[2])
+
+    privkey, _ = der_decoder.decode(rsa_der, asn1Spec=rfc2437.RSAPrivateKey())
+    p = int(privkey["prime1"])
+    q = int(privkey["prime2"])
+    d = int(privkey["privateExponent"])
+    e = int(privkey["publicExponent"])
+    n = int(privkey["modulus"])
+
+    pub = RSAPublicNumbers(e, n)
+    priv = RSAPrivateNumbers(
+        p=p,
+        q=q,
+        d=d,
+        dmp1=rsa_crt_dmp1(d, p),
+        dmq1=rsa_crt_dmq1(d, q),
+        iqmp=rsa_crt_iqmp(p, q),
+        public_numbers=pub,
+    )
+    return priv.private_key()
+
+
 class GitHubApp(object):
     def __init__(self, app=None):
         self.app = app
@@ -19,6 +75,7 @@ class GitHubApp(object):
         self.webhook_secret = None
         self.app_id = None
         self.app_private_key_pem = None
+        self._private_key_obj = None
         self._bearer_token = None
         self._bearer_token_exp = -1
 
@@ -27,11 +84,19 @@ class GitHubApp(object):
 
         if app.config["GITHUB_APP_ID"]:
             self.app_id = app.config["GITHUB_APP_ID"]
-        if app.config["GITHUB_APP_PRIVATE_KEY"]:
+
+        # Support loading key from file (GITHUB_APP_KEY_FILE) or base64 env var
+        key_file = app.config.get("GITHUB_APP_KEY_FILE")
+        if key_file:
+            with open(key_file, "rb") as f:
+                pem_data = f.read()
+            self.app_private_key_pem = pem_data.decode()
+            self._private_key_obj = _load_private_key(pem_data)
+        elif app.config["GITHUB_APP_PRIVATE_KEY"]:
             try:
-                self.app_private_key_pem = base64.b64decode(
-                    app.config["GITHUB_APP_PRIVATE_KEY"]
-                ).decode()
+                pem_data = base64.b64decode(app.config["GITHUB_APP_PRIVATE_KEY"])
+                self.app_private_key_pem = pem_data.decode()
+                self._private_key_obj = _load_private_key(pem_data)
             except Exception as exc:
                 raise ValueError(f"Unable to decode GITHUB_APP_PRIVATE_KEY: {exc}")
 
@@ -60,7 +125,7 @@ class GitHubApp(object):
                 "iss": self.app_id,
             }
             self._bearer_token = jwt.encode(
-                payload, self.app_private_key_pem, algorithm="RS256"
+                payload, self._private_key_obj, algorithm="RS256"
             )
             self._bearer_token_exp = issued + 599
         return self._bearer_token
