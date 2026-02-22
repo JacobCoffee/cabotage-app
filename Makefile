@@ -87,7 +87,9 @@ minify-py: ## Minify CSS/JS via Python (no bun required)
 	js.with_suffix('.min.js').write_text(rjsmin.jsmin(js.read_text()))"
 
 ##@ CI
-ci: lint fmt-py fmt-templates type-check security-check ## Run all checks: lint -> fmt -> type-check -> security
+ci: ## Run prek hooks with autofix, then verify clean
+	prek run --all-files || true
+	prek run --all-files
 
 # Aliases
 reformat: fmt

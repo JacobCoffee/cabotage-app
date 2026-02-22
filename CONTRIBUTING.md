@@ -114,7 +114,7 @@ Good pull requests - patches, improvements, new features - are a fantastic help.
 
 4. Check if the CI/CD pipelines have passed. Address the errors if they have not.
 
-> [!IMPORTANT]  
+> [!IMPORTANT]
 > By submitting a patch, you agree to license your work under the same license as that used by the project.
 
 
@@ -129,7 +129,7 @@ An Open Source project such as this one has a wide range of needs, and there are
 
 ### I have submitted my Pull Request, what are the next steps?
 
-First of all, :hugs:  thank you for your contribution! Sit back and relax :coffee: 
+First of all, :hugs:  thank you for your contribution! Sit back and relax :coffee:
 
 As soon as possible, usually within a few weeks, a team member will review your pull request and provide comments.
 
@@ -161,4 +161,3 @@ If you've identified a security issue, please do not report it publicly on GitHu
 ## Get in touch
 
 Please feel free to reach out to us on our [Github discussions](https://github.com/cabotage/cabotage-app/discussions)
-

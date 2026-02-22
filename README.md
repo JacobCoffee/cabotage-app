@@ -101,19 +101,18 @@ Displays all the application’s HTTP routes.
 
 ## Testing
 
-We currently have a shortage of test coverage. However, we are working on 
-addressing this. We welcome and appreciate any contributions you can make to 
+We currently have a shortage of test coverage. However, we are working on
+addressing this. We welcome and appreciate any contributions you can make to
 assist with this task.
 
 
 ## Contributing
 
-Thank you very much for your interest! We have a guide designed for you, 
+Thank you very much for your interest! We have a guide designed for you,
 please take a moment to read it at [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 
 ## Code of conduct
 
-All participants in the Cabotage project are expected to adhere to the 
+All participants in the Cabotage project are expected to adhere to the
 [PSF Code of Conduct](https://policies.python.org/python.org/code-of-conduct/).
-
