@@ -207,7 +207,9 @@
             <div class="card bg-base-200 border border-base-300">
               <div class="card-body !p-4">
                 <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Dockerfile</h2>
-                <div class="code-block dockerfile-highlight !text-xs !leading-relaxed">{{ image.dockerfile|highlight_code('dockerfile') }}</div>
+                <div class="code-block dockerfile-highlight !text-xs !leading-relaxed">
+                  {{ image.dockerfile|highlight_code("dockerfile") |safe }}
+                </div>
               </div>
             </div>
           {% endif %}
@@ -279,7 +281,8 @@
               </button>
             {% endif %}
           </div>
-          <div class="build-log-viewer build-log-viewer-primary flex-1" id="buildLog">{{ image.image_build_log }}</div>
+          <div class="build-log-viewer build-log-viewer-primary flex-1"
+               id="buildLog">{{ image.image_build_log }}</div>
         </div>
       </div>
     </div>
