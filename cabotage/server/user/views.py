@@ -437,6 +437,9 @@ def project_application(org_slug, project_slug, app_slug):
     )
     releases = application.releases.order_by(Release.version.desc()).limit(10).all()
     images = application.images.order_by(Image.version.desc()).limit(10).all()
+    deployments = (
+        application.deployments.order_by(Deployment.created.desc()).limit(10).all()
+    )
 
     return render_template(
         "user/project_application.html",
@@ -447,6 +450,7 @@ def project_application(org_slug, project_slug, app_slug):
         view_releases=view_releases,
         releases=releases,
         images=images,
+        deployments=deployments,
         DEFAULT_POD_CLASS=DEFAULT_POD_CLASS,
         pod_classes=pod_classes,
         pod_class_info=pod_class_info,

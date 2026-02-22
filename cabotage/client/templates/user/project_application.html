@@ -22,8 +22,9 @@
     {{ tab_nav([
         {'id': 'overview', 'label': 'Overview', 'icon': 'activity'},
         {'id': 'config', 'label': 'Config', 'icon': 'key', 'badge': application.configurations|rejectattr('name', 'equalto', 'CABOTAGE_SENTINEL') |list|length},
+    {'id': 'images', 'label': 'Images', 'icon': 'image'},
     {'id': 'releases', 'label': 'Packages', 'icon': 'layers'},
-    {'id': 'images', 'label': 'Images', 'icon': 'image'}
+    {'id': 'deployments', 'label': 'Deploys', 'icon': 'deploy'}
     ]) }}
   </div>
 {% endblock tab_bar %}
@@ -622,6 +623,11 @@
               <p class="text-xs text-base-content/30">Not deployed</p>
             </div>
           {% endif %}
+          <div class="pipeline-stage-action">
+            <a href="#deployments"
+               class="btn btn-ghost btn-xs w-full gap-1"
+               data-switch-tab="deployments">{{ icon('deploy', 'w-3 h-3') }} All</a>
+          </div>
         </div>
 
       </div>
@@ -886,78 +892,6 @@
   </div>
 
   {# ========================================================================== #}
-  {# ===== TAB: PACKAGES                                                 ===== #}
-  {# ========================================================================== #}
-  <div data-tab-panel="releases" class="tab-panel">
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-base font-medium text-base-content">Packages</h2>
-    </div>
-
-    {% if releases|default([])|length > 0 %}
-      <div class="card bg-base-200 border border-base-300">
-        <div class="card-body !p-0">
-          <div class="overflow-x-auto">
-            <table class="table table-sm">
-              <thead>
-                <tr class="text-base-content/50 text-xs uppercase tracking-wider">
-                  <th>Version</th>
-                  <th>Status</th>
-                  <th>Updated</th>
-                  <th class="w-1"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for release in releases %}
-                  <tr>
-                    <td>
-                      <div class="flex items-center gap-2">
-                        <code class="text-sm text-accent">v{{ release.version }}</code>
-                        {% if release.release_metadata and release.release_metadata.get('auto_deploy') %}
-                          {{ icon('zap', 'w-3 h-3 text-warning') }}
-                        {% endif %}
-                      </div>
-                    </td>
-                    <td>
-                      {% if release.built %}
-                        <span class="inline-flex items-center gap-1.5 text-sm"><span class="status-dot status-dot-success"></span> Built</span>
-                      {% elif release.error %}
-                        <span class="inline-flex items-center gap-1.5 text-sm"><span class="status-dot status-dot-error"></span> Error</span>
-                      {% else %}
-                        <span class="inline-flex items-center gap-1.5 text-sm"><span class="status-dot status-dot-info status-dot-pulse"></span> Building</span>
-                      {% endif %}
-                    </td>
-                    <td class="text-sm text-base-content/60">{{ release.updated|humanize }}</td>
-                    <td>
-                      <a href="{{ url_for('user.release_detail', release_id=release.id) }}"
-                         class="btn btn-ghost btn-xs gap-1">Details</a>
-                    </td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      <div class="mt-3 text-center">
-        <a href="{{ url_for('user.application_releases', application_id=application.id) }}"
-           class="text-xs text-base-content/40 hover:text-accent transition-colors">View All Packages</a>
-      </div>
-    {% else %}
-      <div class="card bg-base-200 border border-base-300">
-        <div class="card-body">
-          <div class="empty-state !py-12">
-            <div class="text-base-content/15 mb-4">{{ icon('layers', 'w-12 h-12') }}</div>
-            <h3 class="text-base font-medium text-base-content/60 mb-1">No packages yet</h3>
-            <p class="text-sm text-base-content/40 max-w-sm">
-              Packages bundle an image with configuration into a deployable snapshot.
-            </p>
-          </div>
-        </div>
-      </div>
-    {% endif %}
-  </div>
-
-  {# ========================================================================== #}
   {# ===== TAB: IMAGES                                                   ===== #}
   {# ========================================================================== #}
   <div data-tab-panel="images" class="tab-panel">
@@ -1033,6 +967,147 @@
                   class="inline mt-4">
               <button class="btn btn-primary btn-sm gap-2" type="submit">{{ icon('play', 'w-4 h-4') }} Build from Source</button>
             </form>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  {# ========================================================================== #}
+  {# ===== TAB: PACKAGES                                                 ===== #}
+  {# ========================================================================== #}
+  <div data-tab-panel="releases" class="tab-panel">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-medium text-base-content">Packages</h2>
+    </div>
+
+    {% if releases|default([])|length > 0 %}
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body !p-0">
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr class="text-base-content/50 text-xs uppercase tracking-wider">
+                  <th>Version</th>
+                  <th>Status</th>
+                  <th>Updated</th>
+                  <th class="w-1"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for release in releases %}
+                  <tr>
+                    <td>
+                      <div class="flex items-center gap-2">
+                        <code class="text-sm text-accent">v{{ release.version }}</code>
+                        {% if release.release_metadata and release.release_metadata.get('auto_deploy') %}
+                          {{ icon('zap', 'w-3 h-3 text-warning') }}
+                        {% endif %}
+                      </div>
+                    </td>
+                    <td>
+                      {% if release.built %}
+                        <span class="inline-flex items-center gap-1.5 text-sm"><span class="status-dot status-dot-success"></span> Built</span>
+                      {% elif release.error %}
+                        <span class="inline-flex items-center gap-1.5 text-sm"><span class="status-dot status-dot-error"></span> Error</span>
+                      {% else %}
+                        <span class="inline-flex items-center gap-1.5 text-sm"><span class="status-dot status-dot-info status-dot-pulse"></span> Building</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-sm text-base-content/60">{{ release.updated|humanize }}</td>
+                    <td>
+                      <a href="{{ url_for('user.release_detail', release_id=release.id) }}"
+                         class="btn btn-ghost btn-xs gap-1">Details</a>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="mt-3 text-center">
+        <a href="{{ url_for('user.application_releases', application_id=application.id) }}"
+           class="text-xs text-base-content/40 hover:text-accent transition-colors">View All Packages</a>
+      </div>
+    {% else %}
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body">
+          <div class="empty-state !py-12">
+            <div class="text-base-content/15 mb-4">{{ icon('layers', 'w-12 h-12') }}</div>
+            <h3 class="text-base font-medium text-base-content/60 mb-1">No packages yet</h3>
+            <p class="text-sm text-base-content/40 max-w-sm">
+              Packages bundle an image with configuration into a deployable snapshot.
+            </p>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  {# ========================================================================== #}
+  {# ===== TAB: DEPLOYS                                                  ===== #}
+  {# ========================================================================== #}
+  <div data-tab-panel="deployments" class="tab-panel">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-medium text-base-content">Deploys</h2>
+    </div>
+
+    {% if deployments|default([])|length > 0 %}
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body !p-0">
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr class="text-base-content/50 text-xs uppercase tracking-wider">
+                  <th>Package</th>
+                  <th>Status</th>
+                  <th>Updated</th>
+                  <th class="w-1"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for deployment in deployments %}
+                  <tr>
+                    <td>
+                      {% if deployment.release_object %}
+                        <code class="text-sm text-accent">v{{ deployment.release_object.version }}</code>
+                      {% else %}
+                        <span class="text-sm text-base-content/40">—</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if deployment.complete %}
+                        <span class="inline-flex items-center gap-1.5 text-sm"><span class="status-dot status-dot-success"></span> Complete</span>
+                      {% elif deployment.error %}
+                        <span class="inline-flex items-center gap-1.5 text-sm"><span class="status-dot status-dot-error"></span> Failed</span>
+                      {% else %}
+                        <span class="inline-flex items-center gap-1.5 text-sm"><span class="status-dot status-dot-info status-dot-pulse"></span> Deploying</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-sm text-base-content/60">{{ deployment.updated|humanize }}</td>
+                    <td>
+                      <a href="{{ url_for('user.deployment_detail', deployment_id=deployment.id) }}"
+                         class="btn btn-ghost btn-xs gap-1">Details</a>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="mt-3 text-center">
+        <a href="{{ url_for('user.application_deployments', application_id=application.id) }}"
+           class="text-xs text-base-content/40 hover:text-accent transition-colors">View All Deploys</a>
+      </div>
+    {% else %}
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body">
+          <div class="empty-state !py-12">
+            <div class="text-base-content/15 mb-4">{{ icon('deploy', 'w-12 h-12') }}</div>
+            <h3 class="text-base font-medium text-base-content/60 mb-1">No deploys yet</h3>
+            <p class="text-sm text-base-content/40 max-w-sm">Deploy a package to push it live.</p>
           </div>
         </div>
       </div>
