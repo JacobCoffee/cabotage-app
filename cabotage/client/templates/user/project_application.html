@@ -327,10 +327,10 @@
 
     {# ── SECTION 2: PROCESSES + ACTIVITY (side by side) ── #}
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+    <div class="flex flex-col lg:flex-row gap-4 mb-4">
 
       {# Left: Processes #}
-      <div class="lg:col-span-2">
+      <div class="lg:w-auto lg:flex-shrink-0">
         {% if application.releases.count() > 0 and application.latest_release.built %}
           <div>
             <div class="flex items-center gap-1.5 mb-3">
@@ -440,7 +440,7 @@
       </div>
 
       {# Right: Recent Activity #}
-      <div class="lg:col-span-1">
+      <div class="flex-1 min-w-0">
         <div class="card bg-base-200 border border-base-300">
           <div class="card-body !p-4">
             <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-2">Recent Activity</h2>
