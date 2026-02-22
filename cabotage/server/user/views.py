@@ -1589,7 +1589,11 @@ def guide():
 @user_blueprint.route("/docker/auth")
 def docker_auth():
     secret = current_app.config["REGISTRY_AUTH_SECRET"]
-    password = request.authorization.password
+    authorization = request.authorization
+    if authorization is None or not authorization.password:
+        return jsonify({"error": "unauthorized"}), 401
+
+    password = authorization.password
     scope = request.args.get("scope", "registry:catalog:*")
     requested_access = parse_docker_scope(scope)
     max_age = None
