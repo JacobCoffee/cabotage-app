@@ -1,4 +1,5 @@
 import os
+import logging
 
 from base64 import (
     b64decode,
@@ -10,6 +11,8 @@ import hvac
 from flask import g
 
 from cabotage.utils.cert_hacks import construct_cert_from_public_key
+
+logger = logging.getLogger(__name__)
 
 
 class Vault(object):
@@ -60,10 +63,39 @@ class Vault(object):
             g.vault_client = self.connect_vault()
         return g.vault_client
 
+    def _ensure_transit_mount(self):
+        mounts = self.vault_connection.sys.list_mounted_secrets_engines()
+        mount_key = f"{self.vault_signing_mount}/"
+        if mount_key not in mounts:
+            self.vault_connection.sys.enable_secrets_engine(
+                backend_type="transit",
+                path=self.vault_signing_mount,
+            )
+
+    def _ensure_signing_key(self):
+        self._ensure_transit_mount()
+        key_path = f"{self.vault_signing_mount}/keys/{self.vault_signing_key}"
+        key_data = self.vault_connection.read(key_path)
+        if key_data is None:
+            logger.warning(
+                "Vault transit key '%s' missing, creating it.", self.vault_signing_key
+            )
+            self.vault_connection.write(
+                key_path,
+                type="ecdsa-p256",
+                exportable=True,
+                allow_plaintext_backup=True,
+            )
+            key_data = self.vault_connection.read(key_path)
+        if key_data is None or "data" not in key_data:
+            raise RuntimeError(
+                f"Vault transit key '{self.vault_signing_key}' is unavailable."
+            )
+        return key_data
+
     @property
     def signing_public_key(self):
-        VAULT_TRANSIT_KEY = f"{self.vault_signing_mount}/keys/{self.vault_signing_key}"
-        key_data = self.vault_connection.read(VAULT_TRANSIT_KEY)
+        key_data = self._ensure_signing_key()
         keys = key_data["data"]["keys"]
         latest = str(key_data["data"]["latest_version"])
         return keys[latest]["public_key"].encode()
@@ -79,6 +111,7 @@ class Vault(object):
     def sign_payload(self, payload, algorithm="sha2-256", marshaling_algorithm="asn1"):
         if algorithm not in ("sha2-224", "sha2-256", "sha2-384", "sha2-512"):
             raise KeyError(f"Specified algorithm ({algorithm}) not supported!")
+        self._ensure_signing_key()
         VAULT_TRANSIT_SIGNING = (
             f"{self.vault_signing_mount}/sign/{self.vault_signing_key}/{algorithm}"
         )
