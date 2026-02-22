@@ -42,6 +42,10 @@
   {% set has_config_changes = config_diff.has_changes() %}
   {% set has_pending = has_image_changes or has_config_changes %}
   {% set has_deployable = application.latest_release and application.latest_release.built %}
+  {% set latest_release_id = (application.latest_release.id|string) if application.latest_release else none %}
+  {% set latest_deployed_release_id = (application.latest_deployment.release.get('id')|string) if application.latest_deployment and application.latest_deployment.release and application.latest_deployment.release.get('id') else none %}
+  {% set latest_release_live = application.latest_deployment and application.latest_deployment.complete and latest_release_id and latest_deployed_release_id == latest_release_id %}
+  {% set show_ready_to_deploy = has_deployable and not latest_release_live %}
 
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
     <div class="flex items-center gap-3">
@@ -272,7 +276,7 @@
         {% endif %}
 
         {# Ready to deploy #}
-        {% if has_deployable %}
+        {% if show_ready_to_deploy %}
           <div class="action-banner action-banner-deploy">
             <div class="flex-1">
               <div class="flex items-center gap-3">
@@ -312,7 +316,7 @@
         {% endif %}
 
         {# All caught up — no pending changes, latest is deployed #}
-        {% if not has_pending and not has_deployable and not is_building_image and not has_build_error and not is_building_release %}
+        {% if not has_pending and not show_ready_to_deploy and not is_building_image and not has_build_error and not is_building_release %}
           <div class="text-xs text-base-content/30 flex items-center gap-2 py-2">
             {{ icon('check', 'w-3.5 h-3.5 text-success/50') }}
             <span>Up to date — no pending changes</span>
@@ -428,57 +432,7 @@
       </div>
     {% endif %}
 
-    {# ── SECTION 3: RECENT ACTIVITY (deployments timeline) ── #}
-
-    {% if application.deployments.count() > 0 %}
-      <div class="mb-4">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Recent Deployments</h2>
-          <a href="{{ url_for('user.application_deployments', application_id=application.id) }}"
-             class="text-xs text-base-content/40 hover:text-accent transition-colors">View All</a>
-        </div>
-        <div class="timeline">
-          {% for deployment in application.recent_deployments %}
-            <div class="timeline-item">
-              {% if deployment.complete %}
-                <div class="timeline-dot timeline-dot-success"></div>
-              {% elif deployment.error %}
-                <div class="timeline-dot timeline-dot-error"></div>
-              {% else %}
-                <div class="timeline-dot timeline-dot-info"></div>
-              {% endif %}
-              <div class="flex items-center justify-between">
-                <div>
-                  <span class="text-sm text-base-content">
-                    {% if deployment.complete %}
-                      Deployed
-                    {% elif deployment.error %}
-                      Failed
-                    {% else %}
-                      Deploying
-                    {% endif %}
-                  </span>
-                  <span class="text-xs text-base-content/40 ml-2">{{ deployment.created|humanize }}</span>
-                </div>
-                <a href="{{ url_for('user.deployment_detail', deployment_id=deployment.id) }}"
-                   class="btn btn-ghost btn-xs gap-1 text-base-content/40">
-                  Details
-                  <svg class="w-3 h-3"
-                       viewBox="0 0 24 24"
-                       fill="none"
-                       stroke="currentColor"
-                       stroke-width="2">
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </a>
-              </div>
-            </div>
-          {% endfor %}
-        </div>
-      </div>
-    {% endif %}
-
-    {# ── SECTION 4: PIPELINE STATUS (image → package → deploy) ── #}
+    {# ── SECTION 3: PIPELINE STATUS (image → package → deploy) ── #}
 
     <div class="mb-4">
       <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Pipeline</h2>

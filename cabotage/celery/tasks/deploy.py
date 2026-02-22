@@ -1,4 +1,5 @@
 import logging
+import os
 import secrets
 import time
 
@@ -66,8 +67,21 @@ def fetch_namespace(core_api_instance, release):
 
 
 def render_cabotage_ca_configmap(release):
-    with open("/var/run/secrets/cabotage.io/ca.crt", "r") as f:
-        ca_crt = f.read()
+    ca_cert_paths = [
+        "/var/run/secrets/cabotage.io/ca.crt",
+        "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
+    ]
+    ca_crt = None
+    for ca_cert_path in ca_cert_paths:
+        if os.path.exists(ca_cert_path):
+            with open(ca_cert_path, "r") as f:
+                ca_crt = f.read()
+            break
+    if not ca_crt:
+        raise DeployError(
+            "Unable to load cluster CA certificate from known paths: "
+            + ", ".join(ca_cert_paths)
+        )
     configmap_object = kubernetes.client.V1ConfigMap(
         metadata=kubernetes.client.V1ObjectMeta(
             name="cabotage-ca",
@@ -184,7 +198,7 @@ def create_cabotage_enrollment(custom_objects_api_instance, release):
     except Exception as exc:
         raise DeployError(
             "Unexpected exception creating CabotageEnrollment/"
-            f"{cabotage_enrollment_object.name} in {namespace}: {exc}"
+            f"{cabotage_enrollment_object['metadata']['name']} in {namespace}: {exc}"
         )
 
 
@@ -1082,15 +1096,31 @@ def deploy_release(deployment):
         deploy_log.append("Fetching Namespace")
         namespace = fetch_namespace(core_api_instance, deployment.release_object)
         deploy_log.append("Fetching Cabotage CA Cert ConfigMap")
-        fetch_cabotage_ca_configmap(core_api_instance, deployment.release_object)
+        try:
+            fetch_cabotage_ca_configmap(core_api_instance, deployment.release_object)
+        except DeployError as exc:
+            deploy_log.append(
+                "Warning: unable to ensure ConfigMap/cabotage-ca; continuing deploy "
+                f"({exc})"
+            )
+            logger.exception(
+                "Unable to ensure ConfigMap/cabotage-ca; continuing deploy"
+            )
         deploy_log.append("Fetching ServiceAccount")
         service_account = fetch_service_account(
             core_api_instance, deployment.release_object
         )
         deploy_log.append("Fetching CabotageEnrollment")
-        fetch_cabotage_enrollment(
-            custom_objects_api_instance, deployment.release_object
-        )
+        try:
+            fetch_cabotage_enrollment(
+                custom_objects_api_instance, deployment.release_object
+            )
+        except DeployError as exc:
+            deploy_log.append(
+                "Warning: unable to ensure CabotageEnrollment; continuing deploy "
+                f"({exc})"
+            )
+            logger.exception("Unable to ensure CabotageEnrollment; continuing deploy")
         if any(
             [
                 process_name.startswith("web")
@@ -1153,12 +1183,18 @@ def deploy_release(deployment):
                 raise DeployError(f"Release command {release_command} failed!")
             else:
                 deploy_log.append(f"Release command {release_command} complete!")
+        desired_replicas = {}
         for process_name in deployment.release_object.processes:
+            desired = deployment.application.process_counts.get(process_name, 0)
+            desired_replicas[process_name] = desired
             deploy_log.append(
-                f"Creating deployment for {process_name} "
-                f"with {deployment.application.process_counts.get(process_name, 0)} "
-                "replicas"
+                f"Creating deployment for {process_name} " f"with {desired} " "replicas"
             )
+            if desired == 0:
+                deploy_log.append(
+                    f"Skipping deployment create/patch for {process_name}: desired replicas is 0"
+                )
+                continue
             create_deployment(
                 apps_api_instance,
                 namespace.metadata.name,
@@ -1171,27 +1207,36 @@ def deploy_release(deployment):
         start = time.time()
         timeout = deployment.release_object.application.deployment_timeout
         _go = {
-            process_name: False for process_name in deployment.release_object.processes
+            process_name: desired_replicas.get(process_name, 0) == 0
+            for process_name in deployment.release_object.processes
         }
-        while time.time() - start < timeout:
-            time.sleep(2)
-            for process_name in deployment.release_object.processes:
-                if deployment_is_complete(
-                    apps_api_instance,
-                    namespace.metadata.name,
-                    deployment.release_object,
-                    service_account.metadata.name,
-                    process_name,
-                ):
-                    _go[process_name] = True
-                else:
-                    continue
-            if all(_go.values()):
-                break
-        else:
-            deploy_log.append("Unable to launch replicas in time")
-            deploy_log.append(str(_go))
-            raise DeployError("Unable to launch replicas in time")
+        for process_name, complete in _go.items():
+            if complete:
+                deploy_log.append(
+                    f"Skipping rollout wait for {process_name}: desired replicas is 0"
+                )
+        if not all(_go.values()):
+            while time.time() - start < timeout:
+                time.sleep(2)
+                for process_name in deployment.release_object.processes:
+                    if _go[process_name]:
+                        continue
+                    if deployment_is_complete(
+                        apps_api_instance,
+                        namespace.metadata.name,
+                        deployment.release_object,
+                        service_account.metadata.name,
+                        process_name,
+                    ):
+                        _go[process_name] = True
+                    else:
+                        continue
+                if all(_go.values()):
+                    break
+            else:
+                deploy_log.append("Unable to launch replicas in time")
+                deploy_log.append(str(_go))
+                raise DeployError("Unable to launch replicas in time")
 
         for postdeploy_command in deployment.release_object.postdeploy_commands:
             deploy_log.append(f"Running postdeploy command {postdeploy_command}")
