@@ -164,7 +164,7 @@ def create_app():
             return f"<pre>{escape(text)}</pre>"
 
         lexer = DockerLexer() if language == "dockerfile" else TextLexer()
-        formatter = HtmlFormatter(nowrap=False, noclasses=True)
+        formatter = HtmlFormatter(nowrap=False, noclasses=False)
         try:
             return highlight(text, lexer, formatter)
         except Exception:
