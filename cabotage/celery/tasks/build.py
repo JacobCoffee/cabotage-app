@@ -58,6 +58,19 @@ class BuildError(RuntimeError):
     pass
 
 
+def _extract_manifest_digest(build_log, tag):
+    if not build_log:
+        return None
+    pattern = re.compile(
+        rf"pushing manifest for [^\s]+:{re.escape(tag)}@" r"(sha256:[0-9a-f]{64})",
+        re.IGNORECASE,
+    )
+    match = pattern.search(build_log)
+    if match:
+        return match.group(1)
+    return None
+
+
 def build_release_buildkit(release):
     secret = current_app.config["REGISTRY_AUTH_SECRET"]
     registry = current_app.config["REGISTRY_BUILD"]
@@ -377,6 +390,9 @@ def build_release_buildkit(release):
             ]
         )
 
+    pushed_release = _extract_manifest_digest(
+        release.release_build_log, f"release-{release.version}"
+    )
     try:
         _tlsverify = False
         if registry_secure:
@@ -392,10 +408,15 @@ def build_release_buildkit(release):
         )
         pushed_release = client.get_digest(f"release-{release.version}")
     except Exception:
-        logger.exception("Release push failed")
-        raise BuildError(
-            "Release push failed due to an internal error. Check server logs for details."
-        )
+        if pushed_release:
+            logger.exception(
+                "Release digest verification via registry API failed; using build output digest"
+            )
+        else:
+            logger.exception("Release push failed")
+            raise BuildError(
+                "Release push failed due to an internal error. Check server logs for details."
+            )
 
     return {
         "release_id": pushed_release,
@@ -939,6 +960,9 @@ def build_image_buildkit(image=None):
             ]
         )
 
+    pushed_image = _extract_manifest_digest(
+        image.image_build_log, f"image-{image.version}"
+    )
     try:
         _tlsverify = False
         if registry_secure:
@@ -954,10 +978,15 @@ def build_image_buildkit(image=None):
         )
         pushed_image = client.get_digest(f"image-{image.version}")
     except Exception:
-        logger.exception("Image push failed")
-        raise BuildError(
-            "Image push failed due to an internal error. Check server logs for details."
-        )
+        if pushed_image:
+            logger.exception(
+                "Image digest verification via registry API failed; using build output digest"
+            )
+        else:
+            logger.exception("Image push failed")
+            raise BuildError(
+                "Image push failed due to an internal error. Check server logs for details."
+            )
 
     return {
         "image_id": pushed_image,
