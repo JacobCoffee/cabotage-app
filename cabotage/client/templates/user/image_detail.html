@@ -104,7 +104,7 @@
   {% endif %}
 
   {# ===== BUILD DETAILS GRID ===== #}
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+  <div class="grid grid-cols-1 lg:grid-cols-3 {{ '' if image.procfile else 'lg:items-start' }} gap-4 mb-6">
 
     {# Left column: metadata #}
     <div id="build-left-column" class="lg:col-span-1 flex flex-col gap-4">
@@ -241,7 +241,7 @@
     </div>
 
     {# Right column: processes + log #}
-    <div class="lg:col-span-2 flex flex-col gap-4 lg:min-h-full">
+    <div class="lg:col-span-2 flex flex-col gap-4 {{ 'lg:min-h-full' if image.procfile else '' }}">
       {# Processes (shown prominently when built) #}
       {% if image.processes %}
         <div class="card bg-base-200 border border-base-300">
@@ -317,9 +317,14 @@
 {% block js %}
   <script>
   function syncBuildLogHeight() {
-    var anchorEl = document.getElementById('procfile-card') || document.getElementById('build-left-column');
+    var anchorEl = document.getElementById('procfile-card');
     var logEl = document.getElementById('buildLog');
-    if (!anchorEl || !logEl) return;
+    if (!logEl) return;
+    if (!anchorEl) {
+      logEl.style.height = '';
+      logEl.style.maxHeight = '';
+      return;
+    }
 
     if (window.innerWidth < 1024) {
       logEl.style.height = '';

@@ -247,11 +247,10 @@ class Application(db.Model, Timestamp):
 
     @property
     def latest_release_building(self):
-        return (
-            self.releases.filter_by(built=False, error=False)
-            .order_by(Release.version.desc())
-            .first()
-        )
+        latest_release = self.latest_release
+        if latest_release and not latest_release.built and not latest_release.error:
+            return latest_release
+        return None
 
     @property
     def current_release(self):
@@ -350,11 +349,10 @@ class Application(db.Model, Timestamp):
 
     @property
     def latest_image_building(self):
-        return (
-            self.images.filter_by(built=False, error=False)
-            .order_by(Image.version.desc())
-            .first()
-        )
+        latest_image = self.latest_image
+        if latest_image and not latest_image.built and not latest_image.error:
+            return latest_image
+        return None
 
     UniqueConstraint(project_id, slug)
 
