@@ -66,7 +66,8 @@
         {% if image.error %}
           <form action="{{ url_for('user.application_images_build_fromsource', application_id=app.id) }}"
                 method="post">
-            <button type="submit" class="btn btn-error btn-sm gap-1.5">
+            <button type="submit"
+                    class="btn btn-ghost btn-sm gap-1.5 text-error hover:bg-error/10">
               {{ icon('refresh-cw', 'w-3.5 h-3.5') }}
               Try Again
             </button>

@@ -67,7 +67,8 @@
         {% if deployment.error and deployment.release_object %}
           <form action="{{ url_for('user.release_deploy', release_id=deployment.release_object.id) }}"
                 method="post">
-            <button type="submit" class="btn btn-error btn-sm gap-1.5">
+            <button type="submit"
+                    class="btn btn-ghost btn-sm gap-1.5 text-error hover:bg-error/10">
               {{ icon('refresh-cw', 'w-3.5 h-3.5') }}
               Try Again
             </button>
