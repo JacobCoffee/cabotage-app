@@ -727,6 +727,9 @@ a.pipeline-stage-body:hover {
   justify-content: center;
   padding: 1rem;
 }
+.raw-editor-modal.hidden {
+  display: none;
+}
 .raw-editor-backdrop {
   position: absolute;
   inset: 0;
@@ -961,16 +964,9 @@ a.pipeline-stage-body:hover {
 .build-log-viewer::-webkit-scrollbar-thumb,
 .deploy-log-viewer::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
 
-/* Prefer readable vertical space for primary live logs on build detail pages */
+/* On image detail, let the primary log pane fill the card height. */
 .build-log-viewer-primary {
-  min-height: 28rem;
   max-height: none;
-}
-@media (min-width: 1024px) {
-  .build-log-viewer-primary {
-    min-height: 40rem;
-    max-height: none;
-  }
 }
 
 .dockerfile-highlight pre {

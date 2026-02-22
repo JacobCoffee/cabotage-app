@@ -208,7 +208,7 @@
               <div class="card-body !p-4">
                 <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Dockerfile</h2>
                 <div class="code-block dockerfile-highlight !text-xs !leading-relaxed">
-                  {{ image.dockerfile|highlight_code("dockerfile") |safe }}
+                  {{ image.dockerfile|trim|highlight_code("dockerfile") |safe }}
                 </div>
               </div>
             </div>

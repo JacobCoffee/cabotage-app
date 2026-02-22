@@ -40,6 +40,7 @@ class Config(metaclass=MetaFlaskEnv):
     ]
     SECURITY_USERNAME_ENABLE = True
     SECURITY_USERNAME_MIN_LENGTH = 2
+    SECURITY_POST_LOGIN_VIEW = "main.home"
     SECURITY_POST_REGISTER_VIEW = "security.login"
     MAIL_SERVER = "app.debugmail.io"
     MAIL_PORT = 25
