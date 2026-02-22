@@ -198,7 +198,9 @@
 
 {% macro create_modal(modal_id, title, form, action_url, submit_text, name_field, slug_field, extra_fields=[], subtitle='') %}
   <div id="{{ modal_id }}" class="raw-editor-modal hidden">
-    <div class="raw-editor-backdrop" data-modal-close="{{ modal_id }}"></div>
+    <div class="raw-editor-backdrop"
+         data-modal-close="{{ modal_id }}"
+         onclick="document.getElementById('{{ modal_id }}').classList.add('hidden')"></div>
     <div class="raw-editor-dialog max-w-md">
       <div class="flex items-center justify-between mb-5">
         <div>
@@ -207,6 +209,7 @@
         </div>
         <button type="button"
                 data-modal-close="{{ modal_id }}"
+                onclick="document.getElementById('{{ modal_id }}').classList.add('hidden')"
                 class="btn btn-ghost btn-sm btn-circle">{{ icon('x', 'w-4 h-4') }}</button>
       </div>
       <form action="{{ action_url }}" method="post" class="flex flex-col gap-4">
