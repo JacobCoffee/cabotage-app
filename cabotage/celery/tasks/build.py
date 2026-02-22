@@ -656,7 +656,7 @@ def build_image_buildkit(image=None):
         "--import-cache",
         (
             f"type=registry,ref={registry}/{image.repository_name}"
-            f":image-buildcache{insecure_reg}"
+            f":image-buildcache{insecure_reg},ignore-error=true"
         ),
         "--export-cache",
         (
