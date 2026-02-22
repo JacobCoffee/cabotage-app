@@ -441,60 +441,54 @@
 
       {# Right: Recent Activity #}
       <div class="lg:col-span-1">
-        <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Recent Activity</h2>
-        <div class="flex flex-col gap-1.5">
-          {% set activity_items = [] %}
-          {% for img in images[:5] %}
-            {% set _ = activity_items.append({'type': 'build', 'time': img.updated, 'version': img.version, 'url': url_for('user.image_detail', image_id=img.id), 'status': 'success' if img.built else ('error' if img.error else 'building')}) %}
-          {% endfor %}
-          {% for rel in releases[:5] %}
-            {% set _ = activity_items.append({'type': 'package', 'time': rel.updated, 'version': rel.version, 'url': url_for('user.release_detail', release_id=rel.id), 'status': 'success' if rel.built else ('error' if rel.error else 'building')}) %}
-          {% endfor %}
-          {% for dep in deployments[:5] %}
-            {% set _ = activity_items.append({'type': 'deploy', 'time': dep.updated, 'version': dep.release.get('version', '?') if dep.release else '?', 'url': url_for('user.deployment_detail', deployment_id=dep.id), 'status': 'success' if dep.complete else ('error' if dep.error else 'deploying')}) %}
-          {% endfor %}
-          {% for item in activity_items|sort(attribute='time', reverse=true) %}
-            {% if loop.index <= 8 %}
-              <a href="{{ item.url }}"
-                 class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-base-content/5 transition-colors group">
-                {% if item.status == 'success' %}
-                  <span class="status-dot status-dot-success" style="width:6px;height:6px"></span>
-                {% elif item.status == 'error' %}
-                  <span class="status-dot status-dot-error" style="width:6px;height:6px"></span>
-                {% else %}
-                  <span class="status-dot status-dot-info status-dot-pulse"
-                        style="width:6px;
-                               height:6px"></span>
-                {% endif %}
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-1.5">
-                    {% if item.type == 'build' %}
-                      {{ icon('image', 'w-3 h-3 text-base-content/30') }}
-                      <span class="text-xs text-base-content/60">Build</span>
-                      <code class="text-xs text-accent/70">#{{ item.version }}</code>
-                    {% elif item.type == 'package' %}
-                      {{ icon('layers', 'w-3 h-3 text-base-content/30') }}
-                      <span class="text-xs text-base-content/60">Package</span>
-                      <code class="text-xs text-accent/70">v{{ item.version }}</code>
-                    {% elif item.type == 'deploy' %}
-                      {{ icon('deploy', 'w-3 h-3 text-base-content/30') }}
-                      <span class="text-xs text-base-content/60">Deploy</span>
-                      <code class="text-xs text-accent/70">v{{ item.version }}</code>
+        <div class="card bg-base-200 border border-base-300">
+          <div class="card-body !p-4">
+            <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-2">Recent Activity</h2>
+            {% set activity_items = [] %}
+            {% for img in images[:3] %}
+              {% set _ = activity_items.append({'type': 'build', 'time': img.updated, 'version': '#' ~ img.version, 'url': url_for('user.image_detail', image_id=img.id), 'status': 'success' if img.built else ('error' if img.error else 'building')}) %}
+            {% endfor %}
+            {% for rel in releases[:3] %}
+              {% set _ = activity_items.append({'type': 'package', 'time': rel.updated, 'version': 'v' ~ rel.version, 'url': url_for('user.release_detail', release_id=rel.id), 'status': 'success' if rel.built else ('error' if rel.error else 'building')}) %}
+            {% endfor %}
+            {% for dep in deployments[:3] %}
+              {% set dep_version = dep.release_object.version if dep.release_object else '?' %}
+              {% set _ = activity_items.append({'type': 'deploy', 'time': dep.updated, 'version': 'v' ~ dep_version, 'url': url_for('user.deployment_detail', deployment_id=dep.id), 'status': 'success' if dep.complete else ('error' if dep.error else 'deploying')}) %}
+            {% endfor %}
+            <div class="flex flex-col">
+              {% for item in activity_items|sort(attribute='time', reverse=true) %}
+                {% if loop.index <= 6 %}
+                  <a href="{{ item.url }}"
+                     class="flex items-center gap-2 py-1.5 hover:bg-base-content/5 rounded px-1.5 -mx-1.5 transition-colors {{ 'border-t border-base-content/5' if not loop.first }}">
+                    {% if item.status == 'success' %}
+                      <span class="status-dot status-dot-success flex-shrink-0"
+                            style="width:5px;
+                                   height:5px"></span>
+                    {% elif item.status == 'error' %}
+                      <span class="status-dot status-dot-error flex-shrink-0"
+                            style="width:5px;
+                                   height:5px"></span>
+                    {% else %}
+                      <span class="status-dot status-dot-info status-dot-pulse flex-shrink-0"
+                            style="width:5px;
+                                   height:5px"></span>
                     {% endif %}
-                  </div>
-                  <span class="text-[0.625rem] text-base-content/30">{{ item.time|humanize }}</span>
-                </div>
-                <svg class="w-3 h-3 text-base-content/15 group-hover:text-base-content/30 transition-colors"
-                     viewBox="0 0 24 24"
-                     fill="none"
-                     stroke="currentColor"
-                     stroke-width="2">
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </a>
-            {% endif %}
-          {% endfor %}
-          {% if not activity_items %}<p class="text-xs text-base-content/30 py-4">No activity yet</p>{% endif %}
+                    {% if item.type == 'build' %}
+                      {{ icon('image', 'w-3 h-3 text-base-content/25 flex-shrink-0') }}
+                    {% elif item.type == 'package' %}
+                      {{ icon('layers', 'w-3 h-3 text-base-content/25 flex-shrink-0') }}
+                    {% else %}
+                      {{ icon('deploy', 'w-3 h-3 text-base-content/25 flex-shrink-0') }}
+                    {% endif %}
+                    <span class="text-xs text-base-content/50 capitalize">{{ item.type }}</span>
+                    <code class="text-xs text-accent/70">{{ item.version }}</code>
+                    <span class="text-[0.625rem] text-base-content/25 ml-auto flex-shrink-0">{{ item.time|humanize }}</span>
+                  </a>
+                {% endif %}
+              {% endfor %}
+            </div>
+            {% if not activity_items %}<p class="text-xs text-base-content/30 py-2">No activity yet</p>{% endif %}
+          </div>
         </div>
       </div>
 
