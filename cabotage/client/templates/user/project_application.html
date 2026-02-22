@@ -325,112 +325,181 @@
       </div>
     {% endif %}
 
-    {# ── SECTION 2: PROCESSES (the most operationally important thing) ── #}
+    {# ── SECTION 2: PROCESSES + ACTIVITY (side by side) ── #}
 
-    {% if application.releases.count() > 0 and application.latest_release.built %}
-      <div class="mb-4">
-        <div class="flex items-center gap-1.5 mb-3">
-          <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Processes</h2>
-          <div class="tooltip tooltip-right"
-               data-tip="Defined in your Procfile. 'web' receives HTTP traffic. 'worker' runs background jobs. 'release' runs once per package build. 'postdeploy' runs once after each deploy.">
-            {{ icon('info', 'w-3 h-3 text-base-content/25 cursor-help') }}
-          </div>
-        </div>
-        <form action="{{ url_for('user.application_scale', application_id=application.id) }}"
-              method="post"
-              name="process_count_form">
-          {{ scale_form.hidden_tag() }}
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {% for process_name in application.latest_release.processes %}
-              <div class="process-card-v2">
-                <div class="flex items-center justify-between mb-3">
-                  <code class="text-sm text-accent font-medium">{{ process_name }}</code>
-                  {% set count = application.process_counts.get(process_name, 0) %}
-                  {% if count > 0 %}
-                    <span class="inline-flex items-center gap-1.5 text-xs text-success/80">
-                      <span class="status-dot status-dot-success" style="width:6px;height:6px"></span>
-                      {{ count }} running
-                    </span>
-                  {% else %}
-                    <span class="text-xs text-base-content/30">stopped</span>
-                  {% endif %}
-                </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
 
-                {# Pod dots visualization #}
-                {% if count > 0 %}
-                  <div class="flex gap-1 mb-3">
-                    {% for i in range(count) %}<div class="pod-dot"></div>{% endfor %}
-                  </div>
-                {% endif %}
+      {# Left: Processes #}
+      <div class="lg:col-span-2">
+        {% if application.releases.count() > 0 and application.latest_release.built %}
+          <div>
+            <div class="flex items-center gap-1.5 mb-3">
+              <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Processes</h2>
+              <div class="tooltip tooltip-right"
+                   data-tip="Defined in your Procfile. 'web' receives HTTP traffic. 'worker' runs background jobs. 'release' runs once per package build. 'postdeploy' runs once after each deploy.">
+                {{ icon('info', 'w-3 h-3 text-base-content/25 cursor-help') }}
+              </div>
+            </div>
+            <form action="{{ url_for('user.application_scale', application_id=application.id) }}"
+                  method="post"
+                  name="process_count_form">
+              {{ scale_form.hidden_tag() }}
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {% for process_name in application.latest_release.processes %}
+                  <div class="process-card-v2">
+                    <div class="flex items-center justify-between mb-3">
+                      <code class="text-sm text-accent font-medium">{{ process_name }}</code>
+                      {% set count = application.process_counts.get(process_name, 0) %}
+                      {% if count > 0 %}
+                        <span class="inline-flex items-center gap-1.5 text-xs text-success/80">
+                          <span class="status-dot status-dot-success" style="width:6px;height:6px"></span>
+                          {{ count }} running
+                        </span>
+                      {% else %}
+                        <span class="text-xs text-base-content/30">stopped</span>
+                      {% endif %}
+                    </div>
 
-                {# Scale controls #}
-                <div class="flex items-center gap-2">
-                  <div class="count-input flex-1">
-                    <a class="incr-btn" data-action="decrease" href="#">-</a>
-                    <input class="quantity"
-                           type="text"
-                           name="process-count-{{ process_name }}"
-                           value="{{ count }}" />
-                    <a class="incr-btn" data-action="increase" href="#">+</a>
-                  </div>
-                  <select class="select select-bordered select-sm bg-base-300 text-base-content border-base-content/10 pod-size text-xs"
-                          name="process-pod-class-{{ process_name }}">
-                    <option value="{{ application.process_pod_classes.get(process_name, DEFAULT_POD_CLASS) }}"
-                            selected
-                            hidden>{{ application.process_pod_classes.get(process_name, DEFAULT_POD_CLASS) }}</option>
-                    {% for class in pod_classes.keys() %}<option value="{{ class }}">{{ class }}</option>{% endfor %}
-                  </select>
-                  <div class="dropdown dropdown-end dropdown-hover">
-                    <div tabindex="0" role="button">{{ icon('info', 'w-3 h-3 text-base-content/25 cursor-help') }}</div>
-                    <div tabindex="0"
-                         class="dropdown-content z-50 p-3 shadow-lg bg-base-200 border border-base-300 rounded-lg w-64">
-                      <p class="text-[0.625rem] font-medium text-base-content/40 uppercase tracking-wider mb-2">Pod Sizes</p>
-                      <table class="w-full text-[0.625rem]">
-                        <thead>
-                          <tr class="text-base-content/40">
-                            <th class="text-left pb-1 font-medium">Size</th>
-                            <th class="text-right pb-1 font-medium">CPU</th>
-                            <th class="text-right pb-1 font-medium">Memory</th>
-                          </tr>
-                        </thead>
-                        <tbody class="text-base-content/60">
-                          {% for name, spec in pod_classes.items() %}
-                            <tr class="{{ 'border-t border-base-content/5' if not loop.first }}">
-                              <td class="py-0.5 font-mono text-accent/70">{{ name }}</td>
-                              <td class="py-0.5 text-right">{{ spec.cpu.requests }}</td>
-                              <td class="py-0.5 text-right">{{ spec.memory.requests }}</td>
-                            </tr>
-                          {% endfor %}
-                        </tbody>
-                      </table>
-                      <p class="text-[0.575rem] text-base-content/30 mt-1.5">Values shown are requests (guaranteed). Limits are higher.</p>
+                    {# Pod dots visualization #}
+                    {% if count > 0 %}
+                      <div class="flex gap-1 mb-3">
+                        {% for i in range(count) %}<div class="pod-dot"></div>{% endfor %}
+                      </div>
+                    {% endif %}
+
+                    {# Scale controls #}
+                    <div class="flex items-center gap-2">
+                      <div class="count-input flex-1">
+                        <a class="incr-btn" data-action="decrease" href="#">-</a>
+                        <input class="quantity"
+                               type="text"
+                               name="process-count-{{ process_name }}"
+                               value="{{ count }}" />
+                        <a class="incr-btn" data-action="increase" href="#">+</a>
+                      </div>
+                      <select class="select select-bordered select-sm bg-base-300 text-base-content border-base-content/10 pod-size text-xs"
+                              name="process-pod-class-{{ process_name }}">
+                        <option value="{{ application.process_pod_classes.get(process_name, DEFAULT_POD_CLASS) }}"
+                                selected
+                                hidden>
+                          {{ application.process_pod_classes.get(process_name, DEFAULT_POD_CLASS) }}
+                        </option>
+                        {% for class in pod_classes.keys() %}<option value="{{ class }}">{{ class }}</option>{% endfor %}
+                      </select>
+                      <div class="dropdown dropdown-end dropdown-hover">
+                        <div tabindex="0" role="button">{{ icon('info', 'w-3 h-3 text-base-content/25 cursor-help') }}</div>
+                        <div tabindex="0"
+                             class="dropdown-content z-50 p-3 shadow-lg bg-base-200 border border-base-300 rounded-lg w-64">
+                          <p class="text-[0.625rem] font-medium text-base-content/40 uppercase tracking-wider mb-2">Pod Sizes</p>
+                          <table class="w-full text-[0.625rem]">
+                            <thead>
+                              <tr class="text-base-content/40">
+                                <th class="text-left pb-1 font-medium">Size</th>
+                                <th class="text-right pb-1 font-medium">CPU</th>
+                                <th class="text-right pb-1 font-medium">Memory</th>
+                              </tr>
+                            </thead>
+                            <tbody class="text-base-content/60">
+                              {% for name, spec in pod_classes.items() %}
+                                <tr class="{{ 'border-t border-base-content/5' if not loop.first }}">
+                                  <td class="py-0.5 font-mono text-accent/70">{{ name }}</td>
+                                  <td class="py-0.5 text-right">{{ spec.cpu.requests }}</td>
+                                  <td class="py-0.5 text-right">{{ spec.memory.requests }}</td>
+                                </tr>
+                              {% endfor %}
+                            </tbody>
+                          </table>
+                          <p class="text-[0.575rem] text-base-content/30 mt-1.5">Values shown are requests (guaranteed). Limits are higher.</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
+                {% endfor %}
+              </div>
+              <div class="mt-3">
+                <button type="submit"
+                        class="btn btn-primary btn-sm update_process_settings hidden">Update Process Settings</button>
+              </div>
+            </form>
+
+            {% if application.latest_release.release_commands %}
+              <div class="mt-4">
+                <h3 class="text-xs font-medium text-base-content/30 uppercase tracking-wider mb-2">Package Commands</h3>
+                <div class="flex flex-col gap-1">
+                  {% for process_name, proc in application.latest_release.release_commands.items() %}
+                    <div class="flex items-center gap-2 text-sm">
+                      <code class="text-accent text-xs">{{ process_name }}</code>
+                      <code class="text-base-content/50 text-xs">{{ proc['cmd'] }}</code>
+                    </div>
+                  {% endfor %}
                 </div>
               </div>
-            {% endfor %}
-          </div>
-          <div class="mt-3">
-            <button type="submit"
-                    class="btn btn-primary btn-sm update_process_settings hidden">Update Process Settings</button>
-          </div>
-        </form>
-
-        {% if application.latest_release.release_commands %}
-          <div class="mt-4">
-            <h3 class="text-xs font-medium text-base-content/30 uppercase tracking-wider mb-2">Package Commands</h3>
-            <div class="flex flex-col gap-1">
-              {% for process_name, proc in application.latest_release.release_commands.items() %}
-                <div class="flex items-center gap-2 text-sm">
-                  <code class="text-accent text-xs">{{ process_name }}</code>
-                  <code class="text-base-content/50 text-xs">{{ proc['cmd'] }}</code>
-                </div>
-              {% endfor %}
-            </div>
+            {% endif %}
           </div>
         {% endif %}
       </div>
-    {% endif %}
+
+      {# Right: Recent Activity #}
+      <div class="lg:col-span-1">
+        <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Recent Activity</h2>
+        <div class="flex flex-col gap-1.5">
+          {% set activity_items = [] %}
+          {% for img in images[:5] %}
+            {% set _ = activity_items.append({'type': 'build', 'time': img.updated, 'version': img.version, 'url': url_for('user.image_detail', image_id=img.id), 'status': 'success' if img.built else ('error' if img.error else 'building')}) %}
+          {% endfor %}
+          {% for rel in releases[:5] %}
+            {% set _ = activity_items.append({'type': 'package', 'time': rel.updated, 'version': rel.version, 'url': url_for('user.release_detail', release_id=rel.id), 'status': 'success' if rel.built else ('error' if rel.error else 'building')}) %}
+          {% endfor %}
+          {% for dep in deployments[:5] %}
+            {% set _ = activity_items.append({'type': 'deploy', 'time': dep.updated, 'version': dep.release.get('version', '?') if dep.release else '?', 'url': url_for('user.deployment_detail', deployment_id=dep.id), 'status': 'success' if dep.complete else ('error' if dep.error else 'deploying')}) %}
+          {% endfor %}
+          {% for item in activity_items|sort(attribute='time', reverse=true) %}
+            {% if loop.index <= 8 %}
+              <a href="{{ item.url }}"
+                 class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-base-content/5 transition-colors group">
+                {% if item.status == 'success' %}
+                  <span class="status-dot status-dot-success" style="width:6px;height:6px"></span>
+                {% elif item.status == 'error' %}
+                  <span class="status-dot status-dot-error" style="width:6px;height:6px"></span>
+                {% else %}
+                  <span class="status-dot status-dot-info status-dot-pulse"
+                        style="width:6px;
+                               height:6px"></span>
+                {% endif %}
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-1.5">
+                    {% if item.type == 'build' %}
+                      {{ icon('image', 'w-3 h-3 text-base-content/30') }}
+                      <span class="text-xs text-base-content/60">Build</span>
+                      <code class="text-xs text-accent/70">#{{ item.version }}</code>
+                    {% elif item.type == 'package' %}
+                      {{ icon('layers', 'w-3 h-3 text-base-content/30') }}
+                      <span class="text-xs text-base-content/60">Package</span>
+                      <code class="text-xs text-accent/70">v{{ item.version }}</code>
+                    {% elif item.type == 'deploy' %}
+                      {{ icon('deploy', 'w-3 h-3 text-base-content/30') }}
+                      <span class="text-xs text-base-content/60">Deploy</span>
+                      <code class="text-xs text-accent/70">v{{ item.version }}</code>
+                    {% endif %}
+                  </div>
+                  <span class="text-[0.625rem] text-base-content/30">{{ item.time|humanize }}</span>
+                </div>
+                <svg class="w-3 h-3 text-base-content/15 group-hover:text-base-content/30 transition-colors"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </a>
+            {% endif %}
+          {% endfor %}
+          {% if not activity_items %}<p class="text-xs text-base-content/30 py-4">No activity yet</p>{% endif %}
+        </div>
+      </div>
+
+    </div>
+    {# /grid #}
 
     {# ── SECTION 3: PIPELINE STATUS (image → package → deploy) ── #}
 
