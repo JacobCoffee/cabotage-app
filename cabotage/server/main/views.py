@@ -10,7 +10,7 @@ from flask import (
     request,
     url_for,
 )
-from flask_login import login_user
+from flask_login import current_user, login_user
 
 from cabotage.server.models.auth import User
 
@@ -22,7 +22,21 @@ main_blueprint = Blueprint(
 
 @main_blueprint.route("/")
 def home():
-    return render_template("main/home.html")
+    stats = {}
+    if current_user.is_authenticated:
+        projects = current_user.projects
+        applications = []
+        for p in projects:
+            applications.extend(p.project_applications)
+        deploy_count = 0
+        for app in applications:
+            deploy_count += app.deployments.count()
+        stats = {
+            "project_count": len(projects),
+            "app_count": len(applications),
+            "deploy_count": deploy_count,
+        }
+    return render_template("main/home.html", **stats)
 
 
 @main_blueprint.route("/about/")

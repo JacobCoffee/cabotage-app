@@ -26,6 +26,7 @@
   {% set app_count = project.project_applications|length %}
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
     {{ stat_card(app_count, 'Applications', 'box', 'accent') }}
+    {{ stat_card(proj_deploy_count, 'Deployments', 'deploy', 'success') }}
   </div>
 
   {# Applications Grid / Service Cards #}

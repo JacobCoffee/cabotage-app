@@ -136,6 +136,13 @@ def organization(org_slug):
     remove_member_form = RemoveOrganizationMemberForm()
     remove_member_form.organization_id.data = str(organization.id)
 
+    # Compute aggregate counts for stat cards
+    applications = []
+    for p in organization.projects:
+        applications.extend(p.project_applications)
+    org_app_count = len(applications)
+    org_deploy_count = sum(a.deployments.count() for a in applications)
+
     return render_template(
         "user/organization.html",
         organization=organization,
@@ -143,6 +150,8 @@ def organization(org_slug):
         add_member_form=add_member_form,
         remove_member_form=remove_member_form,
         is_admin=is_admin,
+        org_app_count=org_app_count,
+        org_deploy_count=org_deploy_count,
     )
 
 
@@ -348,10 +357,13 @@ def project(org_slug, project_slug):
     app_form.organization_id.data = str(organization.id)
     app_form.project_id.data = str(project.id)
 
+    proj_deploy_count = sum(a.deployments.count() for a in project.project_applications)
+
     return render_template(
         "user/project.html",
         project=project,
         app_create_form=app_form,
+        proj_deploy_count=proj_deploy_count,
     )
 
 
