@@ -248,7 +248,131 @@
     </div>
   </div>
 
-  {# ===== SECTION 5: ENVIRONMENT VARIABLES ===== #}
+  {# ===== SECTION 5: POD SIZES ===== #}
+  <div class="mb-10">
+    <div class="flex items-center gap-2 mb-4">
+      {{ icon('box', 'w-4 h-4 text-primary') }}
+      <h2 class="text-base font-semibold text-base-content">Pod Sizes</h2>
+    </div>
+    <p class="text-sm text-base-content/50 mb-5">
+      Each process runs in a pod with dedicated CPU and memory. Choose a size based on your workload. The naming convention indicates the optimization: <strong class="text-base-content/70">m1</strong> is balanced, <strong class="text-base-content/70">c1</strong> is CPU-optimized, and <strong class="text-base-content/70">r1</strong> is memory-optimized.
+    </p>
+
+    <div class="card bg-base-200 border border-base-300">
+      <div class="card-body !p-5">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-base-content/40 text-xs uppercase tracking-wider">
+              <th class="text-left pb-2 font-medium">Size</th>
+              <th class="text-left pb-2 font-medium">Type</th>
+              <th class="text-right pb-2 font-medium">CPU (request)</th>
+              <th class="text-right pb-2 font-medium">CPU (limit)</th>
+              <th class="text-right pb-2 font-medium">Mem (request)</th>
+              <th class="text-right pb-2 font-medium">Mem (limit)</th>
+            </tr>
+          </thead>
+          <tbody class="text-base-content/60">
+            <tr class="border-t border-base-content/5">
+              <td class="py-1.5 font-mono text-accent/70">m1.small</td>
+              <td class="py-1.5">Balanced</td>
+              <td class="py-1.5 text-right">125m</td>
+              <td class="py-1.5 text-right">250m</td>
+              <td class="py-1.5 text-right">256Mi</td>
+              <td class="py-1.5 text-right">384Mi</td>
+            </tr>
+            <tr class="border-t border-base-content/5">
+              <td class="py-1.5 font-mono text-accent/70">m1.medium</td>
+              <td class="py-1.5">Balanced</td>
+              <td class="py-1.5 text-right">250m</td>
+              <td class="py-1.5 text-right">500m</td>
+              <td class="py-1.5 text-right">512Mi</td>
+              <td class="py-1.5 text-right">768Mi</td>
+            </tr>
+            <tr class="border-t border-base-content/5">
+              <td class="py-1.5 font-mono text-accent/70">m1.large</td>
+              <td class="py-1.5">Balanced</td>
+              <td class="py-1.5 text-right">500m</td>
+              <td class="py-1.5 text-right">1000m</td>
+              <td class="py-1.5 text-right">1024Mi</td>
+              <td class="py-1.5 text-right">1536Mi</td>
+            </tr>
+            <tr class="border-t border-base-content/10">
+              <td class="py-1.5 font-mono text-accent/70">c1.small</td>
+              <td class="py-1.5">CPU</td>
+              <td class="py-1.5 text-right">250m</td>
+              <td class="py-1.5 text-right">375m</td>
+              <td class="py-1.5 text-right">256Mi</td>
+              <td class="py-1.5 text-right">384Mi</td>
+            </tr>
+            <tr class="border-t border-base-content/5">
+              <td class="py-1.5 font-mono text-accent/70">c1.medium</td>
+              <td class="py-1.5">CPU</td>
+              <td class="py-1.5 text-right">500m</td>
+              <td class="py-1.5 text-right">750m</td>
+              <td class="py-1.5 text-right">512Mi</td>
+              <td class="py-1.5 text-right">768Mi</td>
+            </tr>
+            <tr class="border-t border-base-content/5">
+              <td class="py-1.5 font-mono text-accent/70">c1.large</td>
+              <td class="py-1.5">CPU</td>
+              <td class="py-1.5 text-right">1000m</td>
+              <td class="py-1.5 text-right">1500m</td>
+              <td class="py-1.5 text-right">1024Mi</td>
+              <td class="py-1.5 text-right">1536Mi</td>
+            </tr>
+            <tr class="border-t border-base-content/10">
+              <td class="py-1.5 font-mono text-accent/70">r1.small</td>
+              <td class="py-1.5">Memory</td>
+              <td class="py-1.5 text-right">125m</td>
+              <td class="py-1.5 text-right">250m</td>
+              <td class="py-1.5 text-right">1024Mi</td>
+              <td class="py-1.5 text-right">1536Mi</td>
+            </tr>
+            <tr class="border-t border-base-content/5">
+              <td class="py-1.5 font-mono text-accent/70">r1.medium</td>
+              <td class="py-1.5">Memory</td>
+              <td class="py-1.5 text-right">250m</td>
+              <td class="py-1.5 text-right">500m</td>
+              <td class="py-1.5 text-right">1536Mi</td>
+              <td class="py-1.5 text-right">2304Mi</td>
+            </tr>
+            <tr class="border-t border-base-content/5">
+              <td class="py-1.5 font-mono text-accent/70">r1.large</td>
+              <td class="py-1.5">Memory</td>
+              <td class="py-1.5 text-right">500m</td>
+              <td class="py-1.5 text-right">1000m</td>
+              <td class="py-1.5 text-right">2048Mi</td>
+              <td class="py-1.5 text-right">3072Mi</td>
+            </tr>
+            <tr class="border-t border-base-content/5">
+              <td class="py-1.5 font-mono text-accent/70">r1.xlarge</td>
+              <td class="py-1.5">Memory</td>
+              <td class="py-1.5 text-right">750m</td>
+              <td class="py-1.5 text-right">1500m</td>
+              <td class="py-1.5 text-right">2048Mi</td>
+              <td class="py-1.5 text-right">3072Mi</td>
+            </tr>
+            <tr class="border-t border-base-content/5">
+              <td class="py-1.5 font-mono text-accent/70">r1.2xlarge</td>
+              <td class="py-1.5">Memory</td>
+              <td class="py-1.5 text-right">1500m</td>
+              <td class="py-1.5 text-right">1500m</td>
+              <td class="py-1.5 text-right">4096Mi</td>
+              <td class="py-1.5 text-right">4096Mi</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="flex items-start gap-2 p-3 mt-3 rounded-lg bg-base-300/50 border border-base-content/5">
+          {{ icon('info', 'w-3.5 h-3.5 text-info/50 mt-0.5 flex-shrink-0') }}
+          <p class="text-xs text-base-content/40 leading-relaxed">
+            <strong class="text-base-content/50">Request</strong> is the guaranteed minimum. <strong class="text-base-content/50">Limit</strong> is the maximum the pod can burst to. CPU is measured in millicores (1000m = 1 core). The default size is <code class="text-accent/60 bg-transparent p-0">m1.large</code>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ===== SECTION 6: ENVIRONMENT VARIABLES ===== #}
   <div class="mb-6">
     <div class="flex items-center gap-2 mb-4">
       {{ icon('settings', 'w-4 h-4 text-primary') }}
