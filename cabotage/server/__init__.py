@@ -1,6 +1,16 @@
 import os
 
 import sentry_sdk
+from markupsafe import Markup, escape
+try:
+    from pygments import highlight
+    from pygments.formatters import HtmlFormatter
+    from pygments.lexers import DockerLexer, TextLexer
+except ImportError:  # pragma: no cover
+    highlight = None
+    HtmlFormatter = None
+    DockerLexer = None
+    TextLexer = None
 
 from flask import Flask, render_template
 from flask_admin import Admin
@@ -142,6 +152,23 @@ def create_app():
     @app.template_filter("humanize")
     def humanize_filter(value):
         return humanize_lib.naturaltime(value)
+
+    @app.template_filter("highlight_code")
+    def highlight_code_filter(value, language="text"):
+        text = "" if value is None else str(value)
+        if not text or text == "None":
+            return Markup("")
+
+        if highlight is None:
+            return Markup(f"<pre>{escape(text)}</pre>")
+
+        lexer = DockerLexer() if language == "dockerfile" else TextLexer()
+        formatter = HtmlFormatter(nowrap=False, noclasses=True)
+        try:
+            return Markup(highlight(text, lexer, formatter))
+        except Exception:
+            # Fallback to escaped text if lexer/formatter fails for any input.
+            return Markup(f"<pre>{escape(text)}</pre>")
 
     consul.init_app(app)
     vault.init_app(app)

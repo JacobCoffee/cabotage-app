@@ -199,11 +199,47 @@
           </div>
         </div>
       {% endif %}
+
+      {# Dockerfile + Procfile moved left so logs stay primary on the right #}
+      {% if image.dockerfile or image.procfile %}
+        <div class="flex flex-col gap-4">
+          {% if image.dockerfile %}
+            <div class="card bg-base-200 border border-base-300">
+              <div class="card-body !p-4">
+                <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Dockerfile</h2>
+                <div class="code-block dockerfile-highlight !text-xs !leading-relaxed">{{ image.dockerfile|highlight_code('dockerfile') }}</div>
+              </div>
+            </div>
+          {% endif %}
+          {% if image.procfile %}
+            <div class="card bg-base-200 border border-base-300">
+              <div class="card-body !p-4">
+                <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Procfile</h2>
+                <div class="procfile-viewer">
+                  {% for line in image.procfile.split('\n') %}
+                    {% if line and ':' in line %}
+                      {% set parts = line.split(':', 1) %}
+                      <div class="procfile-line">
+                        <span class="procfile-service">{{ parts[0].strip() }}</span>
+                        <span class="procfile-sep">:</span>
+                        <span class="procfile-command">{{ parts[1].strip() }}</span>
+                      </div>
+                    {% elif line %}
+                      <div class="procfile-line procfile-line-raw">{{ line }}</div>
+                    {% else %}
+                      <div class="procfile-line">&nbsp;</div>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      {% endif %}
     </div>
 
-    {# Right column: logs + processes #}
-    <div class="lg:col-span-2 flex flex-col gap-4">
-
+    {# Right column: processes + log #}
+    <div class="lg:col-span-2 flex flex-col gap-4 lg:min-h-full">
       {# Processes (shown prominently when built) #}
       {% if image.processes %}
         <div class="card bg-base-200 border border-base-300">
@@ -230,9 +266,8 @@
         </div>
       {% endif %}
 
-      {# Build Log #}
-      <div class="card bg-base-200 border border-base-300">
-        <div class="card-body !p-4">
+      <div class="card bg-base-200 border border-base-300 flex-1 min-h-0">
+        <div class="card-body !p-4 h-full flex flex-col min-h-0">
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Build Log</h2>
             {% if image.image_build_log %}
@@ -244,31 +279,9 @@
               </button>
             {% endif %}
           </div>
-          <div class="build-log-viewer" id="buildLog">{{ image.image_build_log }}</div>
+          <div class="build-log-viewer build-log-viewer-primary flex-1" id="buildLog">{{ image.image_build_log }}</div>
         </div>
       </div>
-
-      {# Dockerfile + Procfile side by side #}
-      {% if image.dockerfile or image.procfile %}
-        <div class="grid grid-cols-1 {{ 'md:grid-cols-2' if image.dockerfile and image.procfile }} gap-4">
-          {% if image.dockerfile %}
-            <div class="card bg-base-200 border border-base-300">
-              <div class="card-body !p-4">
-                <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Dockerfile</h2>
-                <div class="code-block !text-xs !leading-relaxed">{{ image.dockerfile }}</div>
-              </div>
-            </div>
-          {% endif %}
-          {% if image.procfile %}
-            <div class="card bg-base-200 border border-base-300">
-              <div class="card-body !p-4">
-                <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Procfile</h2>
-                <div class="code-block !text-xs !leading-relaxed">{{ image.procfile }}</div>
-              </div>
-            </div>
-          {% endif %}
-        </div>
-      {% endif %}
     </div>
   </div>
 
