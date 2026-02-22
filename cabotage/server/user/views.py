@@ -10,7 +10,6 @@ from flask import (
     Blueprint,
     abort,
     current_app,
-    flash,
     jsonify,
     make_response,
     redirect,
