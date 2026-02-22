@@ -964,10 +964,7 @@ a.pipeline-stage-body:hover {
 .build-log-viewer::-webkit-scrollbar-thumb,
 .deploy-log-viewer::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
 
-/* On image detail, let the primary log pane fill the card height. */
-.build-log-viewer-primary {
-  max-height: none;
-}
+/* Primary image log sizing is set by page script on desktop. */
 
 .dockerfile-highlight pre {
   margin: 0;

@@ -107,7 +107,7 @@
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
 
     {# Left column: metadata #}
-    <div class="lg:col-span-1 flex flex-col gap-4">
+    <div id="build-left-column" class="lg:col-span-1 flex flex-col gap-4">
 
       {# Build Info #}
       <div class="card bg-base-200 border border-base-300">
@@ -208,13 +208,13 @@
               <div class="card-body !p-4">
                 <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Dockerfile</h2>
                 <div class="code-block dockerfile-highlight !text-xs !leading-relaxed">
-                  {{ image.dockerfile|trim|highlight_code("dockerfile") |safe }}
+                  {{- image.dockerfile|trim|highlight_code("dockerfile") |safe -}}
                 </div>
               </div>
             </div>
           {% endif %}
           {% if image.procfile %}
-            <div class="card bg-base-200 border border-base-300">
+            <div id="procfile-card" class="card bg-base-200 border border-base-300">
               <div class="card-body !p-4">
                 <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Procfile</h2>
                 <div class="procfile-viewer">
@@ -268,8 +268,8 @@
         </div>
       {% endif %}
 
-      <div class="card bg-base-200 border border-base-300 flex-1 min-h-0">
-        <div class="card-body !p-4 h-full flex flex-col min-h-0">
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body !p-4">
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Build Log</h2>
             {% if image.image_build_log %}
@@ -281,8 +281,7 @@
               </button>
             {% endif %}
           </div>
-          <div class="build-log-viewer build-log-viewer-primary flex-1"
-               id="buildLog">{{ image.image_build_log }}</div>
+          <div class="build-log-viewer build-log-viewer-primary" id="buildLog">{{ image.image_build_log }}</div>
         </div>
       </div>
     </div>
@@ -317,9 +316,32 @@
 
 {% block js %}
   <script>
+  function syncBuildLogHeight() {
+    var anchorEl = document.getElementById('procfile-card') || document.getElementById('build-left-column');
+    var logEl = document.getElementById('buildLog');
+    if (!anchorEl || !logEl) return;
+
+    if (window.innerWidth < 1024) {
+      logEl.style.height = '';
+      logEl.style.maxHeight = '';
+      return;
+    }
+
+    var leftRect = anchorEl.getBoundingClientRect();
+    var logRect = logEl.getBoundingClientRect();
+    var available = Math.floor(leftRect.bottom - logRect.top + 1);
+    if (available > 120) {
+      logEl.style.height = available + 'px';
+      logEl.style.maxHeight = available + 'px';
+    }
+  }
+
   /* Live log streaming for in-progress builds */
   var logsPre = document.getElementById('buildLog');
-  if (logsPre.textContent.trim() === 'None' || logsPre.textContent.trim() === '') {
+  syncBuildLogHeight();
+  window.addEventListener('resize', syncBuildLogHeight);
+
+  if (logsPre && (logsPre.textContent.trim() === 'None' || logsPre.textContent.trim() === '')) {
     logsPre.textContent = '';
     var protocol = (window.location.protocol === 'https:') ? 'wss://' : 'ws://';
     var socket = new WebSocket(protocol + window.location.host + '/image/' + '{{ image.id }}' + '/livelogs');
