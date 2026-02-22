@@ -72,6 +72,15 @@
             <button type="submit" class="btn btn-primary btn-sm gap-1.5">{{ icon('deploy', 'w-4 h-4') }} Deploy</button>
           </form>
         {% endif %}
+        {% if release.error %}
+          <form action="{{ url_for('user.application_release_create', application_id=app.id) }}"
+                method="post">
+            <button type="submit" class="btn btn-error btn-sm gap-1.5">
+              {{ icon('refresh-cw', 'w-3.5 h-3.5') }}
+              Try Again
+            </button>
+          </form>
+        {% endif %}
         <a href="{{ url_for('user.project_application', org_slug=org_slug, project_slug=project_slug, app_slug=app_slug) }}"
            class="btn btn-ghost btn-sm gap-1.5">
           {{ icon('arrow-left', 'w-3.5 h-3.5') }}

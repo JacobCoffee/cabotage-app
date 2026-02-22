@@ -64,6 +64,15 @@
 
       {# Actions #}
       <div class="flex items-center gap-2">
+        {% if deployment.error and deployment.release_object %}
+          <form action="{{ url_for('user.release_deploy', release_id=deployment.release_object.id) }}"
+                method="post">
+            <button type="submit" class="btn btn-error btn-sm gap-1.5">
+              {{ icon('refresh-cw', 'w-3.5 h-3.5') }}
+              Try Again
+            </button>
+          </form>
+        {% endif %}
         <a href="{{ url_for('user.project_application', org_slug=org_slug, project_slug=project_slug, app_slug=app_slug) }}"
            class="btn btn-ghost btn-sm gap-1.5">
           {{ icon('arrow-left', 'w-3.5 h-3.5') }}
