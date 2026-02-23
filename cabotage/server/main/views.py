@@ -5,6 +5,7 @@ from flask import (
     abort,
     current_app,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -18,6 +19,11 @@ main_blueprint = Blueprint(
     "main",
     __name__,
 )
+
+
+@main_blueprint.route("/_health/")
+def health():
+    return jsonify({"status": "ok"})
 
 
 @main_blueprint.route("/")
