@@ -236,49 +236,60 @@
               {% set cfg_total = cfg_added|length + cfg_changed|length + cfg_removed|length %}
               {% set diff_id = application.id|string %}
 
-              <div class="diff-summary text-xs mb-2">
-                {# Compact summary line #}
-                <div class="flex items-center gap-3 flex-wrap">
+              {# Change summary — human-readable pills + expandable detail #}
+              <div class="changes-summary text-xs mb-2">
+                <div class="flex items-center gap-2 flex-wrap">
                   {% if has_image_changes %}
-                    <span class="diff-stat">
-                      Image:
-                      {% if img_added %}<span class="diff-added">+{{ img_added|length }}</span>{% endif %}
-                      {% if img_changed %}<span class="diff-modified">~{{ img_changed|length }}</span>{% endif %}
-                      {% if img_removed %}<span class="diff-removed">-{{ img_removed|length }}</span>{% endif %}
+                    <span class="change-pill change-pill-image">
+                      {{ icon('image', 'w-3 h-3') }}
+                      {{ img_total }} image {{ 'setting' if img_total == 1 else 'settings' }}
                     </span>
                   {% endif %}
                   {% if has_config_changes %}
-                    <span class="diff-stat">
-                      Config:
-                      {% if cfg_added %}<span class="diff-added">+{{ cfg_added|length }}</span>{% endif %}
-                      {% if cfg_changed %}<span class="diff-modified">~{{ cfg_changed|length }}</span>{% endif %}
-                      {% if cfg_removed %}<span class="diff-removed">-{{ cfg_removed|length }}</span>{% endif %}
+                    <span class="change-pill change-pill-config">
+                      {{ icon('key', 'w-3 h-3') }}
+                      {{ cfg_total }} config {{ 'variable' if cfg_total == 1 else 'variables' }}
                     </span>
                   {% endif %}
                   {% if img_total + cfg_total > 0 %}
-                    <button class="diff-toggle"
-                            onclick="this.closest('.diff-summary').querySelector('.diff-detail').classList.toggle('diff-detail-open'); this.textContent = this.textContent.trim() === 'show' ? 'hide' : 'show'">
-                      show
+                    <button class="change-details-toggle"
+                            onclick="var d=this.closest('.changes-summary').querySelector('.change-details'); d.classList.toggle('change-details-open'); this.querySelector('span').textContent = d.classList.contains('change-details-open') ? 'hide details' : 'show details'">
+                      {{ icon('chevron-right', 'w-3 h-3 change-details-chevron') }}
+                      <span>show details</span>
                     </button>
                   {% endif %}
                 </div>
 
                 {# Expandable detail list #}
-                <div class="diff-detail">
-                  {% if has_image_changes %}
-                    <div class="diff-section">
-                      {% for item in img_added %}<code class="diff-line diff-line-added">+ {{ item }}</code>{% endfor %}
-                      {% for item in img_changed %}<code class="diff-line diff-line-modified">~ {{ item }}</code>{% endfor %}
-                      {% for item in img_removed %}<code class="diff-line diff-line-removed">- {{ item }}</code>{% endfor %}
-                    </div>
-                  {% endif %}
-                  {% if has_config_changes %}
-                    <div class="diff-section">
-                      {% for item in cfg_added %}<code class="diff-line diff-line-added">+ {{ item }}</code>{% endfor %}
-                      {% for item in cfg_changed %}<code class="diff-line diff-line-modified">~ {{ item }}</code>{% endfor %}
-                      {% for item in cfg_removed %}<code class="diff-line diff-line-removed">- {{ item }}</code>{% endfor %}
-                    </div>
-                  {% endif %}
+                <div class="change-details">
+                  <div class="change-details-inner">
+                    {% if has_image_changes %}
+                      <div class="change-group">
+                        <span class="change-group-label">Image</span>
+                        {% for item in img_added %}<span class="change-item change-item-added">{{ item }} <em>added</em></span>{% endfor %}
+                        {% for item in img_changed %}
+                          <span class="change-item change-item-updated">{{ item }} <em>updated</em></span>
+                        {% endfor %}
+                        {% for item in img_removed %}
+                          <span class="change-item change-item-removed">{{ item }} <em>removed</em></span>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                    {% if has_config_changes %}
+                      <div class="change-group">
+                        <span class="change-group-label">Config</span>
+                        {% for item in cfg_added %}
+                          <span class="change-item change-item-added"><code>{{ item }}</code> <em>added</em></span>
+                        {% endfor %}
+                        {% for item in cfg_changed %}
+                          <span class="change-item change-item-updated"><code>{{ item }}</code> <em>updated</em></span>
+                        {% endfor %}
+                        {% for item in cfg_removed %}
+                          <span class="change-item change-item-removed"><code>{{ item }}</code> <em>removed</em></span>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </div>
                 </div>
               </div>
 
