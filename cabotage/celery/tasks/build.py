@@ -537,11 +537,20 @@ def build_image_buildkit(image=None):
                 image.application.github_app_installation_id
             )
             if access_token is None:
-                raise Exception
-        except Exception:
+                raise BuildError(
+                    "GitHub App returned no token for Installation ID "
+                    f"{image.application.github_app_installation_id}"
+                )
+        except BuildError:
+            raise
+        except Exception as exc:
+            logger.exception(
+                "Failed to authenticate for Installation ID %s",
+                image.application.github_app_installation_id,
+            )
             raise BuildError(
                 "Unable to authenticate for Installation ID "
-                f"{image.application.github_app_installation_id}"
+                f"{image.application.github_app_installation_id}: {exc}"
             )
 
     if image.commit_sha == "null":

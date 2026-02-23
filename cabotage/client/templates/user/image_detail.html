@@ -121,7 +121,7 @@
   {% endif %}
 
   {# ===== BUILD DETAILS GRID ===== #}
-  <div class="grid grid-cols-1 lg:grid-cols-3 lg:items-start gap-4 mb-6">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
 
     {# Left column: metadata #}
     <div id="build-left-column" class="lg:col-span-1 flex flex-col gap-4">
@@ -357,10 +357,9 @@
       {% endif %}
     </div>
 
-    {# Right column: build log — sticky so it stays visible past long left column #}
-    <div class="lg:col-span-2">
-      <div class="lg:sticky lg:top-4 card bg-base-200 border border-base-300 flex flex-col"
-           style="max-height: calc(100vh - 2rem)">
+    {# Right column: build log fills grid row height #}
+    <div class="lg:col-span-2 flex flex-col detail-log-column">
+      <div class="card bg-base-200 border border-base-300 flex-1 flex flex-col">
         <div class="card-body !p-4 flex-1 flex flex-col">
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Build Log</h2>
@@ -373,7 +372,8 @@
               </button>
             {% endif %}
           </div>
-          <div class="build-log-viewer build-log-viewer-primary" id="buildLog">
+          <div class="build-log-viewer build-log-viewer-primary flex-1"
+               id="buildLog">
             {%- if image.image_build_log and image.image_build_log != 'None' -%}
               {{ image.image_build_log }}
             {%- else -%}

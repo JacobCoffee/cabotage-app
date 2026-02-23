@@ -173,6 +173,67 @@
         </div>
       </div>
 
+      {# Processes #}
+      {% if deployment.release_object and deployment.release_object.image_object and deployment.release_object.image_object.processes %}
+        <div class="card bg-base-200 border border-base-300">
+          <div class="card-body !p-4">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Processes</h2>
+              <button class="expand-btn"
+                      data-expand="processes-content"
+                      data-expand-title="Processes"
+                      title="Expand">
+                <svg class="w-3.5 h-3.5"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                </svg>
+              </button>
+            </div>
+            <div id="processes-content">
+              <div class="flex flex-col gap-0">
+                {% for process, info in deployment.release_object.image_object.processes.items() %}
+                  <div class="flex items-start gap-3 py-2.5 {{ 'border-t border-base-content/5' if not loop.first }}">
+                    <code class="text-sm text-accent font-medium min-w-[5rem] pt-0.5">{{ process }}</code>
+                    <div class="flex-1 min-w-0">
+                      <code class="text-sm text-base-content/70 break-all">{{ info['cmd'] }}</code>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      {# Dockerfile #}
+      {% if deployment.release_object and deployment.release_object.dockerfile %}
+        <div class="card bg-base-200 border border-base-300">
+          <div class="card-body !p-4">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Dockerfile</h2>
+              <button class="expand-btn"
+                      data-expand="dockerfile-content"
+                      data-expand-title="Dockerfile"
+                      title="Expand">
+                <svg class="w-3.5 h-3.5"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                </svg>
+              </button>
+            </div>
+            <div id="dockerfile-content">
+              <div class="code-block !text-xs !leading-relaxed">{{ deployment.release_object.dockerfile }}</div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
       {# Image Reference #}
       {% if deployment.release_object and deployment.release_object.image_object %}
         {% set image = deployment.release_object.image_object %}
@@ -203,14 +264,61 @@
           </div>
         </div>
       {% endif %}
+
+      {# Environment #}
+      {% if deployment.release_object and deployment.release_object.configuration_objects %}
+        <div class="card bg-base-200 border border-base-300">
+          <div class="card-body !p-4">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">
+                Environment
+                <span class="text-base-content/20 normal-case">({{ deployment.release_object.configuration_objects|length }})</span>
+              </h2>
+              <button class="expand-btn"
+                      data-expand="env-content"
+                      data-expand-title="Environment"
+                      title="Expand">
+                <svg class="w-3.5 h-3.5"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                </svg>
+              </button>
+            </div>
+            <div id="env-content">
+              <div class="env-list">
+                {% for name, env_var in deployment.release_object.configuration_objects.items() %}
+                  <div class="env-item">
+                    <div class="env-item-key">
+                      {% if env_var and env_var.secret %}{{ icon('lock', 'w-2.5 h-2.5 text-base-content/25 flex-shrink-0') }}{% endif %}
+                      <span>{{ name }}</span>
+                    </div>
+                    <div class="env-item-value">
+                      {% if env_var %}
+                        {% if env_var.secret %}
+                          <span class="text-base-content/25 italic text-xs">secret</span>
+                        {% else %}
+                          {{ env_var.value }}
+                        {% endif %}
+                      {% else %}
+                        <span class="text-error text-xs">Deleted</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
     </div>
 
-    {# Right column: deploy log #}
-    <div class="lg:col-span-2 flex flex-col gap-4">
-
-      {# Deploy Log #}
-      <div class="card bg-base-200 border border-base-300">
-        <div class="card-body !p-4">
+    {# Right column: deploy log fills grid row height #}
+    <div class="lg:col-span-2 flex flex-col detail-log-column">
+      <div class="card bg-base-200 border border-base-300 flex-1 flex flex-col">
+        <div class="card-body !p-4 flex-1 flex flex-col">
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Deploy Log</h2>
             {% if deployment.deploy_log %}
@@ -222,7 +330,8 @@
               </button>
             {% endif %}
           </div>
-          <div class="deploy-log-viewer" id="deployLog">
+          <div class="deploy-log-viewer deploy-log-viewer-primary flex-1"
+               id="deployLog">
             {%- if deployment.deploy_log and deployment.deploy_log != 'None' -%}
               {{ deployment.deploy_log }}
             {%- else -%}
