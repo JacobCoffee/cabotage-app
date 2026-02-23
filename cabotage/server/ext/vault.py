@@ -64,7 +64,14 @@ class Vault(object):
         return g.vault_client
 
     def _ensure_transit_mount(self):
-        mounts = self.vault_connection.sys.list_mounted_secrets_engines()
+        try:
+            mounts = self.vault_connection.sys.list_mounted_secrets_engines()
+        except hvac.exceptions.Forbidden:
+            logger.debug(
+                "No permission to list secret engines, assuming transit mount '%s' exists.",
+                self.vault_signing_mount,
+            )
+            return
         mount_key = f"{self.vault_signing_mount}/"
         if mount_key not in mounts:
             self.vault_connection.sys.enable_secrets_engine(

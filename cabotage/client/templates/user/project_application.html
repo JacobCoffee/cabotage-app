@@ -232,22 +232,61 @@
                 </span>
               </div>
 
-              {# Change details #}
-              <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs mb-2">
-                {% if has_image_changes %}
-                  <span class="text-base-content/50">Image:
-                    {% for item in image_diff.added() %}<span class="text-success">+{{ item }}</span>{% endfor %}
-                    {% for item in image_diff.changed() %}<span class="text-info">~{{ item }}</span>{% endfor %}
-                    {% for item in image_diff.removed() %}<span class="text-error">-{{ item }}</span>{% endfor %}
-                  </span>
-                {% endif %}
-                {% if has_config_changes %}
-                  <span class="text-base-content/50">Config:
-                    {% for item in config_diff.added() %}<span class="text-success">+{{ item }}</span>{% endfor %}
-                    {% for item in config_diff.changed() %}<span class="text-info">~{{ item }}</span>{% endfor %}
-                    {% for item in config_diff.removed() %}<span class="text-error">-{{ item }}</span>{% endfor %}
-                  </span>
-                {% endif %}
+              {# Change details — git-diff style summary #}
+              {% set img_added = image_diff.added()|list if has_image_changes else [] %}
+              {% set img_changed = image_diff.changed()|list if has_image_changes else [] %}
+              {% set img_removed = image_diff.removed()|list if has_image_changes else [] %}
+              {% set cfg_added = config_diff.added()|list if has_config_changes else [] %}
+              {% set cfg_changed = config_diff.changed()|list if has_config_changes else [] %}
+              {% set cfg_removed = config_diff.removed()|list if has_config_changes else [] %}
+              {% set img_total = img_added|length + img_changed|length + img_removed|length %}
+              {% set cfg_total = cfg_added|length + cfg_changed|length + cfg_removed|length %}
+              {% set diff_id = application.id|string %}
+
+              <div class="diff-summary text-xs mb-2">
+                {# Compact summary line #}
+                <div class="flex items-center gap-3 flex-wrap">
+                  {% if has_image_changes %}
+                    <span class="diff-stat">
+                      Image:
+                      {% if img_added %}<span class="diff-added">+{{ img_added|length }}</span>{% endif %}
+                      {% if img_changed %}<span class="diff-modified">~{{ img_changed|length }}</span>{% endif %}
+                      {% if img_removed %}<span class="diff-removed">-{{ img_removed|length }}</span>{% endif %}
+                    </span>
+                  {% endif %}
+                  {% if has_config_changes %}
+                    <span class="diff-stat">
+                      Config:
+                      {% if cfg_added %}<span class="diff-added">+{{ cfg_added|length }}</span>{% endif %}
+                      {% if cfg_changed %}<span class="diff-modified">~{{ cfg_changed|length }}</span>{% endif %}
+                      {% if cfg_removed %}<span class="diff-removed">-{{ cfg_removed|length }}</span>{% endif %}
+                    </span>
+                  {% endif %}
+                  {% if img_total + cfg_total > 0 %}
+                    <button class="diff-toggle"
+                            onclick="this.closest('.diff-summary').querySelector('.diff-detail').classList.toggle('diff-detail-open'); this.textContent = this.textContent.trim() === 'show' ? 'hide' : 'show'">
+                      show
+                    </button>
+                  {% endif %}
+                </div>
+
+                {# Expandable detail list #}
+                <div class="diff-detail">
+                  {% if has_image_changes %}
+                    <div class="diff-section">
+                      {% for item in img_added %}<code class="diff-line diff-line-added">+ {{ item }}</code>{% endfor %}
+                      {% for item in img_changed %}<code class="diff-line diff-line-modified">~ {{ item }}</code>{% endfor %}
+                      {% for item in img_removed %}<code class="diff-line diff-line-removed">- {{ item }}</code>{% endfor %}
+                    </div>
+                  {% endif %}
+                  {% if has_config_changes %}
+                    <div class="diff-section">
+                      {% for item in cfg_added %}<code class="diff-line diff-line-added">+ {{ item }}</code>{% endfor %}
+                      {% for item in cfg_changed %}<code class="diff-line diff-line-modified">~ {{ item }}</code>{% endfor %}
+                      {% for item in cfg_removed %}<code class="diff-line diff-line-removed">- {{ item }}</code>{% endfor %}
+                    </div>
+                  {% endif %}
+                </div>
               </div>
 
               {# Next steps hint #}
