@@ -360,9 +360,13 @@
       return;
     }
 
-    var leftRect = anchorEl.getBoundingClientRect();
+    var leftCol = document.getElementById('build-left-column');
+    var logCard = logEl.closest('.card');
+    var leftBottom = leftCol.getBoundingClientRect().bottom;
     var logRect = logEl.getBoundingClientRect();
-    var available = Math.floor(leftRect.bottom - logRect.top + 1);
+    var cardBottom = logCard.getBoundingClientRect().bottom;
+    var paddingBelow = cardBottom - logRect.bottom;
+    var available = Math.floor(leftBottom - logRect.top - paddingBelow);
     if (available > 120) {
       logEl.style.height = available + 'px';
       logEl.style.maxHeight = available + 'px';
