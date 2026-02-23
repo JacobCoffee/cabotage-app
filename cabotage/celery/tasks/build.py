@@ -559,6 +559,11 @@ def build_image_buildkit(image=None):
             image.build_ref,
             access_token=access_token,
         )
+        if commit_sha is None:
+            raise BuildError(
+                f"Could not resolve ref '{image.build_ref}' to a commit in "
+                f"{image.application.github_repository}"
+            )
         if image.image_metadata is None:
             image.image_metadata = {"sha": commit_sha}
         else:
