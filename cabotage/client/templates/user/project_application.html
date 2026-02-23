@@ -80,6 +80,21 @@
 
       <span class="text-base-content/10 mx-0.5 hidden sm:inline">|</span>
 
+      {# Full cycle: Build → Package → Deploy in one shot #}
+      {% if application.auto_deploy_branch %}
+        <form action="{{ url_for('user.application_full_deploy', application_id=application.id) }}"
+              method="post"
+              class="inline">
+          <button class="btn btn-primary btn-sm gap-1.5" type="submit">{{ icon('zap', 'w-3.5 h-3.5') }} Full Cycle</button>
+        </form>
+      {% else %}
+        <button class="btn btn-primary btn-sm gap-1.5 btn-disabled"
+                disabled
+                title="No deploy branch configured">{{ icon('zap', 'w-3.5 h-3.5') }} Full Cycle</button>
+      {% endif %}
+
+      <span class="text-base-content/10 mx-0.5 hidden sm:inline">|</span>
+
       {# Utility actions #}
       <form action="{{ url_for('user.application_clear_cache', application_id=application.id) }}"
             method="post"
