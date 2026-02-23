@@ -109,8 +109,9 @@
         </div>
       </div>
       <div class="deploy-progress-bar mt-3">
-        <div class="deploy-progress-bar-fill"></div>
+        <div class="deploy-progress-bar-fill" id="deployProgressFill"></div>
       </div>
+      <p class="build-progress-phase" id="deployPhase">Waiting for logs...</p>
     </div>
   {% endif %}
 
@@ -389,17 +390,23 @@
   var placeholder = document.getElementById('logPlaceholder');
   if (placeholder) {
     logsPre.innerHTML = '';
+    var barFill = document.getElementById('deployProgressFill');
+    var phaseLabel = document.getElementById('deployPhase');
+    var tracker = (barFill) ? new BuildProgressTracker(barFill, phaseLabel, 'deploy') : null;
     var protocol = (window.location.protocol === 'https:') ? 'wss://' : 'ws://';
     var socket = new WebSocket(protocol + window.location.host + window.location.pathname + '/livelogs');
     socket.addEventListener('message', function(ev) {
       if (ev.data === '=================END OF LOGS=================') {
+        if (tracker) tracker.complete();
         socket.close();
         return;
       }
       logsPre.textContent += ev.data + '\n';
       logsPre.scrollTop = logsPre.scrollHeight;
+      if (tracker) tracker.processLine(ev.data);
     });
     socket.addEventListener('close', function() {
+      if (tracker) tracker.complete();
       setTimeout(function() { window.location.reload(); }, 5000);
     });
   }

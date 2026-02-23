@@ -403,6 +403,126 @@ function syncDetailLogHeight() {
   logViewer.style.maxHeight = Math.max(h, 200) + 'px';
 }
 
+/* ---------- Build Progress Tracker ---------- */
+function BuildProgressTracker(barFill, phaseLabel, type) {
+  this.barFill = barFill;
+  this.phaseLabel = phaseLabel;
+  this.type = type || 'build'; // 'build' or 'deploy'
+  this.progress = 0;
+  this.maxStep = 0;
+  this.totalSteps = 0;
+  this.activated = false;
+
+  // Deploy phase definitions with cumulative progress targets
+  this.deployPhases = [
+    { pattern: /Constructing API Clients/i, label: 'Constructing API clients', progress: 5 },
+    { pattern: /Fetching Namespace/i, label: 'Fetching namespace', progress: 10 },
+    { pattern: /Fetching ServiceAccount/i, label: 'Fetching service account', progress: 15 },
+    { pattern: /Fetching CabotageEnrollment/i, label: 'Fetching enrollment', progress: 20 },
+    { pattern: /Fetching ImagePullSecrets/i, label: 'Fetching pull secrets', progress: 30 },
+    { pattern: /Patching ServiceAccount/i, label: 'Patching service account', progress: 35 },
+    { pattern: /Running release command/i, label: 'Running release command', progress: 45 },
+    { pattern: /Creating deployment for/i, label: 'Creating deployment', progress: 55 },
+    { pattern: /Creating Service for/i, label: 'Creating services', progress: 60 },
+    { pattern: /Waiting on deployment to rollout/i, label: 'Waiting for rollout', progress: 70 },
+    { pattern: /Running postdeploy/i, label: 'Running postdeploy', progress: 85 },
+    { pattern: /Deployment .* complete/i, label: 'Deployment complete', progress: 100 },
+  ];
+}
+
+BuildProgressTracker.prototype.activate = function() {
+  if (this.activated) return;
+  this.activated = true;
+  this.barFill.classList.add('build-progress-bar-determinate');
+  this.barFill.style.width = '0%';
+};
+
+BuildProgressTracker.prototype.setProgress = function(pct) {
+  // Never go backwards
+  if (pct <= this.progress) return;
+  this.progress = pct;
+  this.barFill.style.width = Math.min(pct, 100) + '%';
+};
+
+BuildProgressTracker.prototype.setPhase = function(text) {
+  if (this.phaseLabel) {
+    this.phaseLabel.textContent = text;
+  }
+};
+
+BuildProgressTracker.prototype.processLine = function(line) {
+  if (this.type === 'deploy') {
+    this.processDeployLine(line);
+  } else {
+    this.processBuildLine(line);
+  }
+};
+
+BuildProgressTracker.prototype.processBuildLine = function(line) {
+  // Detect [M/N] step pattern from BuildKit
+  var stepMatch = line.match(/\[(\d+)\/(\d+)\]/);
+  if (stepMatch) {
+    this.activate();
+    var current = parseInt(stepMatch[1], 10);
+    var total = parseInt(stepMatch[2], 10);
+    if (total > this.totalSteps) this.totalSteps = total;
+    if (current > this.maxStep) this.maxStep = current;
+    // Steps occupy 5-75% range
+    var pct = 5 + (this.maxStep / this.totalSteps) * 70;
+    this.setProgress(pct);
+    this.setPhase('Building step ' + this.maxStep + '/' + this.totalSteps);
+    return;
+  }
+
+  // Detect exporting phase
+  if (/exporting to image/i.test(line)) {
+    this.activate();
+    this.setProgress(78);
+    this.setPhase('Exporting image');
+    return;
+  }
+
+  // Detect pushing phase
+  if (/pushing manifest/i.test(line) || /pushing layers/i.test(line)) {
+    this.activate();
+    this.setProgress(90);
+    this.setPhase('Pushing image');
+    return;
+  }
+
+  // Detect early setup phases (activate bar but low progress)
+  if (/load build definition/i.test(line) || /resolve image config/i.test(line)) {
+    this.activate();
+    this.setProgress(2);
+    this.setPhase('Resolving build');
+    return;
+  }
+};
+
+BuildProgressTracker.prototype.processDeployLine = function(line) {
+  for (var i = 0; i < this.deployPhases.length; i++) {
+    if (this.deployPhases[i].pattern.test(line)) {
+      this.activate();
+      this.setProgress(this.deployPhases[i].progress);
+      this.setPhase(this.deployPhases[i].label);
+      return;
+    }
+  }
+
+  // Activate on any log line if not yet activated
+  if (!this.activated && line.trim().length > 0) {
+    this.activate();
+    this.setProgress(2);
+    this.setPhase('Starting deployment');
+  }
+};
+
+BuildProgressTracker.prototype.complete = function() {
+  this.activate();
+  this.setProgress(100);
+  this.setPhase('Complete');
+};
+
 /* ---------- Init All ---------- */
 document.addEventListener('DOMContentLoaded', function() {
   initTabs();
