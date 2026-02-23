@@ -217,99 +217,66 @@
         </div>
       </div>
 
-      {# Processes (moved from right column) #}
-      {% if image.processes %}
-        <div class="card bg-base-200 border border-base-300">
-          <div class="card-body !p-4">
-            <div class="flex items-center justify-between mb-3">
-              <div class="flex items-center gap-1.5">
-                <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Processes</h2>
-                <div class="tooltip tooltip-right"
-                     data-tip="Defined in your Procfile. 'web' receives HTTP traffic. 'worker' runs background jobs. 'release' runs once per package build. 'postdeploy' runs once after each deploy.">
-                  {{ icon('info', 'w-3 h-3 text-base-content/25 cursor-help') }}
-                </div>
-              </div>
-              <button class="expand-btn"
-                      data-expand="processes-content"
-                      data-expand-title="Processes"
-                      title="Expand">
-                <svg class="w-3.5 h-3.5"
-                     viewBox="0 0 24 24"
-                     fill="none"
-                     stroke="currentColor"
-                     stroke-width="2">
-                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-                </svg>
-              </button>
-            </div>
-            <div id="processes-content">
-              <div class="flex flex-col gap-0">
-                {% for process, info in image.processes.items() %}
-                  <div class="flex items-start gap-3 py-2.5 {{ 'border-t border-base-content/5' if not loop.first }}">
-                    <code class="text-sm text-accent font-medium min-w-[5rem] pt-0.5">{{ process }}</code>
-                    <div class="flex-1 min-w-0">
-                      <code class="text-sm text-base-content/70 break-all">{{ info['cmd'] }}</code>
-                      {% if info.get('env') %}
-                        <div class="flex flex-wrap gap-1.5 mt-1.5">
-                          {% for item in info['env'] %}
-                            <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-base-300/60 text-xs font-mono text-base-content/50">{{ item[0] }}</span>
-                          {% endfor %}
-                        </div>
-                      {% endif %}
-                    </div>
-                  </div>
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-        </div>
-      {% endif %}
-
       {# Dockerfile + Procfile #}
       {% if image.dockerfile %}
-        <div class="card bg-base-200 border border-base-300">
-          <div class="card-body !p-4">
-            <div class="flex items-center justify-between mb-3">
+        <details class="card bg-base-200 border border-base-300 group"
+                 data-collapsible-card>
+          <summary class="!p-4 cursor-pointer">
+            <div class="flex items-center justify-between w-full">
               <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Dockerfile</h2>
-              <button class="expand-btn"
-                      data-expand="dockerfile-content"
-                      data-expand-title="Dockerfile"
-                      title="Expand">
-                <svg class="w-3.5 h-3.5"
-                     viewBox="0 0 24 24"
-                     fill="none"
-                     stroke="currentColor"
-                     stroke-width="2">
-                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-                </svg>
-              </button>
+              <div class="flex items-center gap-2">
+                <button class="expand-btn"
+                        data-expand="dockerfile-content"
+                        data-expand-title="Dockerfile"
+                        title="Expand"
+                        onclick="event.stopPropagation()">
+                  <svg class="w-3.5 h-3.5"
+                       viewBox="0 0 24 24"
+                       fill="none"
+                       stroke="currentColor"
+                       stroke-width="2">
+                    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                  </svg>
+                </button>
+                <span class="collapse-icon text-base-content/30">{{ icon('chevron-right', 'w-3.5 h-3.5') }}</span>
+              </div>
             </div>
+          </summary>
+          <div class="!px-4 !pb-4">
             <div id="dockerfile-content">
               <div class="code-block dockerfile-highlight !text-xs !leading-relaxed">
                 {{- image.dockerfile|trim|highlight_code("dockerfile") |safe -}}
               </div>
             </div>
           </div>
-        </div>
+        </details>
       {% endif %}
       {% if image.procfile %}
-        <div id="procfile-card" class="card bg-base-200 border border-base-300">
-          <div class="card-body !p-4">
-            <div class="flex items-center justify-between mb-3">
+        <details id="procfile-card"
+                 class="card bg-base-200 border border-base-300 group"
+                 data-collapsible-card>
+          <summary class="!p-4 cursor-pointer">
+            <div class="flex items-center justify-between w-full">
               <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Procfile</h2>
-              <button class="expand-btn"
-                      data-expand="procfile-content"
-                      data-expand-title="Procfile"
-                      title="Expand">
-                <svg class="w-3.5 h-3.5"
-                     viewBox="0 0 24 24"
-                     fill="none"
-                     stroke="currentColor"
-                     stroke-width="2">
-                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-                </svg>
-              </button>
+              <div class="flex items-center gap-2">
+                <button class="expand-btn"
+                        data-expand="procfile-content"
+                        data-expand-title="Procfile"
+                        title="Expand"
+                        onclick="event.stopPropagation()">
+                  <svg class="w-3.5 h-3.5"
+                       viewBox="0 0 24 24"
+                       fill="none"
+                       stroke="currentColor"
+                       stroke-width="2">
+                    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                  </svg>
+                </button>
+                <span class="collapse-icon text-base-content/30">{{ icon('chevron-right', 'w-3.5 h-3.5') }}</span>
+              </div>
             </div>
+          </summary>
+          <div class="!px-4 !pb-4">
             <div id="procfile-content">
               <div class="procfile-viewer">
                 {% for line in image.procfile.split('\n') %}
@@ -329,7 +296,7 @@
               </div>
             </div>
           </div>
-        </div>
+        </details>
       {% endif %}
 
       {# Image ID (if built) #}
@@ -358,8 +325,65 @@
       {% endif %}
     </div>
 
-    {# Right column: build log fills grid row height #}
-    <div class="lg:col-span-2 flex flex-col" id="log-column">
+    {# Right column: processes + build log #}
+    <div class="lg:col-span-2 flex flex-col gap-4" id="log-column">
+
+      {# Processes #}
+      {% if image.processes %}
+        <details class="card bg-base-200 border border-base-300 group"
+                 data-collapsible-card>
+          <summary class="!p-4 cursor-pointer">
+            <div class="flex items-center justify-between w-full">
+              <div class="flex items-center gap-1.5">
+                <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Processes</h2>
+                <div class="tooltip tooltip-right"
+                     data-tip="Defined in your Procfile. 'web' receives HTTP traffic. 'worker' runs background jobs. 'release' runs once per package build. 'postdeploy' runs once after each deploy."
+                     onclick="event.stopPropagation()">
+                  {{ icon('info', 'w-3 h-3 text-base-content/25 cursor-help') }}
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="expand-btn"
+                        data-expand="processes-content"
+                        data-expand-title="Processes"
+                        title="Expand"
+                        onclick="event.stopPropagation()">
+                  <svg class="w-3.5 h-3.5"
+                       viewBox="0 0 24 24"
+                       fill="none"
+                       stroke="currentColor"
+                       stroke-width="2">
+                    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                  </svg>
+                </button>
+                <span class="collapse-icon text-base-content/30">{{ icon('chevron-right', 'w-3.5 h-3.5') }}</span>
+              </div>
+            </div>
+          </summary>
+          <div class="!px-4 !pb-4">
+            <div id="processes-content">
+              <div class="flex flex-col gap-0">
+                {% for process, info in image.processes.items() %}
+                  <div class="flex items-start gap-3 py-2.5 {{ 'border-t border-base-content/5' if not loop.first }}">
+                    <code class="text-sm text-accent font-medium min-w-[5rem] pt-0.5">{{ process }}</code>
+                    <div class="flex-1 min-w-0">
+                      <code class="text-sm text-base-content/70 break-all">{{ info['cmd'] }}</code>
+                      {% if info.get('env') %}
+                        <div class="flex flex-wrap gap-1.5 mt-1.5">
+                          {% for item in info['env'] %}
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-base-300/60 text-xs font-mono text-base-content/50">{{ item[0] }}</span>
+                          {% endfor %}
+                        </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </details>
+      {% endif %}
+
       <div class="card bg-base-200 border border-base-300 flex-1 flex flex-col">
         <div class="card-body !p-4 flex-1 flex flex-col">
           <div class="flex items-center justify-between mb-3">
