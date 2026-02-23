@@ -397,8 +397,7 @@ function autoExpandCollapsibleCards() {
   if (window.innerWidth < 1024) return;
 
   var cards = left.querySelectorAll('details[data-collapsible-card]');
-  var rightCards = logCol.querySelectorAll('details[data-collapsible-card]');
-  if (!cards.length && !rightCards.length) return;
+  if (!cards.length) return;
 
   /* Measure right column natural height (sum of children) */
   var logHeight = getColumnNaturalHeight(logCol);
@@ -407,15 +406,6 @@ function autoExpandCollapsibleCards() {
   for (var i = 0; i < cards.length; i++) {
     if (getColumnNaturalHeight(left) >= logHeight) break;
     cards[i].open = true;
-  }
-
-  /* Also auto-expand right-column collapsible cards (e.g. Processes above log)
-     if there's plenty of log content to justify it */
-  var logViewer = document.querySelector('[data-log-viewer]');
-  if (logViewer && logViewer.scrollHeight > window.innerHeight * 0.5) {
-    for (var j = 0; j < rightCards.length; j++) {
-      rightCards[j].open = true;
-    }
   }
 }
 
