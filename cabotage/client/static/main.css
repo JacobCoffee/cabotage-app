@@ -1048,7 +1048,11 @@ a.pipeline-stage-body:hover {
 .build-log-viewer::-webkit-scrollbar-thumb,
 .deploy-log-viewer::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
 
-/* Primary image log sizing is set by page script on desktop. */
+/* Primary log viewer: removes max-height cap so flex-1 fills the card */
+.build-log-viewer-primary {
+  max-height: none;
+  min-height: 20rem;
+}
 
 /* Log waiting placeholder */
 .log-placeholder {
