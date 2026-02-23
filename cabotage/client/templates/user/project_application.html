@@ -420,27 +420,27 @@
               {% set count = application.process_counts.get(process_name, 0) %}
               {% set pod_class = application.process_pod_classes.get(process_name, DEFAULT_POD_CLASS) %}
               <div class="process-card {{ 'process-card-active' if count > 0 else 'process-card-idle' }}">
-                <div class="flex items-center justify-between mb-2">
-                  <div class="flex items-center gap-1.5">
-                    {% if count > 0 %}
-                      <span class="status-dot status-dot-success flex-shrink-0"
-                            style="width:6px;
-                                   height:6px"></span>
-                    {% else %}
-                      <span class="status-dot status-dot-neutral flex-shrink-0"
-                            style="width:6px;
-                                   height:6px;
-                                   opacity:0.3"></span>
-                    {% endif %}
-                    <code class="text-sm text-accent font-semibold">{{ process_name }}</code>
-                  </div>
+                <div class="process-name">
                   {% if count > 0 %}
-                    <div class="flex gap-0.5">
-                      {% for i in range(count) %}<div class="pod-dot" style="width:4px;height:4px"></div>{% endfor %}
-                    </div>
+                    <span class="status-dot status-dot-success flex-shrink-0"
+                          style="width:6px;
+                                 height:6px"></span>
+                  {% else %}
+                    <span class="status-dot status-dot-neutral flex-shrink-0"
+                          style="width:6px;
+                                 height:6px;
+                                 opacity:0.3"></span>
                   {% endif %}
+                  <code class="text-sm text-accent font-semibold">{{ process_name }}</code>
                 </div>
-                <div class="flex items-center gap-2">
+                {% if count > 0 %}
+                  <div class="pod-dots">
+                    {% for i in range(count) %}<div class="pod-dot" style="width:4px;height:4px"></div>{% endfor %}
+                  </div>
+                {% else %}
+                  <div class="pod-dots"></div>
+                {% endif %}
+                <div class="process-controls">
                   <div class="count-input">
                     <a class="incr-btn" data-action="decrease" href="#">-</a>
                     <input class="quantity"
@@ -449,8 +449,9 @@
                            value="{{ count }}" />
                     <a class="incr-btn" data-action="increase" href="#">+</a>
                   </div>
-                  <select class="select select-bordered select-xs bg-base-300 text-base-content border-base-content/10 pod-size text-xs flex-1 min-w-0"
-                          name="process-pod-class-{{ process_name }}">
+                  <select class="select select-bordered select-xs bg-base-300 text-base-content border-base-content/10 pod-size text-xs"
+                          name="process-pod-class-{{ process_name }}"
+                          style="width: 8rem">
                     <option value="{{ pod_class }}" selected hidden>{{ pod_class }}</option>
                     {% for class in pod_classes.keys() %}<option value="{{ class }}">{{ class }}</option>{% endfor %}
                   </select>
