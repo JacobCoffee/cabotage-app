@@ -484,12 +484,81 @@ def project_application_logs(org_slug, project_slug, app_slug):
     if not ViewApplicationPermission(application.id).can():
         abort(403)
 
+    images = application.images.order_by(Image.version.desc()).limit(5).all()
+    releases = application.releases.order_by(Release.version.desc()).limit(5).all()
+    deployments = (
+        application.deployments.order_by(Deployment.created.desc()).limit(5).all()
+    )
+
     return render_template(
         "user/project_application_logs.html",
         application=application,
         org_slug=org_slug,
         project_slug=project_slug,
         app_slug=app_slug,
+        images=images,
+        releases=releases,
+        deployments=deployments,
+    )
+
+
+@user_blueprint.route("/api/image/<image_id>/log")
+@login_required
+def api_image_log(image_id):
+    image = Image.query.filter_by(id=image_id).first_or_404()
+    if not ViewApplicationPermission(image.application.id).can():
+        abort(403)
+    status = "error" if image.error else ("built" if image.built else "building")
+    return jsonify(
+        {
+            "status": status,
+            "version": image.version,
+            "log_text": image.image_build_log or "",
+            "error": image.error,
+            "error_detail": image.error_detail,
+        }
+    )
+
+
+@user_blueprint.route("/api/release/<release_id>/log")
+@login_required
+def api_release_log(release_id):
+    release = Release.query.filter_by(id=release_id).first_or_404()
+    if not ViewApplicationPermission(release.application.id).can():
+        abort(403)
+    status = "error" if release.error else ("built" if release.built else "building")
+    return jsonify(
+        {
+            "status": status,
+            "version": release.version,
+            "log_text": release.release_build_log or "",
+            "error": release.error,
+            "error_detail": release.error_detail,
+        }
+    )
+
+
+@user_blueprint.route("/api/deployment/<deployment_id>/log")
+@login_required
+def api_deployment_log(deployment_id):
+    deployment = Deployment.query.filter_by(id=deployment_id).first_or_404()
+    if not ViewApplicationPermission(deployment.application.id).can():
+        abort(403)
+    status = (
+        "error"
+        if deployment.error
+        else ("complete" if deployment.complete else "deploying")
+    )
+    release_obj = deployment.release_object
+    version = release_obj.version if release_obj else None
+    return jsonify(
+        {
+            "status": status,
+            "version": version,
+            "log_text": deployment.deploy_log or "",
+            "error": deployment.error,
+            "error_detail": deployment.error_detail,
+        }
     )
 
 

@@ -158,15 +158,6 @@
         icon_name='globe') }}
   </div>
 
-  {# ===== Data attributes for JS ===== #}
-  <script id="logs-config" type="application/json">
-    {
-      "wsBase": "{{ url_for('user.project_application_logs', org_slug=org_slug, project_slug=project_slug, app_slug=app_slug) }}",
-      "imageIds": {{ images|map(attribute='id')|list|tojson }},
-      "releaseIds": {{ releases|map(attribute='id')|list|tojson }},
-      "deploymentIds": {{ deployments|map(attribute='id')|list|tojson }}
-    }
-  </script>
 {% endblock content %}
 
 {% block js %}

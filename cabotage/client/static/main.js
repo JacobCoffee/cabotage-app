@@ -39,9 +39,19 @@ function initTabs(containerSelector) {
     tabs.forEach(function(t) {
       t.classList.toggle('tab-active', t.getAttribute('data-tab') === tabId);
     });
+
+    // Emit lifecycle events before toggling visibility
     panels.forEach(function(p) {
-      p.classList.toggle('tab-panel-active', p.getAttribute('data-tab-panel') === tabId);
+      var panelId = p.getAttribute('data-tab-panel');
+      if (panelId === tabId) {
+        p.classList.add('tab-panel-active');
+        p.dispatchEvent(new CustomEvent('tab-activated'));
+      } else if (p.classList.contains('tab-panel-active')) {
+        p.dispatchEvent(new CustomEvent('tab-deactivated'));
+        p.classList.remove('tab-panel-active');
+      }
     });
+
     // Update URL hash without scrolling
     if (history.replaceState) {
       history.replaceState(null, null, '#' + tabId);
