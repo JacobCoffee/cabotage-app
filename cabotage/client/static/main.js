@@ -379,6 +379,46 @@ function initExpandModal() {
 }
 
 /* ---------- Detail Log Height Sync ---------- */
+function getColumnNaturalHeight(col) {
+  var children = col.children;
+  var gap = parseFloat(getComputedStyle(col).rowGap) || 16;
+  var h = 0;
+  for (var i = 0; i < children.length; i++) {
+    h += children[i].offsetHeight;
+  }
+  h += gap * Math.max(0, children.length - 1);
+  return h;
+}
+
+function autoExpandCollapsibleCards() {
+  var left = document.querySelector('[data-log-left]');
+  var logCol = document.getElementById('log-column');
+  if (!left || !logCol) return;
+  if (window.innerWidth < 1024) return;
+
+  var cards = left.querySelectorAll('details[data-collapsible-card]');
+  var rightCards = logCol.querySelectorAll('details[data-collapsible-card]');
+  if (!cards.length && !rightCards.length) return;
+
+  /* Measure right column natural height (sum of children) */
+  var logHeight = getColumnNaturalHeight(logCol);
+
+  /* Open left-column cards one by one while left is shorter than right */
+  for (var i = 0; i < cards.length; i++) {
+    if (getColumnNaturalHeight(left) >= logHeight) break;
+    cards[i].open = true;
+  }
+
+  /* Also auto-expand right-column collapsible cards (e.g. Processes above log)
+     if there's plenty of log content to justify it */
+  var logViewer = document.querySelector('[data-log-viewer]');
+  if (logViewer && logViewer.scrollHeight > window.innerHeight * 0.5) {
+    for (var j = 0; j < rightCards.length; j++) {
+      rightCards[j].open = true;
+    }
+  }
+}
+
 function syncDetailLogHeight() {
   var left = document.querySelector('[data-log-left]');
   var logViewer = document.querySelector('[data-log-viewer]');
@@ -387,15 +427,7 @@ function syncDetailLogHeight() {
     logViewer.style.maxHeight = '';
     return;
   }
-  /* Sum children heights to get natural left-column height
-     (left.offsetHeight is unreliable because the grid stretches it) */
-  var children = left.children;
-  var gap = parseFloat(getComputedStyle(left).rowGap) || 16;
-  var naturalH = 0;
-  for (var i = 0; i < children.length; i++) {
-    naturalH += children[i].offsetHeight;
-  }
-  naturalH += gap * Math.max(0, children.length - 1);
+  var naturalH = getColumnNaturalHeight(left);
   var minH = window.innerHeight * 0.7;
   var cardPad = 32; /* card-body !p-4 top+bottom */
   var headerH = 48; /* log header row approx */
@@ -534,6 +566,10 @@ document.addEventListener('DOMContentLoaded', function() {
   initRawEditor();
   initAddVarModal();
   initExpandModal();
+  autoExpandCollapsibleCards();
   syncDetailLogHeight();
-  window.addEventListener('resize', syncDetailLogHeight);
+  window.addEventListener('resize', function() {
+    autoExpandCollapsibleCards();
+    syncDetailLogHeight();
+  });
 });
