@@ -670,7 +670,7 @@ class Configuration(db.Model, Timestamp):
         nullable=False,
     )
     value = db.Column(
-        db.String(2048),
+        db.Text(),
         nullable=False,
     )
     key_slug = db.Column(
