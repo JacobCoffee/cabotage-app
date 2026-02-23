@@ -1,6 +1,10 @@
+import logging
+
 from flask import g
 
 import kubernetes
+
+logger = logging.getLogger(__name__)
 
 
 class Kubernetes(object):
@@ -19,7 +23,10 @@ class Kubernetes(object):
                 )
             except Exception:
                 if app.config["KUBERNETES_ENABLED"]:
-                    raise
+                    logger.warning(
+                        "KUBERNETES_ENABLED=True but no kubeconfig available; "
+                        "Kubernetes API calls will fail at runtime."
+                    )
 
         app.teardown_appcontext(self.teardown)
 

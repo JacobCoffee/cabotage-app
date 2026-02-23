@@ -1,12 +1,15 @@
 import base64
 import hashlib
 import hmac
+import logging
 import time
 
 import requests
 import jwt
 
 from flask import request
+
+logger = logging.getLogger(__name__)
 
 
 def _load_private_key(pem_data):
@@ -88,10 +91,17 @@ class GitHubApp(object):
         # Support loading key from file (GITHUB_APP_KEY_FILE) or base64 env var
         key_file = app.config.get("GITHUB_APP_KEY_FILE")
         if key_file:
-            with open(key_file, "rb") as f:
-                pem_data = f.read()
-            self.app_private_key_pem = pem_data.decode()
-            self._private_key_obj = _load_private_key(pem_data)
+            try:
+                with open(key_file, "rb") as f:
+                    pem_data = f.read()
+                self.app_private_key_pem = pem_data.decode()
+                self._private_key_obj = _load_private_key(pem_data)
+            except FileNotFoundError:
+                logger.warning(
+                    "GITHUB_APP_KEY_FILE=%s not found; "
+                    "GitHub App integration will be unavailable.",
+                    key_file,
+                )
         elif app.config["GITHUB_APP_PRIVATE_KEY"]:
             try:
                 pem_data = base64.b64decode(app.config["GITHUB_APP_PRIVATE_KEY"])
