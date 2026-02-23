@@ -367,5 +367,45 @@
     {% endif %}
     {% block js %}
     {% endblock js %}
+    {# ===== Global Expand Modal ===== #}
+    <div id="expand-modal" class="raw-editor-modal hidden">
+      <div class="raw-editor-backdrop"></div>
+      <div class="raw-editor-dialog"
+           style="max-width: 56rem;
+                  max-height: 85vh;
+                  display: flex;
+                  flex-direction: column">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="expand-modal-title text-base font-semibold text-base-content"></h3>
+          <div class="flex items-center gap-2">
+            <button class="expand-modal-copy btn btn-ghost btn-xs gap-1 text-base-content/40 hover:text-base-content">
+              <svg class="w-3 h-3"
+                   viewBox="0 0 24 24"
+                   fill="none"
+                   stroke="currentColor"
+                   stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+              </svg>
+              Copy
+            </button>
+            <button class="expand-modal-close btn btn-ghost btn-sm btn-circle">
+              <svg class="w-4 h-4"
+                   viewBox="0 0 24 24"
+                   fill="none"
+                   stroke="currentColor"
+                   stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="expand-modal-body overflow-auto flex-1 text-sm font-mono"
+             style="white-space: pre-wrap;
+                    word-break: break-all;
+                    line-height: 1.6"></div>
+      </div>
+    </div>
+
   </body>
 </html>

@@ -323,6 +323,61 @@ function initAddVarModal() {
   }
 }
 
+/* ---------- Expand Modal ---------- */
+function initExpandModal() {
+  var modal = document.getElementById('expand-modal');
+  if (!modal) return;
+
+  var titleEl = modal.querySelector('.expand-modal-title');
+  var bodyEl = modal.querySelector('.expand-modal-body');
+  var copyBtn = modal.querySelector('.expand-modal-copy');
+  var closeBtn = modal.querySelector('.expand-modal-close');
+  var backdrop = modal.querySelector('.raw-editor-backdrop');
+
+  function openModal(title, content) {
+    titleEl.textContent = title;
+    bodyEl.innerHTML = content;
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (backdrop) backdrop.addEventListener('click', closeModal);
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+      closeModal();
+    }
+  });
+
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function() {
+      var text = bodyEl.textContent;
+      navigator.clipboard.writeText(text).then(function() {
+        var orig = copyBtn.innerHTML;
+        copyBtn.textContent = 'Copied!';
+        setTimeout(function() { copyBtn.innerHTML = orig; }, 1500);
+      });
+    });
+  }
+
+  // Bind all expand buttons
+  document.querySelectorAll('[data-expand]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var targetId = btn.getAttribute('data-expand');
+      var target = document.getElementById(targetId);
+      if (!target) return;
+      var title = btn.getAttribute('data-expand-title') || 'Details';
+      openModal(title, target.innerHTML);
+    });
+  });
+}
+
 /* ---------- Init All ---------- */
 document.addEventListener('DOMContentLoaded', function() {
   initTabs();
@@ -333,4 +388,5 @@ document.addEventListener('DOMContentLoaded', function() {
   initThemeToggle();
   initRawEditor();
   initAddVarModal();
+  initExpandModal();
 });

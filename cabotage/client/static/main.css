@@ -416,23 +416,6 @@ html:not([data-theme-pref]) .theme-icon-system { display: block !important; }
   margin-top: 0.125rem;
 }
 
-/* ---------- Diff / Changes Alert ---------- */
-.changes-banner {
-  background: var(--hover-overlay-strong);
-  border: 1px solid rgba(124, 58, 237, 0.15);
-  border-radius: 0.75rem;
-  padding: 1rem 1.25rem;
-}
-.diff-line {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8125rem;
-  padding: 0.125rem 0;
-}
-.diff-add { color: #22c55e; }
-.diff-change { color: #3b82f6; }
-.diff-remove { color: #ef4444; }
 
 /* ---------- Collapsible Sections ---------- */
 details summary { cursor: pointer; list-style: none; display: flex; align-items: center; }
@@ -771,66 +754,112 @@ a.pipeline-stage-body:hover {
   gap: 0.25rem;
 }
 
-/* ---------- Diff Summary (pending changes) ---------- */
-.diff-stat {
+/* ---------- Change Summary (pending changes) ---------- */
+.change-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
-  color: var(--text-muted);
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  gap: 0.3rem;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 999px;
   font-size: 0.6875rem;
-  letter-spacing: 0.01em;
+  font-weight: 500;
+  line-height: 1.4;
 }
-.diff-added { color: rgba(34, 197, 94, 0.8); font-weight: 600; }
-.diff-modified { color: rgba(59, 130, 246, 0.8); font-weight: 600; }
-.diff-removed { color: rgba(239, 68, 68, 0.8); font-weight: 600; }
-.diff-toggle {
+.change-pill-image {
+  background: rgba(59, 130, 246, 0.08);
+  color: rgba(59, 130, 246, 0.85);
+}
+.change-pill-config {
+  background: rgba(124, 58, 237, 0.08);
+  color: rgba(124, 58, 237, 0.85);
+}
+.change-details-toggle {
   all: unset;
   cursor: pointer;
-  font-size: 0.625rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
   color: var(--text-faintest);
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-underline-offset: 2px;
   transition: color 0.15s ease;
 }
-.diff-toggle:hover { color: var(--accent-text); }
-.diff-detail {
+.change-details-toggle:hover { color: var(--accent-text); }
+.change-details-chevron { transition: transform 0.2s ease; }
+.changes-summary:has(.change-details-open) .change-details-chevron {
+  transform: rotate(90deg);
+}
+.change-details {
   display: grid;
   grid-template-rows: 0fr;
   transition: grid-template-rows 0.2s ease;
 }
-.diff-detail > * { overflow: hidden; }
-.diff-detail-open { grid-template-rows: 1fr; }
-.diff-section {
+.change-details-inner { overflow: hidden; }
+.change-details-open { grid-template-rows: 1fr; }
+.change-group {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
   margin-top: 0.5rem;
-  border-radius: 0.375rem;
-  overflow: hidden;
 }
-.diff-line {
-  display: block;
-  padding: 0.1875rem 0.5rem;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+.change-group-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faintest);
+  margin-right: 0.125rem;
+}
+.change-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.4375rem;
+  border-radius: 0.25rem;
   font-size: 0.625rem;
   line-height: 1.5;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-.diff-line-added {
+.change-item code {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  font-size: inherit;
+}
+.change-item em {
+  font-style: normal;
+  opacity: 0.55;
+}
+.change-item-added {
   background: rgba(34, 197, 94, 0.06);
-  color: rgba(34, 197, 94, 0.7);
+  color: rgba(34, 197, 94, 0.8);
 }
-.diff-line-modified {
+.change-item-updated {
   background: rgba(59, 130, 246, 0.06);
-  color: rgba(59, 130, 246, 0.7);
+  color: rgba(59, 130, 246, 0.8);
 }
-.diff-line-removed {
+.change-item-removed {
   background: rgba(239, 68, 68, 0.06);
-  color: rgba(239, 68, 68, 0.7);
+  color: rgba(239, 68, 68, 0.8);
+  text-decoration: line-through;
+  text-decoration-color: rgba(239, 68, 68, 0.25);
+}
+
+/* ---------- Expand Button ---------- */
+.expand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.25rem;
+  color: var(--text-faintest);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+  flex-shrink: 0;
+}
+.expand-btn:hover {
+  color: var(--accent-text);
+  background: var(--hover-overlay);
 }
 
 /* ---------- Raw Editor Modal ---------- */
