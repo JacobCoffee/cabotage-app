@@ -264,8 +264,8 @@ html:not([data-theme-pref]) .theme-icon-system { display: block !important; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 1.75rem;
+  height: 1.75rem;
   background: transparent;
   border: none;
   color: var(--text-bright);
@@ -277,10 +277,10 @@ html:not([data-theme-pref]) .theme-icon-system { display: block !important; }
 .count-input .incr-btn:hover { background: rgba(124, 58, 237, 0.15); }
 .count-input .incr-btn.inactive { opacity: 0.3; pointer-events: none; }
 .count-input .quantity {
-  width: 2.5rem;
+  width: 2rem;
   text-align: center;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   background: transparent;
   color: var(--text-bright);
   border: none;
@@ -527,26 +527,28 @@ details[open] summary .collapse-icon { transform: rotate(90deg); }
   border: 1px solid var(--border-color);
 }
 
-/* ---------- Process Table (compact overview) ---------- */
-.process-table {
-  display: flex;
-  flex-direction: column;
+/* ---------- Process Grid (compact cards) ---------- */
+.process-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.5rem;
 }
-.process-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 1rem;
-  border-bottom: 1px solid var(--border-color-subtle);
-  transition: background 0.1s ease;
+.process-card {
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color);
+  background: var(--surface-card);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.process-row:last-child { border-bottom: none; }
-.process-row:hover { background: var(--hover-overlay); }
-@media (max-width: 639px) {
-  .process-row {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
+.process-card:hover {
+  border-color: var(--border-color-hover, rgba(124, 58, 237, 0.25));
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+.process-card-idle {
+  opacity: 0.55;
+}
+.process-card-idle:hover {
+  opacity: 0.8;
 }
 
 /* ---------- Pipeline Row ---------- */
