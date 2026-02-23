@@ -13,6 +13,7 @@ import kubernetes
 import toml
 
 from kubernetes.client.rest import ApiException
+from sqlalchemy.orm.attributes import flag_modified
 
 from tempfile import (
     TemporaryDirectory,
@@ -464,14 +465,33 @@ def _is_imposter_commit(github_repository="owner/repo", *, ref, sha, access_toke
 def _fetch_commit_sha_for_ref(
     github_repository="owner/repo", ref="main", access_token=None
 ):
+    logger.info(
+        "Resolving ref %r in %s (token=%s)",
+        ref,
+        github_repository,
+        f"{access_token[:8]}..." if access_token else None,
+    )
     g = Github(access_token)
     try:
         sha = g.get_repo(github_repository).get_commit(ref).sha
     except GithubException as e:
         if e.status == 404:
+            logger.warning("Ref %r not found (404) in %s", ref, github_repository)
             return None
+        logger.exception(
+            "GithubException (status=%s) resolving ref %r in %s",
+            e.status,
+            ref,
+            github_repository,
+        )
+        raise
     except UnknownObjectException:
+        logger.warning(
+            "UnknownObjectException for ref %r in %s", ref, github_repository
+        )
         return None
+
+    logger.info("Resolved ref %r to SHA %s", ref, sha)
 
     if _is_imposter_commit(
         github_repository=github_repository, ref=ref, sha=sha, access_token=access_token
@@ -568,6 +588,7 @@ def build_image_buildkit(image=None):
             image.image_metadata = {"sha": commit_sha}
         else:
             image.image_metadata["sha"] = commit_sha
+        flag_modified(image, "image_metadata")
 
     def git_ref(repository, sha):
         ref = f"https://x-access-token@github.com/{image.application.github_repository}.git#{image.commit_sha}"
