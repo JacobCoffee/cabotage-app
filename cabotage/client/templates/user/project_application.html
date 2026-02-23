@@ -423,23 +423,16 @@
                 <div class="process-name">
                   {% if count > 0 %}
                     <span class="status-dot status-dot-success flex-shrink-0"
-                          style="width:6px;
-                                 height:6px"></span>
+                          style="width:5px;
+                                 height:5px"></span>
                   {% else %}
                     <span class="status-dot status-dot-neutral flex-shrink-0"
-                          style="width:6px;
-                                 height:6px;
-                                 opacity:0.3"></span>
+                          style="width:5px;
+                                 height:5px;
+                                 opacity:0.25"></span>
                   {% endif %}
-                  <code class="text-sm text-accent font-semibold">{{ process_name }}</code>
+                  <code class="text-xs text-accent font-semibold">{{ process_name }}</code>
                 </div>
-                {% if count > 0 %}
-                  <div class="pod-dots">
-                    {% for i in range(count) %}<div class="pod-dot" style="width:4px;height:4px"></div>{% endfor %}
-                  </div>
-                {% else %}
-                  <div class="pod-dots"></div>
-                {% endif %}
                 <div class="process-controls">
                   <div class="count-input">
                     <a class="incr-btn" data-action="decrease" href="#">-</a>
@@ -451,7 +444,7 @@
                   </div>
                   <select class="select select-bordered select-xs bg-base-300 text-base-content border-base-content/10 pod-size text-xs"
                           name="process-pod-class-{{ process_name }}"
-                          style="width: 8rem">
+                          style="width: 7.5rem">
                     <option value="{{ pod_class }}" selected hidden>{{ pod_class }}</option>
                     {% for class in pod_classes.keys() %}<option value="{{ class }}">{{ class }}</option>{% endfor %}
                   </select>
