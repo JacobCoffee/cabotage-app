@@ -140,7 +140,7 @@
   {# ===== PACKAGE DETAILS GRID ===== #}
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
 
-    {# Left column: metadata #}
+    {# Left column: metadata, environment, processes #}
     <div class="lg:col-span-1 flex flex-col gap-4">
 
       {# Package Info #}
@@ -247,20 +247,6 @@
         </div>
       </div>
 
-      {# Build trigger info #}
-      {% if release.release_metadata and release.release_metadata.get('description') %}
-        <div class="card bg-base-200 border border-base-300">
-          <div class="card-body !p-4">
-            <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Trigger</h2>
-            <p class="text-sm text-base-content/70">{{ release.release_metadata.get("description") }}</p>
-          </div>
-        </div>
-      {% endif %}
-    </div>
-
-    {# Right column: environment, processes, build log #}
-    <div class="lg:col-span-2 flex flex-col gap-4">
-
       {# Environment Variables #}
       {% if release.configuration_objects %}
         <div class="card bg-base-200 border border-base-300">
@@ -314,9 +300,23 @@
         </div>
       {% endif %}
 
+      {# Build trigger info #}
+      {% if release.release_metadata and release.release_metadata.get('description') %}
+        <div class="card bg-base-200 border border-base-300">
+          <div class="card-body !p-4">
+            <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Trigger</h2>
+            <p class="text-sm text-base-content/70">{{ release.release_metadata.get("description") }}</p>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    {# Right column: build log + dockerfile (stretches to match left) #}
+    <div class="lg:col-span-2 flex flex-col gap-4">
+
       {# Build Log #}
-      <div class="card bg-base-200 border border-base-300">
-        <div class="card-body !p-4">
+      <div class="card bg-base-200 border border-base-300 flex-1 flex flex-col">
+        <div class="card-body !p-4 flex-1 flex flex-col">
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Build Log</h2>
             {% if release.release_build_log %}
@@ -328,7 +328,7 @@
               </button>
             {% endif %}
           </div>
-          <div class="build-log-viewer" id="buildLog">
+          <div class="build-log-viewer flex-1" id="buildLog">
             {%- if release.release_build_log and release.release_build_log != 'None' -%}
               {{ release.release_build_log }}
             {%- else -%}
