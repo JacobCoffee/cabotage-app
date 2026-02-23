@@ -108,7 +108,9 @@
         {% endif %}
       </select>
     </div>
-    <div id="build-error-banner" class="alert alert-error mb-3 hidden">
+    <div id="build-error-banner"
+         class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-error/10 border border-error/20 text-error text-sm mb-3 hidden">
+      {{ icon('alert-triangle', 'w-4 h-4 flex-shrink-0') }}
       <span id="build-error-text"></span>
     </div>
     <div class="flex items-center justify-end mb-2">
@@ -138,7 +140,9 @@
         {% endfor %}
       </select>
     </div>
-    <div id="deploy-error-banner" class="alert alert-error mb-3 hidden">
+    <div id="deploy-error-banner"
+         class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-error/10 border border-error/20 text-error text-sm mb-3 hidden">
+      {{ icon('alert-triangle', 'w-4 h-4 flex-shrink-0') }}
       <span id="deploy-error-text"></span>
     </div>
     <div class="flex items-center justify-end mb-2">

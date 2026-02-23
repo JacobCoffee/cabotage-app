@@ -121,7 +121,7 @@
   {% endif %}
 
   {# ===== BUILD DETAILS GRID ===== #}
-  <div class="grid grid-cols-1 lg:grid-cols-3 {{ '' if image.procfile else 'lg:items-start' }} gap-4 mb-6">
+  <div class="grid grid-cols-1 lg:grid-cols-3 lg:items-start gap-4 mb-6">
 
     {# Left column: metadata #}
     <div id="build-left-column" class="lg:col-span-1 flex flex-col gap-4">
@@ -216,6 +216,121 @@
         </div>
       </div>
 
+      {# Processes (moved from right column) #}
+      {% if image.processes %}
+        <div class="card bg-base-200 border border-base-300">
+          <div class="card-body !p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-1.5">
+                <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Processes</h2>
+                <div class="tooltip tooltip-right"
+                     data-tip="Defined in your Procfile. 'web' receives HTTP traffic. 'worker' runs background jobs. 'release' runs once per package build. 'postdeploy' runs once after each deploy.">
+                  {{ icon('info', 'w-3 h-3 text-base-content/25 cursor-help') }}
+                </div>
+              </div>
+              <button class="expand-btn"
+                      data-expand="processes-content"
+                      data-expand-title="Processes"
+                      title="Expand">
+                <svg class="w-3.5 h-3.5"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                </svg>
+              </button>
+            </div>
+            <div id="processes-content">
+              <div class="flex flex-col gap-0">
+                {% for process, info in image.processes.items() %}
+                  <div class="flex items-start gap-3 py-2.5 {{ 'border-t border-base-content/5' if not loop.first }}">
+                    <code class="text-sm text-accent font-medium min-w-[5rem] pt-0.5">{{ process }}</code>
+                    <div class="flex-1 min-w-0">
+                      <code class="text-sm text-base-content/70 break-all">{{ info['cmd'] }}</code>
+                      {% if info.get('env') %}
+                        <div class="flex flex-wrap gap-1.5 mt-1.5">
+                          {% for item in info['env'] %}
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-base-300/60 text-xs font-mono text-base-content/50">{{ item[0] }}</span>
+                          {% endfor %}
+                        </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      {# Dockerfile + Procfile #}
+      {% if image.dockerfile %}
+        <div class="card bg-base-200 border border-base-300">
+          <div class="card-body !p-4">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Dockerfile</h2>
+              <button class="expand-btn"
+                      data-expand="dockerfile-content"
+                      data-expand-title="Dockerfile"
+                      title="Expand">
+                <svg class="w-3.5 h-3.5"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                </svg>
+              </button>
+            </div>
+            <div id="dockerfile-content">
+              <div class="code-block dockerfile-highlight !text-xs !leading-relaxed">
+                {{- image.dockerfile|trim|highlight_code("dockerfile") |safe -}}
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+      {% if image.procfile %}
+        <div id="procfile-card" class="card bg-base-200 border border-base-300">
+          <div class="card-body !p-4">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Procfile</h2>
+              <button class="expand-btn"
+                      data-expand="procfile-content"
+                      data-expand-title="Procfile"
+                      title="Expand">
+                <svg class="w-3.5 h-3.5"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                </svg>
+              </button>
+            </div>
+            <div id="procfile-content">
+              <div class="procfile-viewer">
+                {% for line in image.procfile.split('\n') %}
+                  {% if line and ':' in line %}
+                    {% set parts = line.split(':', 1) %}
+                    <div class="procfile-line">
+                      <span class="procfile-service">{{ parts[0].strip() }}</span>
+                      <span class="procfile-sep">:</span>
+                      <span class="procfile-command">{{ parts[1].strip() }}</span>
+                    </div>
+                  {% elif line %}
+                    <div class="procfile-line procfile-line-raw">{{ line }}</div>
+                  {% else %}
+                    <div class="procfile-line">&nbsp;</div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
       {# Image ID (if built) #}
       {% if image.image_id %}
         <div class="card bg-base-200 border border-base-300">
@@ -240,83 +355,13 @@
           </div>
         </div>
       {% endif %}
-
-      {# Dockerfile + Procfile moved left so logs stay primary on the right #}
-      {% if image.dockerfile or image.procfile %}
-        <div class="flex flex-col gap-4">
-          {% if image.dockerfile %}
-            <div class="card bg-base-200 border border-base-300">
-              <div class="card-body !p-4">
-                <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Dockerfile</h2>
-                <div class="code-block dockerfile-highlight !text-xs !leading-relaxed">
-                  {{- image.dockerfile|trim|highlight_code("dockerfile") |safe -}}
-                </div>
-              </div>
-            </div>
-          {% endif %}
-          {% if image.procfile %}
-            <div id="procfile-card" class="card bg-base-200 border border-base-300">
-              <div class="card-body !p-4">
-                <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Procfile</h2>
-                <div class="procfile-viewer">
-                  {% for line in image.procfile.split('\n') %}
-                    {% if line and ':' in line %}
-                      {% set parts = line.split(':', 1) %}
-                      <div class="procfile-line">
-                        <span class="procfile-service">{{ parts[0].strip() }}</span>
-                        <span class="procfile-sep">:</span>
-                        <span class="procfile-command">{{ parts[1].strip() }}</span>
-                      </div>
-                    {% elif line %}
-                      <div class="procfile-line procfile-line-raw">{{ line }}</div>
-                    {% else %}
-                      <div class="procfile-line">&nbsp;</div>
-                    {% endif %}
-                  {% endfor %}
-                </div>
-              </div>
-            </div>
-          {% endif %}
-        </div>
-      {% endif %}
     </div>
 
-    {# Right column: processes + log #}
-    <div class="lg:col-span-2 flex flex-col gap-4 {{ 'lg:min-h-full' if image.procfile else '' }}">
-      {# Processes (shown prominently when built) #}
-      {% if image.processes %}
-        <div class="card bg-base-200 border border-base-300">
-          <div class="card-body !p-4">
-            <div class="flex items-center gap-1.5 mb-3">
-              <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Processes</h2>
-              <div class="tooltip tooltip-right"
-                   data-tip="Defined in your Procfile. 'web' receives HTTP traffic. 'worker' runs background jobs. 'release' runs once per package build. 'postdeploy' runs once after each deploy.">
-                {{ icon('info', 'w-3 h-3 text-base-content/25 cursor-help') }}
-              </div>
-            </div>
-            <div class="flex flex-col gap-0">
-              {% for process, info in image.processes.items() %}
-                <div class="flex items-start gap-3 py-2.5 {{ 'border-t border-base-content/5' if not loop.first }}">
-                  <code class="text-sm text-accent font-medium min-w-[5rem] pt-0.5">{{ process }}</code>
-                  <div class="flex-1 min-w-0">
-                    <code class="text-sm text-base-content/70 break-all">{{ info['cmd'] }}</code>
-                    {% if info.get('env') %}
-                      <div class="flex flex-wrap gap-1.5 mt-1.5">
-                        {% for item in info['env'] %}
-                          <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-base-300/60 text-xs font-mono text-base-content/50">{{ item[0] }}</span>
-                        {% endfor %}
-                      </div>
-                    {% endif %}
-                  </div>
-                </div>
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-      {% endif %}
-
-      <div class="card bg-base-200 border border-base-300">
-        <div class="card-body !p-4">
+    {# Right column: build log — sticky so it stays visible past long left column #}
+    <div class="lg:col-span-2">
+      <div class="lg:sticky lg:top-4 card bg-base-200 border border-base-300 flex flex-col"
+           style="max-height: calc(100vh - 2rem)">
+        <div class="card-body !p-4 flex-1 flex flex-col">
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Build Log</h2>
             {% if image.image_build_log %}
@@ -378,39 +423,8 @@
 
 {% block js %}
   <script>
-  function syncBuildLogHeight() {
-    var anchorEl = document.getElementById('procfile-card');
-    var logEl = document.getElementById('buildLog');
-    if (!logEl) return;
-    if (!anchorEl) {
-      logEl.style.height = '';
-      logEl.style.maxHeight = '';
-      return;
-    }
-
-    if (window.innerWidth < 1024) {
-      logEl.style.height = '';
-      logEl.style.maxHeight = '';
-      return;
-    }
-
-    var leftCol = document.getElementById('build-left-column');
-    var logCard = logEl.closest('.card');
-    var leftBottom = leftCol.getBoundingClientRect().bottom;
-    var logRect = logEl.getBoundingClientRect();
-    var cardBottom = logCard.getBoundingClientRect().bottom;
-    var paddingBelow = cardBottom - logRect.bottom;
-    var available = Math.floor(leftBottom - logRect.top - paddingBelow);
-    if (available > 120) {
-      logEl.style.height = available + 'px';
-      logEl.style.maxHeight = available + 'px';
-    }
-  }
-
   /* Live log streaming for in-progress builds */
   var logsPre = document.getElementById('buildLog');
-  syncBuildLogHeight();
-  window.addEventListener('resize', syncBuildLogHeight);
 
   var placeholder = document.getElementById('logPlaceholder');
   if (logsPre && placeholder) {
