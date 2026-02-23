@@ -85,3 +85,5 @@ class Config(metaclass=MetaFlaskEnv):
     SHELLZ_ENABLED = False
     SIDECAR_IMAGE = "cabotage/sidecar:3"
     DATADOG_IMAGE = "datadog/agent:7.55.2"
+    TRAEFIK_NAMESPACE = "traefik"
+    TRAEFIK_LABEL_SELECTOR = "app.kubernetes.io/name=traefik"

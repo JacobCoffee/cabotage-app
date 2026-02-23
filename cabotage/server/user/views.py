@@ -652,6 +652,91 @@ def project_application_livelogs(ws, org_slug, project_slug, app_slug):
         ws.send(q.get())
 
 
+@sock.route(
+    "/projects/<org_slug>/<project_slug>/applications/<app_slug>/logs/http",
+    bp=user_blueprint,
+)
+@login_required
+def project_application_httplogs(ws, org_slug, project_slug, app_slug):
+    organization = Organization.query.filter_by(slug=org_slug).first_or_404()
+    project = Project.query.filter_by(
+        organization_id=organization.id, slug=project_slug
+    ).first_or_404()
+    application = Application.query.filter_by(
+        project_id=project.id, slug=app_slug
+    ).first_or_404()
+    if not ViewApplicationPermission(application.id).can():
+        abort(403)
+
+    api_client = kubernetes_ext.kubernetes_client
+    core_api_instance = kubernetes.client.CoreV1Api(api_client)
+
+    traefik_namespace = current_app.config.get("TRAEFIK_NAMESPACE", "traefik")
+    traefik_label_selector = current_app.config.get(
+        "TRAEFIK_LABEL_SELECTOR", "app.kubernetes.io/name=traefik"
+    )
+
+    router_pattern = f"{organization.slug}-"
+
+    q = queue.Queue()
+
+    def worker(pod_name, stream_handler):
+        for line in stream_handler:
+            if router_pattern in line:
+                q.put(line)
+
+    def update_pods():
+        worker_threads = {}
+        pod_watch = kubernetes.watch.Watch()
+        for response in pod_watch.stream(
+            core_api_instance.list_namespaced_pod,
+            namespace=traefik_namespace,
+            label_selector=traefik_label_selector,
+        ):
+            pod = response["object"]
+            create = (
+                response["type"] == "ADDED" and pod.status.phase == "Running"
+            ) or (
+                response["type"] == "MODIFIED"
+                and pod.status.phase == "Running"
+                and pod.metadata.name not in worker_threads.keys()
+            )
+            if create:
+                w = kubernetes.watch.Watch()
+                stream_handler = w.stream(
+                    core_api_instance.read_namespaced_pod_log,
+                    name=pod.metadata.name,
+                    namespace=pod.metadata.namespace,
+                    container="traefik",
+                    follow=True,
+                    _preload_content=False,
+                    pretty="true",
+                    tail_lines=50,
+                )
+                thread = threading.Thread(
+                    target=worker,
+                    args=(pod.metadata.name, stream_handler),
+                    daemon=True,
+                )
+                worker_threads[pod.metadata.name] = thread
+                q.put(f"started following traefik pod {pod.metadata.name}...")
+                thread.start()
+            if response["type"] == "DELETED":
+                if (
+                    pod.metadata.name in worker_threads.keys()
+                    and not worker_threads[pod.metadata.name].is_alive()
+                ):
+                    worker_threads[pod.metadata.name].join()
+                    q.put(f"traefik pod {pod.metadata.name} terminated...")
+                    del worker_threads[pod.metadata.name]
+
+    update_thread = threading.Thread(target=update_pods, daemon=True)
+    update_thread.start()
+
+    while True:
+        ws.send(q.get())
+
+
 @user_blueprint.route(
     "/projects/<org_slug>/<project_slug>/applications/<app_slug>/shell"
 )

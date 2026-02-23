@@ -157,9 +157,10 @@
 
   {# ===== HTTP Tab ===== #}
   <div class="tab-panel" data-tab-panel="http">
-    {{ empty_state('HTTP Logs',
-        'HTTP request logs will appear here when ingress logging is configured.',
-        icon_name='globe') }}
+    <div class="log-viewer" style="height: 75vh;">
+      <div id="httpLogs"></div>
+      <div id="http-scroll-anchor"></div>
+    </div>
   </div>
 
 {% endblock content %}
@@ -173,11 +174,13 @@
   var runtimeSocket = null;
   var buildSocket = null;
   var deploySocket = null;
+  var httpSocket = null;
   var activeTab = 'runtime';
 
   var logsPre = document.getElementById('appLogs');
   var buildLogPre = document.getElementById('build-log-content');
   var deployLogPre = document.getElementById('deploy-log-content');
+  var httpLogsPre = document.getElementById('httpLogs');
 
   /* ===== Utility ===== */
   function getProtocol() {
@@ -281,7 +284,8 @@
   }
 
   function scrollToBottom() {
-    var anchor = document.getElementById('scroll-anchor');
+    var anchorId = activeTab === 'http' ? 'http-scroll-anchor' : 'scroll-anchor';
+    var anchor = document.getElementById(anchorId);
     if (anchor) anchor.scrollIntoView({ block: 'end' });
   }
 
@@ -304,11 +308,20 @@
     var btn = document.getElementById('togglePausedButton');
     if (paused) {
       btn.textContent = 'Resume';
-      appendLog('**** paused ****');
+      if (activeTab === 'runtime') appendLog('**** paused ****');
+      if (activeTab === 'http') appendHttpLog('**** paused ****');
     } else {
-      appendLog('**** resumed ****');
-      while (backLog.length > 0) {
-        appendLog(backLog.shift());
+      if (activeTab === 'runtime') {
+        appendLog('**** resumed ****');
+        while (backLog.length > 0) {
+          appendLog(backLog.shift());
+        }
+      }
+      if (activeTab === 'http') {
+        appendHttpLog('**** resumed ****');
+        while (httpBackLog.length > 0) {
+          appendHttpLog(httpBackLog.shift());
+        }
       }
       btn.textContent = 'Pause';
     }
@@ -439,12 +452,75 @@
     }
   }
 
+  /* ===== HTTP Tab ===== */
+  var httpBackLog = [];
+
+  function appendHttpLog(data) {
+    var span = document.createElement('div');
+    span.className = 'log-line';
+    span.innerHTML = renderLogLine(data);
+    var searchVal = document.getElementById('log-search').value.toLowerCase();
+    if (searchVal && data.toLowerCase().indexOf(searchVal) === -1) {
+      span.style.display = 'none';
+    }
+    httpLogsPre.appendChild(span);
+    while (httpLogsPre.childElementCount > 1000) {
+      httpLogsPre.removeChild(httpLogsPre.firstChild);
+    }
+    if (autoScroll) {
+      scrollToBottom();
+    }
+  }
+
+  function connectHttpWs() {
+    if (httpSocket) return;
+    var protocol = getProtocol();
+    httpSocket = new WebSocket(protocol + window.location.host + window.location.pathname + '/http');
+    httpSocket.addEventListener('message', function(ev) {
+      if (ev.data === '=================END OF LOGS=================') {
+        httpSocket.close();
+        httpSocket = null;
+        return;
+      }
+      if (paused) {
+        httpBackLog.push(ev.data);
+        while (httpBackLog.length > 1000) {
+          httpBackLog.shift();
+        }
+      } else {
+        appendHttpLog(ev.data);
+      }
+    });
+    httpSocket.addEventListener('close', function() {
+      httpSocket = null;
+      if (activeTab === 'http') {
+        setTimeout(function() { connectHttpWs(); }, 3000);
+      }
+    });
+  }
+
+  function disconnectHttpWs() {
+    if (httpSocket) {
+      httpSocket.close();
+      httpSocket = null;
+    }
+  }
+
   /* ===== Search Filter ===== */
   function applySearchFilter() {
     var searchVal = document.getElementById('log-search').value.toLowerCase();
     // Runtime tab lines
     var lines = logsPre.querySelectorAll('.log-line');
     lines.forEach(function(line) {
+      if (!searchVal || line.textContent.toLowerCase().indexOf(searchVal) !== -1) {
+        line.style.display = '';
+      } else {
+        line.style.display = 'none';
+      }
+    });
+    // HTTP tab lines
+    var httpLines = httpLogsPre.querySelectorAll('.log-line');
+    httpLines.forEach(function(line) {
       if (!searchVal || line.textContent.toLowerCase().indexOf(searchVal) !== -1) {
         line.style.display = '';
       } else {
@@ -462,10 +538,10 @@
     var prevTab = activeTab;
     activeTab = tabId;
 
-    // Show/hide runtime controls
+    // Show/hide runtime controls (visible for runtime and http tabs)
     var controls = document.getElementById('runtime-controls');
     if (controls) {
-      controls.style.display = tabId === 'runtime' ? '' : 'none';
+      controls.style.display = (tabId === 'runtime' || tabId === 'http') ? '' : 'none';
     }
 
     // Reset search on tab switch
@@ -476,6 +552,7 @@
     if (prevTab === 'runtime') disconnectRuntimeWs();
     if (prevTab === 'build') disconnectBuildWs();
     if (prevTab === 'deploy') disconnectDeployWs();
+    if (prevTab === 'http') disconnectHttpWs();
 
     // Connect new tab
     if (tabId === 'runtime') {
@@ -484,6 +561,8 @@
       onBuildSelectorChange();
     } else if (tabId === 'deploy') {
       onDeploySelectorChange();
+    } else if (tabId === 'http') {
+      connectHttpWs();
     }
   }
 
