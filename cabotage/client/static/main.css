@@ -1109,11 +1109,16 @@ a.pipeline-stage-body:hover {
 .build-log-viewer::-webkit-scrollbar-thumb,
 .deploy-log-viewer::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
 
-/* Primary log viewer: removes max-height cap so flex-1 fills the card */
-.build-log-viewer-primary {
+/* Primary log viewer: fills available card height, scrolls internally */
+.build-log-viewer-primary,
+.deploy-log-viewer-primary {
+  flex: 1;
   max-height: none;
-  min-height: 20rem;
+  min-height: 0;
+  overflow-y: auto;
 }
+
+/* Right column in detail grids: JS sets max-height to match left column */
 
 /* Log waiting placeholder */
 .log-placeholder {

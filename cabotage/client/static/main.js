@@ -378,6 +378,31 @@ function initExpandModal() {
   });
 }
 
+/* ---------- Detail Log Height Sync ---------- */
+function syncDetailLogHeight() {
+  var left = document.querySelector('[data-log-left]');
+  var logViewer = document.querySelector('[data-log-viewer]');
+  if (!left || !logViewer) return;
+  if (window.innerWidth < 1024) {
+    logViewer.style.maxHeight = '';
+    return;
+  }
+  /* Sum children heights to get natural left-column height
+     (left.offsetHeight is unreliable because the grid stretches it) */
+  var children = left.children;
+  var gap = parseFloat(getComputedStyle(left).rowGap) || 16;
+  var naturalH = 0;
+  for (var i = 0; i < children.length; i++) {
+    naturalH += children[i].offsetHeight;
+  }
+  naturalH += gap * Math.max(0, children.length - 1);
+  var minH = window.innerHeight * 0.7;
+  var cardPad = 32; /* card-body !p-4 top+bottom */
+  var headerH = 48; /* log header row approx */
+  var h = Math.max(naturalH, minH) - cardPad - headerH;
+  logViewer.style.maxHeight = Math.max(h, 200) + 'px';
+}
+
 /* ---------- Init All ---------- */
 document.addEventListener('DOMContentLoaded', function() {
   initTabs();
@@ -389,4 +414,6 @@ document.addEventListener('DOMContentLoaded', function() {
   initRawEditor();
   initAddVarModal();
   initExpandModal();
+  syncDetailLogHeight();
+  window.addEventListener('resize', syncDetailLogHeight);
 });
