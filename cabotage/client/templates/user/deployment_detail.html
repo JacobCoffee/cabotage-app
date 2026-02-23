@@ -222,7 +222,22 @@
               </button>
             {% endif %}
           </div>
-          <div class="deploy-log-viewer" id="deployLog">{{ deployment.deploy_log }}</div>
+          <div class="deploy-log-viewer" id="deployLog">
+            {%- if deployment.deploy_log and deployment.deploy_log != 'None' -%}
+              {{ deployment.deploy_log }}
+            {%- else -%}
+              <div class="log-placeholder" id="logPlaceholder">
+                <div class="log-placeholder-icon">{{ icon('terminal', 'w-6 h-6') }}</div>
+                <div class="log-placeholder-lines">
+                  <div class="log-placeholder-line" style="width: 100%"></div>
+                  <div class="log-placeholder-line"></div>
+                  <div class="log-placeholder-line"></div>
+                  <div class="log-placeholder-line"></div>
+                </div>
+                <span class="log-placeholder-text">Waiting for deploy output…</span>
+              </div>
+            {%- endif -%}
+          </div>
         </div>
       </div>
     </div>
@@ -261,8 +276,9 @@
   <script>
   /* Live log streaming for in-progress deployments */
   var logsPre = document.getElementById('deployLog');
-  if (logsPre.textContent.trim() === 'None' || logsPre.textContent.trim() === '') {
-    logsPre.textContent = '';
+  var placeholder = document.getElementById('logPlaceholder');
+  if (placeholder) {
+    logsPre.innerHTML = '';
     var protocol = (window.location.protocol === 'https:') ? 'wss://' : 'ws://';
     var socket = new WebSocket(protocol + window.location.host + window.location.pathname + '/livelogs');
     socket.addEventListener('message', function(ev) {

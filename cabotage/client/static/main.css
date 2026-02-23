@@ -1028,6 +1028,48 @@ a.pipeline-stage-body:hover {
 
 /* Primary image log sizing is set by page script on desktop. */
 
+/* Log waiting placeholder */
+.log-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem 1rem;
+  min-height: 8rem;
+}
+.log-placeholder-icon {
+  color: var(--color-base-content);
+  opacity: 0.2;
+}
+.log-placeholder-text {
+  font-size: 0.75rem;
+  color: var(--color-base-content);
+  opacity: 0.35;
+  text-align: center;
+}
+.log-placeholder-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  width: 100%;
+  max-width: 20rem;
+}
+.log-placeholder-line {
+  height: 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--color-base-content);
+  opacity: 0.06;
+  animation: log-pulse 2s ease-in-out infinite;
+}
+.log-placeholder-line:nth-child(2) { width: 85%; animation-delay: 0.15s; }
+.log-placeholder-line:nth-child(3) { width: 70%; animation-delay: 0.3s; }
+.log-placeholder-line:nth-child(4) { width: 90%; animation-delay: 0.45s; }
+@keyframes log-pulse {
+  0%, 100% { opacity: 0.06; }
+  50% { opacity: 0.12; }
+}
+
 .dockerfile-highlight pre {
   margin: 0;
   white-space: pre-wrap;

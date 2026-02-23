@@ -309,7 +309,22 @@
               </button>
             {% endif %}
           </div>
-          <div class="build-log-viewer build-log-viewer-primary" id="buildLog">{{ image.image_build_log }}</div>
+          <div class="build-log-viewer build-log-viewer-primary" id="buildLog">
+            {%- if image.image_build_log and image.image_build_log != 'None' -%}
+              {{ image.image_build_log }}
+            {%- else -%}
+              <div class="log-placeholder" id="logPlaceholder">
+                <div class="log-placeholder-icon">{{ icon('terminal', 'w-6 h-6') }}</div>
+                <div class="log-placeholder-lines">
+                  <div class="log-placeholder-line" style="width: 100%"></div>
+                  <div class="log-placeholder-line"></div>
+                  <div class="log-placeholder-line"></div>
+                  <div class="log-placeholder-line"></div>
+                </div>
+                <span class="log-placeholder-text">Waiting for build output…</span>
+              </div>
+            {%- endif -%}
+          </div>
         </div>
       </div>
     </div>
@@ -378,8 +393,9 @@
   syncBuildLogHeight();
   window.addEventListener('resize', syncBuildLogHeight);
 
-  if (logsPre && (logsPre.textContent.trim() === 'None' || logsPre.textContent.trim() === '')) {
-    logsPre.textContent = '';
+  var placeholder = document.getElementById('logPlaceholder');
+  if (logsPre && placeholder) {
+    logsPre.innerHTML = '';
     var protocol = (window.location.protocol === 'https:') ? 'wss://' : 'ws://';
     var socket = new WebSocket(protocol + window.location.host + '/image/' + '{{ image.id }}' + '/livelogs');
     socket.addEventListener('message', function(ev) {
