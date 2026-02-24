@@ -1,13 +1,16 @@
 {# ===== RESOURCE PATH (Breadcrumb in top bar) ===== #}
 
 {% macro resource_path(items) %}
-  <div class="resource-path hidden sm:flex">
+  <div class="resource-path flex">
     {% for item in items %}
       <span class="resource-path-sep">/</span>
       {% if item.url %}
-        <a href="{{ item.url }}">{{ item.label }}</a>
+        <a href="{{ item.url }}"
+           class="resource-path-item"
+           data-short="{{ item.label[:1] }}">{{ item.label }}</a>
       {% else %}
-        <span class="resource-path-current">{{ item.label }}</span>
+        <span class="resource-path-current resource-path-item"
+              data-short="{{ item.label[:1] }}">{{ item.label }}</span>
       {% endif %}
     {% endfor %}
   </div>

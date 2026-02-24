@@ -582,6 +582,24 @@ def application_observability(application_id):
     if not ViewApplicationPermission(application.id).can():
         abort(403)
 
+    # Return empty shell on any unrecoverable error so the UI degrades gracefully
+    empty_response = {
+        "current": {
+            "cpu_usage_m": None,
+            "memory_usage_bytes": None,
+            "pod_count": 0,
+            "restart_count": 0,
+        },
+        "limits": {
+            "total_cpu_limit_m": 0,
+            "total_memory_limit_bytes": 0,
+            "per_process": {},
+        },
+        "pods": [],
+        "events": [],
+        "history": [],
+    }
+
     range_param = request.args.get("range", "1h")
     range_map = {
         "1h": datetime.timedelta(hours=1),
@@ -593,6 +611,14 @@ def application_observability(application_id):
     delta = range_map.get(range_param, datetime.timedelta(hours=1))
     since = datetime.datetime.utcnow() - delta
 
+    try:
+        return _build_observability_response(application, since, empty_response)
+    except Exception:
+        current_app.logger.exception("Observability endpoint failed")
+        return jsonify(empty_response)
+
+
+def _build_observability_response(application, since, empty_response):
     namespace = application.project.organization.slug
     label_selector = (
         f"organization={application.project.organization.slug},"
@@ -737,27 +763,30 @@ def application_observability(application_id):
         current_app.logger.exception("Observability K8s query failed")
 
     # Historical data from DB
-    history_query = (
-        ObservabilitySnapshot.query.filter(
-            ObservabilitySnapshot.application_id == application.id,
-            ObservabilitySnapshot.timestamp >= since,
-        )
-        .order_by(ObservabilitySnapshot.timestamp.asc())
-        .all()
-    )
-
-    # Downsample to max 200 points
     history = []
-    step = max(1, len(history_query) // 200)
-    for i in range(0, len(history_query), step):
-        s = history_query[i]
-        history.append(
-            {
-                "timestamp": s.timestamp.isoformat(),
-                "cpu_usage_m": s.cpu_usage_m,
-                "memory_usage_bytes": s.memory_usage_bytes,
-            }
+    try:
+        history_query = (
+            ObservabilitySnapshot.query.filter(
+                ObservabilitySnapshot.application_id == application.id,
+                ObservabilitySnapshot.timestamp >= since,
+            )
+            .order_by(ObservabilitySnapshot.timestamp.asc())
+            .all()
         )
+
+        # Downsample to max 200 points
+        step = max(1, len(history_query) // 200)
+        for i in range(0, len(history_query), step):
+            s = history_query[i]
+            history.append(
+                {
+                    "timestamp": s.timestamp.isoformat(),
+                    "cpu_usage_m": s.cpu_usage_m,
+                    "memory_usage_bytes": s.memory_usage_bytes,
+                }
+            )
+    except Exception:
+        current_app.logger.exception("Observability history query failed")
 
     return jsonify(
         {
