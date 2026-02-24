@@ -1203,11 +1203,9 @@ def deploy_release(deployment):
                 process_name,
             )
 
-        # Mark complete now — K8s will finish the rollout even if this
-        # worker dies (self-deploy). If rollout fails below, we override
-        # with error=True.
-        deploy_log.append("K8s deployments patched, marking complete")
-        deployment.complete = True
+        # Flush deploy log so far (acks_late + task_reject_on_worker_lost
+        # ensure the task is re-queued if the worker dies during rollout).
+        deploy_log.append("K8s deployments patched, waiting on rollout")
         deployment.deploy_log = "\n".join(deploy_log)
         db.session.commit()
 
