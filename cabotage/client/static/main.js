@@ -185,17 +185,22 @@ function initThemeToggle() {
     if (window.__applyAccent) window.__applyAccent(accent, resolved);
   }
 
-  // Click cycles light→dark→system; long-press opens dropdown
+  // Click cycles light→dark→system; hover reveals dropdown
   var cycleThemes = ['light', 'dark', 'system'];
 
   document.querySelectorAll('.theme-toggle-wrap').forEach(function(wrap) {
     var btn = wrap.querySelector('button');
     var dropdown = wrap.querySelector('.theme-dropdown');
-    var longPressTimer = null;
-    var didLongPress = false;
+    var hideTimer = null;
 
-    function show() { dropdown.classList.remove('hidden'); }
+    function show() {
+      clearTimeout(hideTimer);
+      dropdown.classList.remove('hidden');
+    }
     function hide() { dropdown.classList.add('hidden'); }
+    function hideDelayed() {
+      hideTimer = setTimeout(hide, 200);
+    }
 
     function cycleTheme() {
       var current = localStorage.getItem('theme-pref') || 'system';
@@ -204,33 +209,16 @@ function initThemeToggle() {
       applyPref(next);
     }
 
-    // Pointer down starts long-press timer
-    btn.addEventListener('pointerdown', function(e) {
-      didLongPress = false;
-      longPressTimer = setTimeout(function() {
-        didLongPress = true;
-        show();
-      }, 400);
-    });
-
-    // Pointer up: if not a long-press, cycle theme
-    btn.addEventListener('pointerup', function(e) {
-      clearTimeout(longPressTimer);
-      if (!didLongPress) {
-        e.stopPropagation();
-        hide();
-        cycleTheme();
-      }
-    });
-
-    btn.addEventListener('pointerleave', function() {
-      clearTimeout(longPressTimer);
-    });
-
-    // Prevent click from also firing (we handle everything via pointer events)
+    // Click cycles theme
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
+      hide();
+      cycleTheme();
     });
+
+    // Hover opens dropdown (with small delay on leave to allow moving to it)
+    wrap.addEventListener('mouseenter', show);
+    wrap.addEventListener('mouseleave', hideDelayed);
 
     // Close on click outside
     document.addEventListener('click', function(e) {
