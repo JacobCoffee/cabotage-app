@@ -470,6 +470,51 @@ def project_application(org_slug, project_slug, app_slug):
     )
 
 
+def _detect_build_step(log_text):
+    """Parse a build log to determine the current step index and step list."""
+    if not log_text:
+        return None
+    steps = ["Resolve", "Build", "Export", "Push", "Done"]
+    current = -1
+    substep = None
+    for line in log_text.splitlines():
+        if re.search(r"load build definition|resolve image config", line, re.I):
+            current = max(current, 0)
+        match = re.search(r"\[(\d+)/(\d+)\]", line)
+        if match:
+            current = max(current, 1)
+            substep = f"{match.group(1)}/{match.group(2)}"
+        if re.search(r"exporting to image", line, re.I):
+            current = max(current, 2)
+        if re.search(r"pushing manifest|pushing layers", line, re.I):
+            current = max(current, 3)
+    return {"steps": steps, "current": current, "substep": substep}
+
+
+def _detect_deploy_step(log_text):
+    """Parse a deploy log to determine the current step index and step list."""
+    if not log_text:
+        return None
+    # Condensed milestones for the overview (detail pages show the full 10-step view)
+    steps = ["Setup", "Release", "Deploy", "Rollout", "Done"]
+    patterns = [
+        (
+            r"Constructing API Clients|Fetching Namespace|Fetching ServiceAccount|Fetching CabotageEnrollment|Fetching ImagePullSecrets",
+            0,
+        ),
+        (r"Running release command", 1),
+        (r"Creating deployment for|Creating Service for", 2),
+        (r"Waiting on deployment to rollout", 3),
+        (r"Deployment .* complete", 4),
+    ]
+    current = -1
+    for line in log_text.splitlines():
+        for pattern, idx in patterns:
+            if re.search(pattern, line, re.I):
+                current = max(current, idx)
+    return {"steps": steps, "current": current, "substep": None}
+
+
 @user_blueprint.route("/applications/<application_id>/pipeline_status")
 @login_required
 def application_pipeline_status(application_id):
@@ -519,6 +564,44 @@ def application_pipeline_status(application_id):
     build_info = _stage_status(build_obj, "built")
     release_info = _stage_status(release_obj, "built")
     deploy_info = _stage_status(deploy_obj, "complete")
+
+    # Attach sub-step progress for in-progress and completed stages
+    if build_info and build_obj:
+        if build_info["status"] == "in_progress":
+            build_info["progress"] = _detect_build_step(
+                getattr(build_obj, "image_build_log", None)
+            )
+        elif build_info["status"] == "complete":
+            steps = ["Resolve", "Build", "Export", "Push", "Done"]
+            build_info["progress"] = {
+                "steps": steps,
+                "current": len(steps) - 1,
+                "substep": None,
+            }
+    if release_info and release_obj:
+        if release_info["status"] == "in_progress":
+            release_info["progress"] = _detect_build_step(
+                getattr(release_obj, "release_build_log", None)
+            )
+        elif release_info["status"] == "complete":
+            steps = ["Resolve", "Build", "Export", "Push", "Done"]
+            release_info["progress"] = {
+                "steps": steps,
+                "current": len(steps) - 1,
+                "substep": None,
+            }
+    if deploy_info and deploy_obj:
+        if deploy_info["status"] == "in_progress":
+            deploy_info["progress"] = _detect_deploy_step(
+                getattr(deploy_obj, "deploy_log", None)
+            )
+        elif deploy_info["status"] == "complete":
+            steps = ["Setup", "Release", "Deploy", "Rollout", "Done"]
+            deploy_info["progress"] = {
+                "steps": steps,
+                "current": len(steps) - 1,
+                "substep": None,
+            }
 
     any_in_progress = any(
         s and s["status"] == "in_progress"

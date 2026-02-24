@@ -1107,6 +1107,44 @@ PipelineTracker.prototype.updateSegment = function (name, info) {
     }
   }
 
+  // Render sub-step indicators when progress data is available
+  var stepsEl = seg.querySelector('.pipe-seg-steps');
+  if (info.progress && info.progress.steps && info.progress.current >= 0) {
+    var p = info.progress;
+    if (!stepsEl) {
+      stepsEl = document.createElement('div');
+      stepsEl.className = 'pipe-seg-steps';
+      // Insert after the track bar
+      var track = seg.querySelector('.pipe-seg-track');
+      if (track) track.parentNode.insertBefore(stepsEl, track.nextSibling);
+    }
+    var checkSvg =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="pipe-step-check"><polyline points="20 6 9 17 4 12"/></svg>';
+    var isComplete = info.status === 'complete';
+    var html = '';
+    for (var s = 0; s < p.steps.length; s++) {
+      var cls = 'pipe-step';
+      if (s < p.current || (isComplete && s <= p.current)) cls += ' pipe-step-done';
+      else if (s === p.current) cls += ' pipe-step-active';
+      html += '<div class="' + cls + '">';
+      html += '<div class="pipe-step-dot">' + checkSvg + '</div>';
+      html += '<span class="pipe-step-label">' + p.steps[s] + '</span>';
+      if (p.substep && s === p.current) {
+        html += '<span class="pipe-step-sub">' + p.substep + '</span>';
+      }
+      html += '</div>';
+    }
+    stepsEl.innerHTML = html;
+
+    // Update fill bar to reflect step progress (only for in-progress)
+    if (fill && p.steps.length > 1 && !isComplete) {
+      var pct = Math.round((p.current / (p.steps.length - 1)) * 100);
+      fill.style.width = Math.max(pct, 5) + '%';
+    }
+  } else if (stepsEl) {
+    stepsEl.innerHTML = '';
+  }
+
   // Update detail link
   if (link && info.id) {
     var base = name === 'build' ? '/image/' : name === 'release' ? '/release/' : '/deployment/';
