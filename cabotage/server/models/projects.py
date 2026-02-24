@@ -280,11 +280,14 @@ class Application(db.Model, Timestamp):
 
     @property
     def latest_deployment_running(self):
-        return (
-            self.deployments.filter_by(complete=False, error=False)
-            .order_by(Deployment.created.desc())
-            .first()
-        )
+        latest_deployment = self.latest_deployment
+        if (
+            latest_deployment
+            and not latest_deployment.complete
+            and not latest_deployment.error
+        ):
+            return latest_deployment
+        return None
 
     @property
     def current_deployment(self):
