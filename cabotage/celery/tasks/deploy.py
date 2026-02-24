@@ -1437,6 +1437,11 @@ def remove_none(obj):
 
 @shared_task(acks_late=True)
 def run_deploy(deployment_id=None):
+    # Clear any stale session state from a previous worker (e.g. after
+    # acks_late re-delivery following a self-deploy worker kill).
+    db.session.rollback()
+    db.session.remove()
+
     deployment = Deployment.query.filter_by(id=deployment_id).first()
     if deployment is None:
         raise KeyError(f"Deployment with ID {deployment_id} not found!")
