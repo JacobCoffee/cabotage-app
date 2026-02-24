@@ -929,6 +929,30 @@ def create_deployment(
                 deployment_object,
                 field_validation="Ignore",
             )
+        except ApiException as exc:
+            if exc.status == 422 and "field is immutable" in str(exc):
+                logger.warning(
+                    "Immutable field conflict on Deployment/%s in %s, "
+                    "deleting and recreating",
+                    deployment_object.metadata.name,
+                    namespace,
+                )
+                try:
+                    apps_api_instance.delete_namespaced_deployment(
+                        deployment_object.metadata.name, namespace
+                    )
+                    return apps_api_instance.create_namespaced_deployment(
+                        namespace, deployment_object
+                    )
+                except Exception as recreate_exc:
+                    raise DeployError(
+                        f"Failed to recreate Deployment/{deployment_object.metadata.name} "
+                        f"in {namespace} after immutable field conflict: {recreate_exc}"
+                    )
+            raise DeployError(
+                "Unexpected exception patching Deployment/"
+                f"{deployment_object.metadata.name} in {namespace}: {exc}"
+            )
         except Exception as exc:
             raise DeployError(
                 "Unexpected exception patching Deployment/"
