@@ -1566,6 +1566,18 @@
 {# ===== TAB: DEPLOYS                                                  ===== #}
 {# ========================================================================== #}
 <div data-tab-panel="deployments" class="tab-panel">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-base font-medium text-base-content">Deployments</h2>
+    {% if application.latest_release and application.latest_release.built %}
+      <form action="{{ url_for('user.release_deploy', release_id=application.latest_release.id) }}"
+            method="post"
+            enctype="multipart/form-data"
+            class="inline">
+        {{ deploy_form.hidden_tag() }}
+        <button class="btn btn-primary btn-sm gap-1.5" type="submit">{{ icon('upload', 'w-3.5 h-3.5') }} Push Live</button>
+      </form>
+    {% endif %}
+  </div>
 
   {# ── Active deployment hero (latest completed) ── #}
   {% set active_deploy = application.latest_deployment_completed %}
