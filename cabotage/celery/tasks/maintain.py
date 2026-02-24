@@ -41,7 +41,7 @@ def reap_pods():
 @shared_task()
 def complete_stuck_deployments():
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
-        minutes=10
+        minutes=2
     )
     stuck_deployments = Deployment.query.filter(
         Deployment.complete.is_(False),

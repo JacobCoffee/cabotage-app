@@ -98,7 +98,7 @@ def celery_init_app(app):
         },
         "stuck-deployment-completer": {
             "task": "cabotage.celery.tasks.maintain.complete_stuck_deployments",
-            "schedule": crontab(minute="*/2"),
+            "schedule": 30.0,
             "args": None,
         },
     }
