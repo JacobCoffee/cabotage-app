@@ -577,8 +577,8 @@
                     {% for class in pod_classes.keys() %}<option value="{{ class }}">{{ class }}</option>{% endfor %}
                   </select>
                   <a href="{{ url_for('user.project_application_logs', org_slug=application.project.organization.slug, project_slug=application.project.slug, app_slug=application.slug) }}?process={{ process_name }}"
-                     class="btn btn-ghost btn-xs process-log-btn"
-                     title="View {{ process_name }} logs">{{ icon('terminal', 'w-3 h-3') }}</a>
+                     class="btn btn-ghost btn-xs process-log-btn gap-1"
+                     title="View {{ process_name }} logs">{{ icon('terminal', 'w-3 h-3') }} Logs</a>
                 </div>
               </div>
             {% endfor %}
