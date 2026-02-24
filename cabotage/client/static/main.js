@@ -2047,6 +2047,16 @@ function initCompactTopbar() {
   });
 }
 
+/* Delegated handler: [data-href] spans open links in new tabs (avoids nested <a>) */
+document.addEventListener('click', function (e) {
+  var el = e.target.closest('[data-href]');
+  if (el) {
+    e.preventDefault();
+    e.stopPropagation();
+    window.open(el.getAttribute('data-href'), '_blank', 'noopener');
+  }
+});
+
 document.addEventListener('DOMContentLoaded', function () {
   initTabs();
   initCompactTopbar();

@@ -3215,10 +3215,30 @@ a.pipeline-stage-body:hover {
   background: oklch(var(--b1));
 }
 
+/* Force row layout on all direct children of .dpl-list */
+.dpl-list > * {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-start !important;
+}
+/* Force flex-item sizing on row children */
+.dpl-list > * > .dpl-row-icon {
+  flex: 0 0 1.375rem !important;
+}
+.dpl-list > * > .dpl-row-body {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+}
+.dpl-list > * > .dpl-row-time {
+  flex: 0 0 auto !important;
+}
+
 /* --- Row: icon + info body + timestamp --- */
 .dpl-row {
   display: flex !important;
   flex-direction: row !important;
+  flex-wrap: nowrap !important;
   align-items: flex-start !important;
   gap: 0.625rem;
   padding: 0.625rem 1rem;
@@ -3245,10 +3265,10 @@ a.pipeline-stage-body:hover {
   width: 1.375rem;
   height: 1.375rem;
   border-radius: 50%;
-  display: flex !important;
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  flex: 0 0 1.375rem !important;
   margin-top: 2px;
 }
 .dpl-row-icon-ok {
@@ -3266,8 +3286,9 @@ a.pipeline-stage-body:hover {
 
 /* Body: version line + git chips line */
 .dpl-row-body {
-  flex: 1 1 0%;
-  min-width: 0;
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+  display: block !important;
 }
 
 /* Primary line: version + status text + badges */
@@ -3317,13 +3338,14 @@ a.pipeline-stage-body:hover {
   flex-wrap: wrap;
 }
 
-/* Commit SHA link styling */
+/* Commit SHA link styling (uses <span data-href> to avoid nested <a>) */
 .dpl-row-sha-link {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 0.75rem;
   color: oklch(var(--bc));
   text-decoration: none;
   font-weight: 500;
+  cursor: pointer;
 }
 .dpl-row-sha-link:hover {
   text-decoration: underline;
@@ -3343,6 +3365,7 @@ a.pipeline-stage-body:hover {
 
 /* Timestamp column */
 .dpl-row-time {
+  flex: 0 0 auto !important;
   font-size: 0.75rem;
   color: var(--text-faintest);
   white-space: nowrap;

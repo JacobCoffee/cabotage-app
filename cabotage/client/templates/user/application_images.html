@@ -94,11 +94,8 @@
                 <span class="dpl-meta-chip">
                   {{ icon('git-commit', 'w-3 h-3') }}
                   {% if app.github_repository %}
-                    <a href="https://github.com/{{ app.github_repository }}/commit/{{ img_sha }}"
-                       class="dpl-row-sha-link"
-                       target="_blank"
-                       rel="noopener"
-                       onclick="event.stopPropagation()">{{ img_sha[:7] }}</a>
+                    <span class="dpl-row-sha-link"
+                          data-href="https://github.com/{{ app.github_repository }}/commit/{{ img_sha }}">{{ img_sha[:7] }}</span>
                   {% else %}
                     <code>{{ img_sha[:7] }}</code>
                   {% endif %}
