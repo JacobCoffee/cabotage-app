@@ -552,7 +552,7 @@ function syncDetailLogHeight() {
 }
 
 /* ---------- Build Progress Tracker ---------- */
-function BuildProgressTracker(barFill, phaseLabel, type, stepsContainer, elapsedEl) {
+function BuildProgressTracker(barFill, phaseLabel, type, stepsContainer, elapsedEl, serverStartTime) {
   this.barFill = barFill;
   this.phaseLabel = phaseLabel;
   this.stepsContainer = stepsContainer;
@@ -563,7 +563,7 @@ function BuildProgressTracker(barFill, phaseLabel, type, stepsContainer, elapsed
   this.totalSteps = 0;
   this.activated = false;
   this.currentStepIdx = -1;
-  this.startTime = Date.now();
+  this.startTime = serverStartTime ? new Date(serverStartTime).getTime() : Date.now();
   this.timerInterval = null;
   this.errored = false;
   this.errorStepIdx = -1;
@@ -1659,8 +1659,8 @@ function ObservabilityPanel(container) {
   this.podValue = container.querySelector('[data-obs-pod-count]');
   this.podLabel = container.querySelector('[data-obs-pod-status]');
   this.restartValue = container.querySelector('[data-obs-restart-count]');
-  this.cpuChart = container.querySelector('[data-obs-cpu-chart]');
-  this.memChart = container.querySelector('[data-obs-mem-chart]');
+  this.cpuChart = container.querySelector('[data-obs-cpu-chart] svg');
+  this.memChart = container.querySelector('[data-obs-mem-chart] svg');
   this.podsGrid = container.querySelector('[data-obs-pods-grid]');
   this.eventsEl = container.querySelector('[data-obs-events]');
 
@@ -1712,8 +1712,18 @@ ObservabilityPanel.prototype.deactivate = function () {
   }
 };
 
+ObservabilityPanel.prototype.setLoading = function (loading) {
+  if (!this.container) return;
+  var cards = this.container.querySelectorAll('.obs-metric-card, .obs-chart-card, .obs-section-card');
+  cards.forEach(function (card) {
+    if (loading) card.classList.add('obs-loading');
+    else card.classList.remove('obs-loading');
+  });
+};
+
 ObservabilityPanel.prototype.fetch = function () {
   var self = this;
+  if (!this._loaded) this.setLoading(true);
   var url = '/applications/' + this.appId + '/observability?range=' + this.range;
   fetch(url, { credentials: 'same-origin' })
     .then(function (r) {
@@ -1721,9 +1731,12 @@ ObservabilityPanel.prototype.fetch = function () {
       return r.json();
     })
     .then(function (data) {
+      self._loaded = true;
+      self.setLoading(false);
       self.render(data);
     })
     .catch(function (err) {
+      self.setLoading(false);
       console.warn('Observability fetch error:', err);
     });
 };

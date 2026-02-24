@@ -3005,6 +3005,25 @@ a.pipeline-stage-body:hover {
   font-style: italic;
 }
 
+@keyframes obs-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.obs-loading {
+  position: relative;
+  overflow: hidden;
+}
+.obs-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 30%, var(--surface-card-hover, rgba(255,255,255,0.04)) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: obs-shimmer 1.5s ease-in-out infinite;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
 /* ---------- Responsive Utils ---------- */
 .full-bleed {
   margin-left: -1rem;
@@ -3018,38 +3037,49 @@ a.pipeline-stage-body:hover {
 }
 
 /* ========================================================================== */
-/* Artifact List — Vercel-style deploy rows                                  */
+/* Artifact List — Vercel-inspired deploy rows                               */
 /* ========================================================================== */
 
 /* --- Hero card for active deployment --- */
 .dpl-hero {
-  background: color-mix(in srgb, var(--color-success, #22c55e) 4%, oklch(var(--b2)));
-  border: 1px solid color-mix(in srgb, var(--color-success, #22c55e) 15%, oklch(var(--b3)));
-  border-radius: 0.75rem;
-  padding: 1rem 1.25rem;
-  margin-bottom: 1.25rem;
+  background: oklch(var(--b1));
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 1rem 1.125rem;
+  margin-bottom: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+.dpl-hero::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #22c55e;
 }
 .dpl-hero-inner {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 .dpl-hero-left {
   display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 0.625rem;
   min-width: 0;
 }
 .dpl-hero-orb {
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 0.5rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: rgba(34, 197, 94, 0.12);
+  background: rgba(34, 197, 94, 0.1);
   color: #22c55e;
 }
 .dpl-hero-info {
@@ -3058,17 +3088,18 @@ a.pipeline-stage-body:hover {
 .dpl-hero-title-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.375rem;
   flex-wrap: wrap;
 }
 .dpl-hero-version {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.9375rem;
+  font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--color-accent, oklch(var(--a)));
+  color: oklch(var(--bc));
 }
 .dpl-hero-status {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
+  font-weight: 400;
 }
 .dpl-hero-status-ok {
   color: #22c55e;
@@ -3076,8 +3107,8 @@ a.pipeline-stage-body:hover {
 .dpl-hero-meta {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
   flex-wrap: wrap;
 }
 .dpl-hero-action {
@@ -3088,30 +3119,32 @@ a.pipeline-stage-body:hover {
 .dpl-meta-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  font-size: 0.8125rem;
-  color: var(--text-muted);
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-faint);
 }
 .dpl-meta-chip code {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
 }
 .dpl-meta-chip svg {
-  opacity: 0.5;
+  opacity: 0.4;
   flex-shrink: 0;
 }
 .dpl-meta-chip-dim {
   color: var(--text-faintest);
 }
 .dpl-meta-chip-dim svg {
-  opacity: 0.3;
+  opacity: 0.25;
 }
 .dpl-meta-duration {
   color: var(--text-faintest);
+  font-size: 0.6875rem;
 }
 .dpl-meta-link {
-  color: var(--color-accent, oklch(var(--a)));
+  color: oklch(var(--bc));
   text-decoration: none;
+  font-weight: 500;
 }
 .dpl-meta-link:hover {
   text-decoration: underline;
@@ -3121,29 +3154,29 @@ a.pipeline-stage-body:hover {
 .dpl-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.2rem;
-  font-size: 0.6875rem;
-  font-weight: 600;
+  gap: 0.1875rem;
+  font-size: 0.625rem;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 0.15rem 0.45rem;
-  border-radius: 0.25rem;
-  line-height: 1.4;
+  letter-spacing: 0.04em;
+  padding: 0.125rem 0.375rem;
+  border-radius: 9999px;
+  line-height: 1.5;
 }
 .dpl-badge-active {
-  background: rgba(34, 197, 94, 0.12);
+  background: rgba(34, 197, 94, 0.08);
   color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  border: 1px solid rgba(34, 197, 94, 0.15);
 }
 .dpl-badge-auto {
-  background: color-mix(in srgb, var(--color-accent, oklch(var(--a))) 10%, transparent);
+  background: color-mix(in srgb, var(--color-accent, oklch(var(--a))) 6%, transparent);
   color: var(--color-accent, oklch(var(--a)));
-  border: 1px solid color-mix(in srgb, var(--color-accent, oklch(var(--a))) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent, oklch(var(--a))) 12%, transparent);
 }
 .dpl-badge-latest {
-  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
-  color: var(--color-primary);
-  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  background: color-mix(in srgb, oklch(var(--bc)) 5%, transparent);
+  color: var(--text-muted);
+  border: 1px solid color-mix(in srgb, oklch(var(--bc)) 8%, transparent);
 }
 
 /* --- Section header --- */
@@ -3151,23 +3184,24 @@ a.pipeline-stage-body:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.625rem;
+  margin-bottom: 0.5rem;
+  padding: 0 0.125rem;
 }
 .dpl-history-title {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-faint);
+  letter-spacing: 0.06em;
+  color: var(--text-faintest);
 }
 .dpl-history-title svg {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 .dpl-history-count {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: var(--text-faintest);
 }
 
@@ -3175,76 +3209,79 @@ a.pipeline-stage-body:hover {
 .dpl-list {
   display: flex;
   flex-direction: column;
-  border: 1px solid oklch(var(--b3));
-  border-radius: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
   overflow: hidden;
-  background: oklch(var(--b2));
+  background: oklch(var(--b1));
 }
 
 /* --- Row: icon + info body + timestamp --- */
 .dpl-row {
   display: flex !important;
-  align-items: flex-start;
+  flex-direction: row !important;
+  align-items: flex-start !important;
   gap: 0.625rem;
-  padding: 0.75rem 1.25rem;
-  text-decoration: none;
+  padding: 0.625rem 1rem;
+  text-decoration: none !important;
   color: inherit;
-  border-bottom: 1px solid color-mix(in srgb, oklch(var(--bc)) 5%, transparent);
-  transition: background 0.12s ease;
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.1s ease;
 }
 .dpl-row:last-child {
   border-bottom: none;
 }
 .dpl-row:hover {
-  background: color-mix(in srgb, oklch(var(--bc)) 3%, transparent);
+  background: color-mix(in srgb, oklch(var(--bc)) 2.5%, transparent);
 }
 .dpl-row-active {
-  background: color-mix(in srgb, var(--color-success, #22c55e) 3%, transparent);
+  background: color-mix(in srgb, #22c55e 2%, transparent);
 }
 .dpl-row-active:hover {
-  background: color-mix(in srgb, var(--color-success, #22c55e) 5%, transparent);
+  background: color-mix(in srgb, #22c55e 4%, transparent);
 }
 
 /* Status icon circle */
 .dpl-row-icon {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.375rem;
+  height: 1.375rem;
   border-radius: 50%;
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-top: 0.125rem;
+  margin-top: 2px;
 }
 .dpl-row-icon-ok {
-  background: rgba(34, 197, 94, 0.12);
+  background: rgba(34, 197, 94, 0.1);
   color: #22c55e;
 }
 .dpl-row-icon-err {
-  background: rgba(239, 68, 68, 0.12);
+  background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
 }
 .dpl-row-icon-run {
-  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   color: var(--color-primary);
 }
 
 /* Body: version line + git chips line */
 .dpl-row-body {
-  flex: 1;
+  flex: 1 1 0%;
   min-width: 0;
 }
 
 /* Primary line: version + status text + badges */
 .dpl-row-primary {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.375rem;
   flex-wrap: wrap;
+  line-height: 1.375rem;
 }
 .dpl-row-version {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: oklch(var(--bc));
 }
@@ -3252,8 +3289,8 @@ a.pipeline-stage-body:hover {
   color: var(--text-faintest);
 }
 .dpl-row-status-text {
-  font-size: 0.8125rem;
-  font-weight: 500;
+  font-size: 0.75rem;
+  font-weight: 400;
 }
 .dpl-row-status-ok {
   color: #22c55e;
@@ -3265,25 +3302,28 @@ a.pipeline-stage-body:hover {
   color: var(--color-primary);
 }
 .dpl-row-dur {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: var(--text-faintest);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Secondary line: git chips */
 .dpl-row-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 0.25rem;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.5rem;
+  margin-top: 0.125rem;
   flex-wrap: wrap;
 }
 
 /* Commit SHA link styling */
 .dpl-row-sha-link {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.8125rem;
-  color: var(--color-accent, oklch(var(--a)));
+  font-size: 0.75rem;
+  color: oklch(var(--bc));
   text-decoration: none;
+  font-weight: 500;
 }
 .dpl-row-sha-link:hover {
   text-decoration: underline;
@@ -3291,48 +3331,49 @@ a.pipeline-stage-body:hover {
 
 /* Error preview */
 .dpl-row-error-detail {
-  font-size: 0.75rem;
-  color: rgba(239, 68, 68, 0.6);
+  font-size: 0.6875rem;
+  color: rgba(239, 68, 68, 0.55);
   margin-top: 0.25rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 40rem;
+  max-width: 36rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 /* Timestamp column */
 .dpl-row-time {
-  font-size: 0.8125rem;
-  color: var(--text-faint);
+  font-size: 0.75rem;
+  color: var(--text-faintest);
   white-space: nowrap;
-  flex-shrink: 0;
-  margin-top: 0.125rem;
+  margin-top: 1px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Row accents */
 .dpl-row-error {
-  border-left: 2px solid rgba(239, 68, 68, 0.3);
+  border-left: 2px solid rgba(239, 68, 68, 0.25);
 }
 .dpl-row-deploying {
-  border-left: 2px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+  border-left: 2px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
 
 /* --- Responsive --- */
 @media (max-width: 639px) {
   .dpl-row {
-    flex-wrap: wrap;
+    flex-wrap: wrap !important;
     gap: 0.375rem;
   }
   .dpl-row-time {
     width: 100%;
-    padding-left: 2.125rem;
+    padding-left: 2rem;
   }
   .dpl-hero-inner {
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
   .dpl-hero-action {
     align-self: flex-start;
-    margin-left: 3rem;
+    margin-left: 2.375rem;
   }
 }

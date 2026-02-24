@@ -552,26 +552,37 @@ def build_image_buildkit(image=None):
         image.application.github_repository_is_private
         or image.application.github_app_installation_id
     ):
-        try:
-            access_token = github_app.fetch_installation_access_token(
-                image.application.github_app_installation_id
-            )
-            if access_token is None:
+        if not github_app.configured:
+            if image.application.github_repository_is_private:
                 raise BuildError(
-                    "GitHub App returned no token for Installation ID "
-                    f"{image.application.github_app_installation_id}"
+                    "GitHub App is not configured (missing CABOTAGE_GITHUB_APP_ID "
+                    "or CABOTAGE_GITHUB_APP_PRIVATE_KEY) but repository is private"
                 )
-        except BuildError:
-            raise
-        except Exception as exc:
-            logger.exception(
-                "Failed to authenticate for Installation ID %s",
+            logger.warning(
+                "GitHub App not configured, skipping auth for Installation ID %s",
                 image.application.github_app_installation_id,
             )
-            raise BuildError(
-                "Unable to authenticate for Installation ID "
-                f"{image.application.github_app_installation_id}: {exc}"
-            )
+        else:
+            try:
+                access_token = github_app.fetch_installation_access_token(
+                    image.application.github_app_installation_id
+                )
+                if access_token is None:
+                    raise BuildError(
+                        "GitHub App returned no token for Installation ID "
+                        f"{image.application.github_app_installation_id}"
+                    )
+            except BuildError:
+                raise
+            except Exception as exc:
+                logger.exception(
+                    "Failed to authenticate for Installation ID %s",
+                    image.application.github_app_installation_id,
+                )
+                raise BuildError(
+                    "Unable to authenticate for Installation ID "
+                    f"{image.application.github_app_installation_id}: {exc}"
+                )
 
     if image.commit_sha == "null":
         commit_sha = _fetch_commit_sha_for_ref(

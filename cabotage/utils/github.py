@@ -2,6 +2,8 @@ import requests
 
 
 def post_deployment_status_update(access_token, status_url, state, description):
+    if access_token is None:
+        return
     requests.post(
         status_url,
         headers={

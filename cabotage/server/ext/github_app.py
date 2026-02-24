@@ -96,6 +96,10 @@ class GitHubApp(object):
 
         app.teardown_appcontext(self.teardown)
 
+    @property
+    def configured(self):
+        return self.app_id is not None and self._private_key_obj is not None
+
     def validate_webhook(self):
         if self.webhook_secret is None:
             return True
@@ -125,6 +129,8 @@ class GitHubApp(object):
         return self._bearer_token
 
     def fetch_installation_access_token(self, installation_id):
+        if not self.configured:
+            return None
         access_token_response = requests.post(
             f"https://api.github.com/app/installations/{installation_id}/access_tokens",
             headers={
