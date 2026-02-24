@@ -779,6 +779,7 @@ function PipelineTracker(container) {
   this.appId = container.getAttribute('data-application-id');
   this.statusUrl = '/applications/' + this.appId + '/pipeline_status';
   this.pollInterval = null;
+  this.pollRate = 0; // 0 = not polling yet
   this.bannersEl = container.querySelector('[data-pipeline-banners]');
   this.progressEl = container.querySelector('[data-pipeline-progress]');
   this.segments = {
@@ -794,8 +795,9 @@ function PipelineTracker(container) {
   this.githubRepo = this.commitEl ? this.commitEl.getAttribute('data-github-repo') : null;
   this.commitLastChanged = Date.now();
 
-  // Check initial state and start polling if active
+  // Check initial state and start polling (idle rate until pipeline detected)
   this.poll();
+  this.startPolling(10000); // idle: check every 10s for new pipelines
 }
 
 PipelineTracker.prototype.poll = function() {
@@ -809,16 +811,22 @@ PipelineTracker.prototype.poll = function() {
     .catch(function(err) { console.warn('[PipelineTracker]', err); });
 };
 
-PipelineTracker.prototype.startPolling = function() {
-  if (this.pollInterval) return;
+PipelineTracker.prototype.startPolling = function(rate) {
+  rate = rate || 3000;
+  // Already polling at this rate — no-op
+  if (this.pollInterval && this.pollRate === rate) return;
+  // Switch rate: clear old interval, set new one
+  if (this.pollInterval) clearInterval(this.pollInterval);
   var self = this;
-  this.pollInterval = setInterval(function() { self.poll(); }, 3000);
+  this.pollRate = rate;
+  this.pollInterval = setInterval(function() { self.poll(); }, rate);
 };
 
 PipelineTracker.prototype.stopPolling = function() {
   if (this.pollInterval) {
     clearInterval(this.pollInterval);
     this.pollInterval = null;
+    this.pollRate = 0;
   }
 };
 
@@ -827,7 +835,8 @@ PipelineTracker.prototype.update = function(data) {
 
   if (data.pipeline_active) {
     this.showProgress();
-    this.startPolling();
+    this.startPolling(3000); // fast polling while pipeline is running
+    this.settled = false;
   }
 
   this.updateSegment('build', data.build);
@@ -838,9 +847,9 @@ PipelineTracker.prototype.update = function(data) {
   this.updateCommitIndicator(data);
 
   // Pipeline just finished — redirect to the relevant stage
-  if (!data.pipeline_active && !this.settled && this.pollInterval) {
+  if (!data.pipeline_active && !this.settled && this.pollRate === 3000) {
     this.settled = true;
-    this.stopPolling();
+    this.startPolling(10000); // back to idle polling
     var target = null;
     // If any stage errored, redirect to the earliest errored stage
     // (later stages may be stale data from a previous successful run)
