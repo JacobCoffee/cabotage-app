@@ -1815,6 +1815,7 @@ def image_build_livelogs(ws, image_id):
         for line in image.image_build_log.split("\n"):
             ws.send(f"  {line}")
         ws.send("=================END OF LOGS=================")
+        return
 
     api_client = kubernetes_ext.kubernetes_client
     core_api_instance = kubernetes.client.CoreV1Api(api_client)
@@ -1968,6 +1969,7 @@ def release_build_livelogs(ws, release_id):
         for line in release.release_build_log.split("\n"):
             ws.send(f"  {line}")
         ws.send("=================END OF LOGS=================")
+        return
 
     api_client = kubernetes_ext.kubernetes_client
     core_api_instance = kubernetes.client.CoreV1Api(api_client)
@@ -2043,6 +2045,7 @@ def deployment_livelogs(ws, deployment_id):
         for line in deployment.deploy_log.split("\n"):
             ws.send(f"  {line}")
         ws.send("=================END OF LOGS=================")
+        return
 
     api_client = kubernetes_ext.kubernetes_client
     core_api_instance = kubernetes.client.CoreV1Api(api_client)

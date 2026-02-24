@@ -485,26 +485,57 @@
     var elapsedEl = document.getElementById('buildElapsed');
     var tracker = (barFill) ? new BuildProgressTracker(barFill, phaseLabel, 'build', stepsEl, elapsedEl) : null;
     var logsFinished = false;
+    var linesReceived = 0;
+    var emptyEndAttempts = 0;
+    var maxEmptyEndAttempts = 20;
+    var reconnectAttempts = 0;
+    var maxReconnectAttempts = 30;
     var isAutoDeploy = {{ (image.image_metadata or {}).get('auto_deploy', false) | tojson }};
     var protocol = (window.location.protocol === 'https:') ? 'wss://' : 'ws://';
-    var socket = new WebSocket(protocol + window.location.host + '/image/' + '{{ image.id }}' + '/livelogs');
+    var wsUrl = protocol + window.location.host + '/image/' + '{{ image.id }}' + '/livelogs';
     var progressBanner = document.querySelector('.build-progress-banner');
-    socket.addEventListener('message', function(ev) {
-      if (ev.data === '=================END OF LOGS=================') {
-        logsFinished = true;
-        if (tracker) {
-          tracker.complete();
-          if (tracker.errored && progressBanner) {
-            progressBanner.classList.add('deploy-progress-banner-error');
+
+    function connectWebSocket() {
+      var socket = new WebSocket(wsUrl);
+      socket.addEventListener('message', function(ev) {
+        if (ev.data === '=================END OF LOGS=================') {
+          socket.close();
+          if (linesReceived === 0 && emptyEndAttempts < maxEmptyEndAttempts) {
+            emptyEndAttempts++;
+            if (tracker) tracker.setPhase('Waiting for pod to start\u2026');
+            setTimeout(connectWebSocket, 3000);
+            return;
           }
+          logsFinished = true;
+          if (tracker) {
+            tracker.complete();
+            if (tracker.errored && progressBanner) {
+              progressBanner.classList.add('deploy-progress-banner-error');
+            }
+          }
+          fetchBuildStatus();
+          return;
         }
-        socket.close();
-        return;
-      }
-      logsPre.textContent += ev.data + '\n';
-      logsPre.scrollTop = logsPre.scrollHeight;
-      if (tracker) tracker.processLine(ev.data);
-    });
+        reconnectAttempts = 0;
+        linesReceived++;
+        logsPre.textContent += ev.data + '\n';
+        logsPre.scrollTop = logsPre.scrollHeight;
+        if (tracker) tracker.processLine(ev.data);
+      });
+      socket.addEventListener('close', function() {
+        if (logsFinished) return;
+        reconnectAttempts++;
+        if (reconnectAttempts >= maxReconnectAttempts) {
+          if (tracker) tracker.setPhase('Checking status\u2026');
+          fetchBuildStatus();
+          return;
+        }
+        if (tracker) tracker.setPhase('Reconnecting\u2026');
+        var delay = Math.min(2000, 500 * reconnectAttempts);
+        setTimeout(connectWebSocket, delay);
+      });
+    }
+
     var statusPollAttempts = 0;
     var maxStatusPolls = 30;
     function fetchBuildStatus() {
@@ -547,14 +578,7 @@
         });
     }
 
-    socket.addEventListener('close', function() {
-      if (logsFinished) {
-        fetchBuildStatus();
-      } else {
-        if (tracker) tracker.setPhase('Waiting for build logs\u2026');
-        setTimeout(function() { window.location.reload(); }, 10000);
-      }
-    });
+    connectWebSocket();
   }
 
   /* Copy build log */

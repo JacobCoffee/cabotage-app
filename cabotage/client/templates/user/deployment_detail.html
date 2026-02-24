@@ -421,8 +421,11 @@
     var tracker = (barFill) ? new BuildProgressTracker(barFill, phaseLabel, 'deploy', stepsEl, elapsedEl) : null;
     var progressBanner = document.querySelector('.deploy-progress-banner');
     var logsFinished = false;
+    var linesReceived = 0;
     var reconnectAttempts = 0;
     var maxReconnectAttempts = 30;
+    var emptyEndAttempts = 0;
+    var maxEmptyEndAttempts = 20; /* 20 × 3s = 60s max wait for pod to start */
     var protocol = (window.location.protocol === 'https:') ? 'wss://' : 'ws://';
     var wsUrl = protocol + window.location.host + window.location.pathname + '/livelogs';
 
@@ -430,6 +433,15 @@
       var socket = new WebSocket(wsUrl);
       socket.addEventListener('message', function(ev) {
         if (ev.data === '=================END OF LOGS=================') {
+          socket.close();
+          /* If no real log content arrived, the pod may not be running yet.
+             Retry the WebSocket after a delay instead of showing false success. */
+          if (linesReceived === 0 && emptyEndAttempts < maxEmptyEndAttempts) {
+            emptyEndAttempts++;
+            if (tracker) tracker.setPhase('Waiting for pod to start\u2026');
+            setTimeout(connectWebSocket, 3000);
+            return;
+          }
           logsFinished = true;
           reconnectAttempts = 0;
           if (tracker) {
@@ -438,12 +450,12 @@
               progressBanner.classList.add('deploy-progress-banner-error');
             }
           }
-          socket.close();
           /* Fetch final state and update DOM in-place */
           fetchDeploymentStatus();
           return;
         }
         reconnectAttempts = 0;
+        linesReceived++;
         logsPre.textContent += ev.data + '\n';
         logsPre.scrollTop = logsPre.scrollHeight;
         if (tracker) tracker.processLine(ev.data);

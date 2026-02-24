@@ -567,6 +567,7 @@ function BuildProgressTracker(barFill, phaseLabel, type, stepsContainer, elapsed
   this.timerInterval = null;
   this.errored = false;
   this.errorStepIdx = -1;
+  this.linesReceived = 0;
   this.phaseStartTimes = {};
   this.phaseDurations = {};
 
@@ -700,6 +701,7 @@ BuildProgressTracker.prototype.setPhase = function (text) {
 };
 
 BuildProgressTracker.prototype.processLine = function (line) {
+  this.linesReceived++;
   if (this.type === 'deploy') {
     this.processDeployLine(line);
   } else {
@@ -783,8 +785,15 @@ BuildProgressTracker.prototype.processDeployLine = function (line) {
 };
 
 BuildProgressTracker.prototype.complete = function () {
-  this.activate();
   this.stopTimer();
+
+  // No log content was received — don't show false success
+  if (this.linesReceived === 0) {
+    this.setPhase('No logs available');
+    return;
+  }
+
+  this.activate();
 
   // Finalize duration for the last active step
   if (
