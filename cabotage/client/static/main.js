@@ -1595,6 +1595,10 @@ function ObservabilityPanel(container) {
   if (panel) {
     panel.addEventListener('tab-activated', function () { self.activate(); });
     panel.addEventListener('tab-deactivated', function () { self.deactivate(); });
+    // If tab is already active (e.g. loaded via URL hash), activate now
+    if (panel.classList.contains('tab-panel-active')) {
+      self.activate();
+    }
   }
 }
 

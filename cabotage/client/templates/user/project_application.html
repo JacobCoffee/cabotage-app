@@ -1321,81 +1321,73 @@
           <a href="{{ url_for('user.image_detail', image_id=image.id) }}"
              class="dpl-row {{ 'dpl-row-error' if image.error }}">
 
-            {# Col 1: Version + label #}
-            <div class="dpl-row-id">
-              <div>
-                <code class="dpl-row-version">#{{ image.version }}</code>
-                <div class="dpl-row-env">Image</div>
-              </div>
-            </div>
-
-            {# Col 2: Status dot + text + duration #}
-            <div class="dpl-row-status {{ 'dpl-row-status-ok' if image.built }} {{ 'dpl-row-status-err' if image.error }} {{ 'dpl-row-status-run' if not image.built and not image.error }}">
-              {% if image.built %}
-                <span class="dpl-row-dot dpl-row-dot-ok"></span>
-              {% elif image.error %}
-                <span class="dpl-row-dot dpl-row-dot-err"></span>
-              {% else %}
-                <span class="dpl-row-dot dpl-row-dot-run"></span>
-              {% endif %}
-              <span class="dpl-row-status-text">
-                {% if image.built %}
-                  Built
-                {% elif image.error %}
-                  Error
-                {% else %}
-                  Building
-                {% endif %}
+            {# Status icon #}
+            {% if image.built %}
+              <span class="dpl-row-icon dpl-row-icon-ok">{{ icon('check', 'w-3.5 h-3.5') }}</span>
+            {% elif image.error %}
+              <span class="dpl-row-icon dpl-row-icon-err">{{ icon('x', 'w-3.5 h-3.5') }}</span>
+            {% else %}
+              <span class="dpl-row-icon dpl-row-icon-run">
+                <svg class="w-3.5 h-3.5 animate-spin"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2.5">
+                  <path d="M21 12a9 9 0 11-6.219-8.56" />
+                </svg>
               </span>
-              {% if image.built %}<span class="dpl-row-dur">{{ image|duration }}</span>{% endif %}
-            </div>
+            {% endif %}
 
-            {# Col 3: Branch #}
-            <div class="dpl-row-branch">
-              {% if img_ref %}
-                {{ icon('git-branch', 'w-3.5 h-3.5') }}
-                <span>{{ img_ref }}</span>
-              {% endif %}
-            </div>
-
-            {# Col 4: Commit SHA (linked) + creator #}
-            <div class="dpl-row-commit">
-              {% if img_sha %}
-                <span class="dpl-row-sha">
-                  {{ icon('git-commit', 'w-3.5 h-3.5') }}
-                  {% if application.github_repository %}
-                    <a href="https://github.com/{{ application.github_repository }}/commit/{{ img_sha }}"
-                       target="_blank"
-                       rel="noopener"
-                       onclick="event.stopPropagation()">{{ img_sha[:7] }}</a>
-                  {% else %}
-                    <code>{{ img_sha[:7] }}</code>
-                  {% endif %}
-                </span>
-              {% endif %}
-              {% if img_creator %}
-                <span class="dpl-row-extra">
-                  {{ icon('user', 'w-3 h-3') }}
-                  <span>{{ img_creator }}</span>
-                </span>
-              {% endif %}
-            </div>
-
-            {# Col 5: Timestamp #}
-            <span class="dpl-row-time">{{ image.updated|humanize }}</span>
-
-            {# Badges row (if any) #}
-            {% if is_latest or img_auto %}
-              <div class="dpl-row-badges">
+            {# Body #}
+            <div class="dpl-row-body">
+              <div class="dpl-row-primary">
+                <code class="dpl-row-version">#{{ image.version }}</code>
+                {% if image.built %}
+                  <span class="dpl-row-status-text dpl-row-status-ok">Built</span>
+                {% elif image.error %}
+                  <span class="dpl-row-status-text dpl-row-status-err">Error</span>
+                {% else %}
+                  <span class="dpl-row-status-text dpl-row-status-run">Building</span>
+                {% endif %}
+                {% if image.built %}<span class="dpl-row-dur">{{ image|duration }}</span>{% endif %}
                 {% if is_latest %}<span class="dpl-badge dpl-badge-latest">Latest</span>{% endif %}
                 {% if img_auto %}<span class="dpl-badge dpl-badge-auto">{{ icon('zap', 'w-2.5 h-2.5') }} Auto</span>{% endif %}
               </div>
-            {% endif %}
+              <div class="dpl-row-meta">
+                {% if img_ref %}
+                  <span class="dpl-meta-chip">
+                    {{ icon('git-branch', 'w-3 h-3') }}
+                    <span>{{ img_ref }}</span>
+                  </span>
+                {% endif %}
+                {% if img_sha %}
+                  <span class="dpl-meta-chip">
+                    {{ icon('git-commit', 'w-3 h-3') }}
+                    {% if application.github_repository %}
+                      <a href="https://github.com/{{ application.github_repository }}/commit/{{ img_sha }}"
+                         class="dpl-row-sha-link"
+                         target="_blank"
+                         rel="noopener"
+                         onclick="event.stopPropagation()">{{ img_sha[:7] }}</a>
+                    {% else %}
+                      <code>{{ img_sha[:7] }}</code>
+                    {% endif %}
+                  </span>
+                {% endif %}
+                {% if img_creator %}
+                  <span class="dpl-meta-chip">
+                    {{ icon('user', 'w-3 h-3') }}
+                    <span>{{ img_creator }}</span>
+                  </span>
+                {% endif %}
+              </div>
+              {% if image.error and image.error_detail %}
+                <div class="dpl-row-error-detail">{{ image.error_detail[:140] }}</div>
+              {% endif %}
+            </div>
 
-            {# Error detail — full width #}
-            {% if image.error and image.error_detail %}
-              <div class="dpl-row-error-detail">{{ image.error_detail[:140] }}</div>
-            {% endif %}
+            {# Timestamp #}
+            <span class="dpl-row-time">{{ image.updated|humanize }}</span>
           </a>
         {% endfor %}
       </div>
@@ -1463,93 +1455,81 @@
           <a href="{{ url_for('user.release_detail', release_id=release.id) }}"
              class="dpl-row {{ 'dpl-row-error' if release.error }}">
 
-            {# Col 1: Version + label #}
-            <div class="dpl-row-id">
-              <div>
-                <code class="dpl-row-version">v{{ release.version }}</code>
-                <div class="dpl-row-env">Package</div>
-              </div>
-            </div>
-
-            {# Col 2: Status dot + text + duration #}
-            <div class="dpl-row-status {{ 'dpl-row-status-ok' if release.built }} {{ 'dpl-row-status-err' if release.error }} {{ 'dpl-row-status-run' if not release.built and not release.error }}">
-              {% if release.built %}
-                <span class="dpl-row-dot dpl-row-dot-ok"></span>
-              {% elif release.error %}
-                <span class="dpl-row-dot dpl-row-dot-err"></span>
-              {% else %}
-                <span class="dpl-row-dot dpl-row-dot-run"></span>
-              {% endif %}
-              <span class="dpl-row-status-text">
-                {% if release.built %}
-                  Built
-                {% elif release.error %}
-                  Error
-                {% else %}
-                  Building
-                {% endif %}
+            {# Status icon #}
+            {% if release.built %}
+              <span class="dpl-row-icon dpl-row-icon-ok">{{ icon('check', 'w-3.5 h-3.5') }}</span>
+            {% elif release.error %}
+              <span class="dpl-row-icon dpl-row-icon-err">{{ icon('x', 'w-3.5 h-3.5') }}</span>
+            {% else %}
+              <span class="dpl-row-icon dpl-row-icon-run">
+                <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M21 12a9 9 0 11-6.219-8.56" />
+                </svg>
               </span>
-              {% if release.built %}<span class="dpl-row-dur">{{ release|duration }}</span>{% endif %}
-            </div>
+            {% endif %}
 
-            {# Col 3: Branch #}
-            <div class="dpl-row-branch">
-              {% if rel_ref %}
-                {{ icon('git-branch', 'w-3.5 h-3.5') }}
-                <span>{{ rel_ref }}</span>
-              {% endif %}
-            </div>
-
-            {# Col 4: Commit SHA (linked) + image ref + config/proc counts #}
-            <div class="dpl-row-commit">
-              {% if rel_sha %}
-                <span class="dpl-row-sha">
-                  {{ icon('git-commit', 'w-3.5 h-3.5') }}
-                  {% if application.github_repository %}
-                    <a href="https://github.com/{{ application.github_repository }}/commit/{{ rel_sha }}"
-                       target="_blank"
-                       rel="noopener"
-                       onclick="event.stopPropagation()">{{ rel_sha[:7] }}</a>
-                  {% else %}
-                    <code>{{ rel_sha[:7] }}</code>
-                  {% endif %}
-                </span>
-              {% endif %}
-              {% if rel_img %}
-                <span class="dpl-row-extra">
-                  {{ icon('image', 'w-3 h-3') }}
-                  <span>#{{ rel_img.version }}</span>
-                </span>
-              {% endif %}
-              {% if cfg_count > 0 %}
-                <span class="dpl-row-extra">
-                  {{ icon('key', 'w-3 h-3') }}
-                  <span>{{ cfg_count }} var{{ 's' if cfg_count != 1 }}</span>
-                </span>
-              {% endif %}
-              {% if proc_count > 0 %}
-                <span class="dpl-row-extra">
-                  {{ icon('terminal', 'w-3 h-3') }}
-                  <span>{{ proc_count }} proc{{ 's' if proc_count != 1 }}</span>
-                </span>
-              {% endif %}
-            </div>
-
-            {# Col 5: Timestamp #}
-            <span class="dpl-row-time">{{ release.updated|humanize }}</span>
-
-            {# Badges row (if any) #}
-            {% if is_latest or rel_auto %}
-              <div class="dpl-row-badges">
+            {# Body #}
+            <div class="dpl-row-body">
+              <div class="dpl-row-primary">
+                <code class="dpl-row-version">v{{ release.version }}</code>
+                {% if release.built %}
+                  <span class="dpl-row-status-text dpl-row-status-ok">Built</span>
+                {% elif release.error %}
+                  <span class="dpl-row-status-text dpl-row-status-err">Error</span>
+                {% else %}
+                  <span class="dpl-row-status-text dpl-row-status-run">Building</span>
+                {% endif %}
+                {% if release.built %}<span class="dpl-row-dur">{{ release|duration }}</span>{% endif %}
                 {% if is_latest %}<span class="dpl-badge dpl-badge-latest">Latest</span>{% endif %}
                 {% if rel_auto %}<span class="dpl-badge dpl-badge-auto">{{ icon('zap', 'w-2.5 h-2.5') }} Auto</span>{% endif %}
               </div>
-            {% endif %}
+              <div class="dpl-row-meta">
+                {% if rel_ref %}
+                  <span class="dpl-meta-chip">
+                    {{ icon('git-branch', 'w-3 h-3') }}
+                    <span>{{ rel_ref }}</span>
+                  </span>
+                {% endif %}
+                {% if rel_sha %}
+                  <span class="dpl-meta-chip">
+                    {{ icon('git-commit', 'w-3 h-3') }}
+                    {% if application.github_repository %}
+                      <a href="https://github.com/{{ application.github_repository }}/commit/{{ rel_sha }}"
+                         class="dpl-row-sha-link"
+                         target="_blank"
+                         rel="noopener"
+                         onclick="event.stopPropagation()">{{ rel_sha[:7] }}</a>
+                    {% else %}
+                      <code>{{ rel_sha[:7] }}</code>
+                    {% endif %}
+                  </span>
+                {% endif %}
+                {% if rel_img %}
+                  <span class="dpl-meta-chip">
+                    {{ icon('image', 'w-3 h-3') }}
+                    <span>#{{ rel_img.version }}</span>
+                  </span>
+                {% endif %}
+                {% if cfg_count > 0 %}
+                  <span class="dpl-meta-chip">
+                    {{ icon('key', 'w-3 h-3') }}
+                    <span>{{ cfg_count }} var{{ 's' if cfg_count != 1 }}</span>
+                  </span>
+                {% endif %}
+                {% if proc_count > 0 %}
+                  <span class="dpl-meta-chip">
+                    {{ icon('terminal', 'w-3 h-3') }}
+                    <span>{{ proc_count }} proc{{ 's' if proc_count != 1 }}</span>
+                  </span>
+                {% endif %}
+              </div>
+              {% if release.error and release.error_detail %}
+                <div class="dpl-row-error-detail">{{ release.error_detail[:140] }}</div>
+              {% endif %}
+            </div>
 
-            {# Error detail — full width #}
-            {% if release.error and release.error_detail %}
-              <div class="dpl-row-error-detail">{{ release.error_detail[:140] }}</div>
-            {% endif %}
+            {# Timestamp #}
+            <span class="dpl-row-time">{{ release.updated|humanize }}</span>
           </a>
         {% endfor %}
       </div>
@@ -1677,85 +1657,77 @@
           <a href="{{ url_for('user.deployment_detail', deployment_id=deployment.id) }}"
              class="dpl-row {{ 'dpl-row-active' if is_active }} {{ 'dpl-row-error' if deployment.error }} {{ 'dpl-row-deploying' if not deployment.complete and not deployment.error }}">
 
-            {# Col 1: Version + env label #}
-            <div class="dpl-row-id">
-              <div>
+            {# Status icon #}
+            {% if deployment.complete %}
+              <span class="dpl-row-icon dpl-row-icon-ok">{{ icon('check', 'w-3.5 h-3.5') }}</span>
+            {% elif deployment.error %}
+              <span class="dpl-row-icon dpl-row-icon-err">{{ icon('x', 'w-3.5 h-3.5') }}</span>
+            {% else %}
+              <span class="dpl-row-icon dpl-row-icon-run">
+                <svg class="w-3.5 h-3.5 animate-spin"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2.5">
+                  <path d="M21 12a9 9 0 11-6.219-8.56" />
+                </svg>
+              </span>
+            {% endif %}
+
+            {# Body: version line + git chips #}
+            <div class="dpl-row-body">
+              <div class="dpl-row-primary">
                 {% if dep_rel %}
                   <code class="dpl-row-version">v{{ dep_rel.version }}</code>
                 {% else %}
                   <span class="dpl-row-version dpl-row-version-none">—</span>
                 {% endif %}
-                <div class="dpl-row-env">Production</div>
-              </div>
-            </div>
-
-            {# Col 2: Status dot + text + duration #}
-            <div class="dpl-row-status {{ 'dpl-row-status-ok' if deployment.complete }} {{ 'dpl-row-status-err' if deployment.error }} {{ 'dpl-row-status-run' if not deployment.complete and not deployment.error }}">
-              {% if deployment.complete %}
-                <span class="dpl-row-dot dpl-row-dot-ok"></span>
-              {% elif deployment.error %}
-                <span class="dpl-row-dot dpl-row-dot-err"></span>
-              {% else %}
-                <span class="dpl-row-dot dpl-row-dot-run"></span>
-              {% endif %}
-              <span class="dpl-row-status-text">
                 {% if deployment.complete %}
-                  Ready
+                  <span class="dpl-row-status-text dpl-row-status-ok">Ready</span>
                 {% elif deployment.error %}
-                  Error
+                  <span class="dpl-row-status-text dpl-row-status-err">Error</span>
                 {% else %}
-                  Building
+                  <span class="dpl-row-status-text dpl-row-status-run">Deploying</span>
                 {% endif %}
-              </span>
-              {% if deployment.complete or deployment.error %}<span class="dpl-row-dur">{{ deployment|duration }}</span>{% endif %}
-            </div>
-
-            {# Col 3: Branch #}
-            <div class="dpl-row-branch">
-              {% if dep_ref %}
-                {{ icon('git-branch', 'w-3.5 h-3.5') }}
-                <span>{{ dep_ref }}</span>
-              {% endif %}
-            </div>
-
-            {# Col 4: Commit SHA (linked) + image ref #}
-            <div class="dpl-row-commit">
-              {% if dep_sha %}
-                <span class="dpl-row-sha">
-                  {{ icon('git-commit', 'w-3.5 h-3.5') }}
-                  {% if application.github_repository %}
-                    <a href="https://github.com/{{ application.github_repository }}/commit/{{ dep_sha }}"
-                       target="_blank"
-                       rel="noopener"
-                       onclick="event.stopPropagation()">{{ dep_sha[:7] }}</a>
-                  {% else %}
-                    <code>{{ dep_sha[:7] }}</code>
-                  {% endif %}
-                </span>
-              {% endif %}
-              {% if dep_img %}
-                <span class="dpl-row-extra">
-                  {{ icon('image', 'w-3 h-3') }}
-                  <span>#{{ dep_img.version }}</span>
-                </span>
-              {% endif %}
-            </div>
-
-            {# Col 5: Timestamp #}
-            <span class="dpl-row-time">{{ deployment.updated|humanize }}</span>
-
-            {# Badges row (if any) — full width #}
-            {% if is_active or dep_auto %}
-              <div class="dpl-row-badges">
+                {% if deployment.complete or deployment.error %}<span class="dpl-row-dur">{{ deployment|duration }}</span>{% endif %}
                 {% if is_active %}<span class="dpl-badge dpl-badge-active">Active</span>{% endif %}
                 {% if dep_auto %}<span class="dpl-badge dpl-badge-auto">{{ icon('zap', 'w-2.5 h-2.5') }} Auto</span>{% endif %}
               </div>
-            {% endif %}
+              <div class="dpl-row-meta">
+                {% if dep_ref %}
+                  <span class="dpl-meta-chip">
+                    {{ icon('git-branch', 'w-3 h-3') }}
+                    <span>{{ dep_ref }}</span>
+                  </span>
+                {% endif %}
+                {% if dep_sha %}
+                  <span class="dpl-meta-chip">
+                    {{ icon('git-commit', 'w-3 h-3') }}
+                    {% if application.github_repository %}
+                      <a href="https://github.com/{{ application.github_repository }}/commit/{{ dep_sha }}"
+                         class="dpl-row-sha-link"
+                         target="_blank"
+                         rel="noopener"
+                         onclick="event.stopPropagation()">{{ dep_sha[:7] }}</a>
+                    {% else %}
+                      <code>{{ dep_sha[:7] }}</code>
+                    {% endif %}
+                  </span>
+                {% endif %}
+                {% if dep_img %}
+                  <span class="dpl-meta-chip">
+                    {{ icon('image', 'w-3 h-3') }}
+                    <span>#{{ dep_img.version }}</span>
+                  </span>
+                {% endif %}
+              </div>
+              {% if deployment.error and deployment.error_detail %}
+                <div class="dpl-row-error-detail">{{ deployment.error_detail[:140] }}</div>
+              {% endif %}
+            </div>
 
-            {# Error detail — full width #}
-            {% if deployment.error and deployment.error_detail %}
-              <div class="dpl-row-error-detail">{{ deployment.error_detail[:140] }}</div>
-            {% endif %}
+            {# Timestamp #}
+            <span class="dpl-row-time">{{ deployment.updated|humanize }}</span>
           </a>
         {% endfor %}
       </div>

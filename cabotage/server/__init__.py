@@ -92,7 +92,12 @@ def celery_init_app(app):
     celery_app.set_default()
     celery_app.conf.task_reject_on_worker_lost = True
     celery_app.conf.worker_prefetch_multiplier = 1
-    celery_app.conf.beat_schedule = {
+    # Define the canonical beat schedule.  RedBeat persists schedules in
+    # Redis and only seeds new entries on first run — it never picks up
+    # additions or changes from beat_schedule afterwards.  We explicitly
+    # create/update RedBeatSchedulerEntry objects so that every deploy
+    # converges the schedule to match the code.
+    beat_schedule = {
         "pod-reaper": {
             "task": "cabotage.celery.tasks.maintain.reap_pods",
             "schedule": crontab(minute="*/5"),
@@ -112,6 +117,27 @@ def celery_init_app(app):
             "args": None,
         },
     }
+    celery_app.conf.beat_schedule = beat_schedule
+
+    # Force-sync schedules into RedBeat on every app init so new tasks
+    # and schedule changes are always picked up after deploys.
+    try:
+        from redbeat import RedBeatSchedulerEntry
+
+        for name, entry in beat_schedule.items():
+            rbe = RedBeatSchedulerEntry(
+                name=name,
+                task=entry["task"],
+                schedule=entry["schedule"],
+                args=entry.get("args"),
+                kwargs=entry.get("kwargs"),
+                app=celery_app,
+            )
+            rbe.save()
+    except Exception:  # nosec B110
+        # Don't block app startup if Redis is unreachable (e.g. local dev)
+        pass
+
     app.extensions["celery"] = celery_app
     return celery_app
 
