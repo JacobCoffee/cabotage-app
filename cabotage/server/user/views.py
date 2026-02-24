@@ -1592,6 +1592,7 @@ def project_application_configuration_create(org_slug, project_slug, app_slug):
                     project_slug=project_slug,
                     app_slug=app_slug,
                 )
+                + "#config"
             )
         configuration.key_slug = key_slugs["config_key_slug"]
         configuration.build_key_slug = key_slugs["build_key_slug"]
@@ -1616,6 +1617,7 @@ def project_application_configuration_create(org_slug, project_slug, app_slug):
                 project_slug=project.slug,
                 app_slug=application.slug,
             )
+            + "#config"
         )
     return render_template(
         "user/project_application_configuration_create.html",
@@ -1682,6 +1684,7 @@ def project_application_configuration_bulk(org_slug, project_slug, app_slug):
                 project_slug=project_slug,
                 app_slug=app_slug,
             )
+            + "#config"
         )
 
     # Build lookup of existing configs (case-insensitive via CIText)
@@ -1721,6 +1724,7 @@ def project_application_configuration_bulk(org_slug, project_slug, app_slug):
                         project_slug=project_slug,
                         app_slug=app_slug,
                     )
+                    + "#config"
                 )
             existing_config.key_slug = key_slugs["config_key_slug"]
             existing_config.build_key_slug = key_slugs["build_key_slug"]
@@ -1758,6 +1762,7 @@ def project_application_configuration_bulk(org_slug, project_slug, app_slug):
                         project_slug=project_slug,
                         app_slug=app_slug,
                     )
+                    + "#config"
                 )
             configuration.key_slug = key_slugs["config_key_slug"]
             configuration.build_key_slug = key_slugs["build_key_slug"]
@@ -1799,6 +1804,7 @@ def project_application_configuration_bulk(org_slug, project_slug, app_slug):
             project_slug=project_slug,
             app_slug=app_slug,
         )
+        + "#config"
     )
 
 
@@ -1846,6 +1852,7 @@ def project_application_configuration_edit(org_slug, project_slug, app_slug, con
                     project_slug=project_slug,
                     app_slug=app_slug,
                 )
+                + "#config"
             )
         configuration.key_slug = key_slugs["config_key_slug"]
         configuration.build_key_slug = key_slugs["build_key_slug"]
@@ -1869,6 +1876,7 @@ def project_application_configuration_edit(org_slug, project_slug, app_slug, con
                 project_slug=project.slug,
                 app_slug=application.slug,
             )
+            + "#config"
         )
 
     if configuration.secret:
