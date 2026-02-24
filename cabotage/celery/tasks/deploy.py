@@ -1203,6 +1203,14 @@ def deploy_release(deployment):
                 process_name,
             )
 
+        # Mark complete now — K8s will finish the rollout even if this
+        # worker dies (self-deploy). If rollout fails below, we override
+        # with error=True.
+        deploy_log.append("K8s deployments patched, marking complete")
+        deployment.complete = True
+        deployment.deploy_log = "\n".join(deploy_log)
+        db.session.commit()
+
         deploy_log.append("Waiting on deployment to rollout...")
         start = time.time()
         timeout = deployment.release_object.application.deployment_timeout
@@ -1261,6 +1269,7 @@ def deploy_release(deployment):
         deployment.complete = True
         deploy_log.append(f"Deployment {deployment.id} complete")
     except DeployError as exc:
+        deployment.complete = False
         deployment.error = True
         deployment.error_detail = str(exc)
         if (
@@ -1281,6 +1290,7 @@ def deploy_release(deployment):
         db.session.commit()
         return False
     except Exception as exc:
+        deployment.complete = False
         deployment.error = True
         logger.exception("Unexpected deployment error")
         deployment.error_detail = "Deployment failed due to an unexpected error. Check server logs for details."
