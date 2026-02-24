@@ -86,3 +86,8 @@ class Config(metaclass=MetaFlaskEnv):
     DATADOG_IMAGE = "datadog/agent:7.55.2"
     TRAEFIK_NAMESPACE = "traefik"
     TRAEFIK_LABEL_SELECTOR = "app.kubernetes.io/name=traefik"
+    INGRESS_NGINX_NAMESPACE = "ingress-nginx"
+    INGRESS_NGINX_LABEL_SELECTOR = (
+        "app.kubernetes.io/name=ingress-nginx,app.kubernetes.io/component=controller"
+    )
+    INGRESS_NGINX_CONTAINER = "controller"

@@ -1949,6 +1949,207 @@ function initObservabilityPanel() {
   window.observabilityPanel = new ObservabilityPanel(container);
 }
 
+/* ---------- Pipeline Metrics Panel ---------- */
+function PipelineMetricsPanel(container) {
+  this.container = container;
+  this.appId = container.getAttribute('data-application-id');
+  this.active = false;
+  this.range = 50;
+
+  // DOM refs — summary cards
+  this.buildRate = container.querySelector('[data-pm-build-rate]');
+  this.buildCounts = container.querySelector('[data-pm-build-counts]');
+  this.buildAvg = container.querySelector('[data-pm-build-avg]');
+  this.deployAvg = container.querySelector('[data-pm-deploy-avg]');
+
+  // DOM refs — stat chips
+  this.buildChips = container.querySelector('[data-pm-build-chips]');
+  this.releaseChips = container.querySelector('[data-pm-release-chips]');
+  this.deployChips = container.querySelector('[data-pm-deploy-chips]');
+
+  // DOM refs — charts
+  this.buildChart = container.querySelector('[data-pm-build-chart]');
+  this.releaseChart = container.querySelector('[data-pm-release-chart]');
+  this.deployChart = container.querySelector('[data-pm-deploy-chart]');
+
+  // Range buttons
+  var self = this;
+  var rangeButtons = container.querySelectorAll('[data-pm-range]');
+  rangeButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      rangeButtons.forEach(function (b) {
+        b.classList.remove('obs-range-active');
+      });
+      btn.classList.add('obs-range-active');
+      self.range = parseInt(btn.getAttribute('data-pm-range'), 10);
+      self.fetch();
+    });
+  });
+
+  // Tab lifecycle
+  var panel = container.closest('[data-tab-panel]');
+  if (panel) {
+    panel.addEventListener('tab-activated', function () {
+      self.activate();
+    });
+    panel.addEventListener('tab-deactivated', function () {
+      self.deactivate();
+    });
+    if (panel.classList.contains('tab-panel-active')) {
+      self.activate();
+    }
+  }
+}
+
+PipelineMetricsPanel.prototype.activate = function () {
+  if (this.active) return;
+  this.active = true;
+  this.fetch();
+};
+
+PipelineMetricsPanel.prototype.deactivate = function () {
+  this.active = false;
+};
+
+PipelineMetricsPanel.prototype.fetch = function () {
+  var self = this;
+  var url = '/applications/' + this.appId + '/pipeline-metrics?range=' + this.range;
+  fetch(url, { credentials: 'same-origin' })
+    .then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function (data) {
+      self.render(data);
+    })
+    .catch(function (err) {
+      console.warn('Pipeline metrics fetch error:', err);
+    });
+};
+
+PipelineMetricsPanel.prototype.formatDuration = function (secs) {
+  if (secs == null) return '—';
+  if (secs < 60) return secs + 's';
+  var m = Math.floor(secs / 60);
+  var s = secs % 60;
+  return m + 'm ' + s + 's';
+};
+
+PipelineMetricsPanel.prototype.render = function (data) {
+  // Summary cards
+  if (this.buildRate) {
+    this.buildRate.textContent =
+      data.images.success_rate != null ? data.images.success_rate + '%' : '—';
+  }
+  if (this.buildCounts) {
+    this.buildCounts.textContent =
+      data.images.total > 0
+        ? data.images.success + ' ok / ' + data.images.error + ' err of ' + data.images.total
+        : '';
+  }
+  if (this.buildAvg) {
+    this.buildAvg.textContent = this.formatDuration(data.images.avg_secs);
+  }
+  if (this.deployAvg) {
+    this.deployAvg.textContent = this.formatDuration(data.deployments.avg_secs);
+  }
+
+  // Stage sections
+  this.renderStage(this.buildChips, this.buildChart, data.images);
+  this.renderStage(this.releaseChips, this.releaseChart, data.releases);
+  this.renderStage(this.deployChips, this.deployChart, data.deployments);
+};
+
+PipelineMetricsPanel.prototype.renderStage = function (chipsEl, svgEl, stage) {
+  // Stat chips
+  if (chipsEl) {
+    var chips = '';
+    chips += '<span class="pm-stat-chip">' + stage.total + ' total</span>';
+    chips += '<span class="pm-stat-chip pm-stat-chip-ok">' + stage.success + ' ok</span>';
+    if (stage.error > 0) {
+      chips += '<span class="pm-stat-chip pm-stat-chip-err">' + stage.error + ' err</span>';
+    }
+    if (stage.p50_secs != null) {
+      chips += '<span class="pm-stat-chip">p50 ' + this.formatDuration(stage.p50_secs) + '</span>';
+    }
+    if (stage.p95_secs != null) {
+      chips += '<span class="pm-stat-chip">p95 ' + this.formatDuration(stage.p95_secs) + '</span>';
+    }
+    chipsEl.innerHTML = chips;
+  }
+
+  // Bar chart
+  this.renderBarChart(svgEl, stage.history, stage.avg_secs);
+};
+
+PipelineMetricsPanel.prototype.renderBarChart = function (svgEl, history, avgSecs) {
+  if (!svgEl) return;
+  if (!history || !history.length) {
+    svgEl.innerHTML =
+      '<text x="300" y="60" text-anchor="middle" fill="var(--text-muted)" font-size="13">No data yet</text>';
+    return;
+  }
+
+  var w = 600,
+    h = 120,
+    pad = 4;
+  var n = history.length;
+  var gap = 2;
+  var barW = Math.max(1, (w - 2 * pad - (n - 1) * gap) / n);
+
+  // Compute ceiling from durations
+  var maxSecs = 1;
+  history.forEach(function (item) {
+    if (item.secs != null && item.secs > maxSecs) maxSecs = item.secs;
+  });
+  var ceiling = maxSecs * 1.15;
+
+  var svg = '';
+
+  // Avg line
+  if (avgSecs != null && avgSecs > 0) {
+    var avgY = h - pad - (avgSecs / ceiling) * (h - 2 * pad);
+    svg +=
+      '<line x1="' + pad + '" y1="' + avgY + '" x2="' + (w - pad) + '" y2="' + avgY + '" ' +
+      'stroke="var(--text-faintest)" stroke-width="1" stroke-dasharray="4 3" />';
+    svg +=
+      '<text x="' + (w - pad) + '" y="' + (avgY - 3) + '" text-anchor="end" ' +
+      'fill="var(--text-faintest)" font-size="9">avg</text>';
+  }
+
+  // Bars
+  var self = this;
+  history.forEach(function (item, i) {
+    var x = pad + i * (barW + gap);
+    var secs = item.secs;
+    if (secs == null || secs <= 0) {
+      // In-progress or no duration — show minimal gray bar
+      svg +=
+        '<rect x="' + x + '" y="' + (h - pad - 3) + '" width="' + barW + '" height="3" ' +
+        'rx="1" fill="var(--text-faintest)" opacity="0.3">' +
+        '<title>#' + (item.version || '?') + ' — in progress</title></rect>';
+      return;
+    }
+    var barH = Math.max(2, (secs / ceiling) * (h - 2 * pad));
+    var barY = h - pad - barH;
+    var color = item.error ? '#ef4444' : item.ok ? '#22c55e' : 'var(--text-faintest)';
+    var tooltip =
+      '#' + (item.version || '?') + ' — ' + self.formatDuration(secs) + (item.error ? ' (error)' : '');
+    svg +=
+      '<rect x="' + x + '" y="' + barY + '" width="' + barW + '" height="' + barH + '" ' +
+      'rx="1" fill="' + color + '" opacity="0.85">' +
+      '<title>' + tooltip + '</title></rect>';
+  });
+
+  svgEl.innerHTML = svg;
+};
+
+function initPipelineMetricsPanel() {
+  var container = document.querySelector('[data-pipeline-metrics-panel]');
+  if (!container) return;
+  window.pipelineMetricsPanel = new PipelineMetricsPanel(container);
+}
+
 /* ---------- Live Status Mini (Overview tab) ---------- */
 function ObservabilityMini(container) {
   this.container = container;
@@ -1959,13 +2160,10 @@ function ObservabilityMini(container) {
   // DOM refs
   this.cpuValue = container.querySelector('[data-ls-cpu-value]');
   this.cpuSpark = container.querySelector('[data-ls-cpu-spark]');
-  this.cpuLimit = container.querySelector('[data-ls-cpu-limit]');
   this.memValue = container.querySelector('[data-ls-mem-value]');
   this.memSpark = container.querySelector('[data-ls-mem-spark]');
-  this.memLimit = container.querySelector('[data-ls-mem-limit]');
   this.podCount = container.querySelector('[data-ls-pod-count]');
   this.podDots = container.querySelector('[data-ls-pod-dots]');
-  this.restartCount = container.querySelector('[data-ls-restart-count]');
 }
 
 ObservabilityMini.prototype.activate = function () {
@@ -2022,11 +2220,8 @@ ObservabilityMini.prototype.render = function (data) {
   var cpuPct = cpuLim ? (cpuVal / cpuLim) * 100 : 0;
   if (this.cpuValue) {
     this.cpuValue.textContent = cpuVal != null ? Math.round(cpuVal) + 'm' : '—';
-    this.cpuValue.className = 'live-status-value' +
-      (cpuPct > 90 ? ' live-status-value-danger' : cpuPct > 70 ? ' live-status-value-warn' : '');
-  }
-  if (this.cpuLimit && cpuLim) {
-    this.cpuLimit.textContent = '/ ' + cpuLim + 'm';
+    this.cpuValue.className = 'ls-val' +
+      (cpuPct > 90 ? ' ls-val-danger' : cpuPct > 70 ? ' ls-val-warn' : '');
   }
 
   // Memory
@@ -2035,16 +2230,12 @@ ObservabilityMini.prototype.render = function (data) {
   var memPct = memLim ? (memVal / memLim) * 100 : 0;
   if (this.memValue) {
     this.memValue.textContent = memVal != null ? this.formatBytes(memVal) : '—';
-    this.memValue.className = 'live-status-value' +
-      (memPct > 90 ? ' live-status-value-danger' : memPct > 70 ? ' live-status-value-warn' : '');
-  }
-  if (this.memLimit && memLim) {
-    this.memLimit.textContent = '/ ' + this.formatBytes(memLim);
+    this.memValue.className = 'ls-val' +
+      (memPct > 90 ? ' ls-val-danger' : memPct > 70 ? ' ls-val-warn' : '');
   }
 
   // Pods
   var podN = current.pod_count || 0;
-  var restarts = current.restart_count || 0;
   if (this.podCount) {
     this.podCount.textContent = podN;
   }
@@ -2066,9 +2257,6 @@ ObservabilityMini.prototype.render = function (data) {
     }
     this.podDots.innerHTML = dotsHtml;
   }
-  if (this.restartCount) {
-    this.restartCount.textContent = restarts > 0 ? restarts + ' restart' + (restarts !== 1 ? 's' : '') : '';
-  }
 
   // Sparklines
   this.renderSparkline(this.cpuSpark, data.history, 'cpu_usage_m', cpuLim, 'oklch(0.7 0.15 230)');
@@ -2080,15 +2268,17 @@ ObservabilityMini.prototype.renderSparkline = function (container, history, key,
   var svg = container.querySelector('svg');
   if (!svg) return;
   if (!history || !history.length) {
-    svg.innerHTML = '';
+    // Show flat baseline when no data
+    svg.innerHTML = '<line x1="0" y1="35" x2="160" y2="35" stroke="' + color + '" stroke-opacity="0.15" stroke-width="1"/>';
+    container.classList.add('ls-loaded');
     return;
   }
 
   var values = history.map(function (h) { return h[key] || 0; });
   var max = limit || Math.max.apply(null, values) || 1;
-  var w = 120;
-  var h = 32;
-  var pad = 1;
+  var w = 160;
+  var h = 36;
+  var pad = 2;
 
   var points = [];
   for (var i = 0; i < values.length; i++) {
@@ -2102,11 +2292,14 @@ ObservabilityMini.prototype.renderSparkline = function (container, history, key,
   var areaPath = pathD + 'L' + w + ',' + h + 'L0,' + h + 'Z';
 
   var gradId = 'ls-grad-' + key;
+  // Baseline at bottom + limit dashed line if applicable
+  var baseline = '<line x1="0" y1="' + (h - 1) + '" x2="' + w + '" y2="' + (h - 1) + '" stroke="' + color + '" stroke-opacity="0.15" stroke-width="1"/>';
   svg.innerHTML =
     '<defs><linearGradient id="' + gradId + '" x1="0" y1="0" x2="0" y2="1">' +
-    '<stop offset="0%" stop-color="' + color + '" stop-opacity="0.2"/>' +
+    '<stop offset="0%" stop-color="' + color + '" stop-opacity="0.15"/>' +
     '<stop offset="100%" stop-color="' + color + '" stop-opacity="0"/>' +
     '</linearGradient></defs>' +
+    baseline +
     '<path d="' + areaPath + '" fill="url(#' + gradId + ')"/>' +
     '<path d="' + pathD + '" fill="none" stroke="' + color + '" stroke-width="1.5" ' +
     'stroke-linecap="round" stroke-linejoin="round" class="ls-spark-path"/>';
@@ -2269,6 +2462,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initPipelineTracker();
   initDashboardPoller();
   initObservabilityPanel();
+  initPipelineMetricsPanel();
   initLiveStatus();
   autoExpandCollapsibleCards();
   syncDetailLogHeight();

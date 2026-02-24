@@ -25,7 +25,8 @@
         {'id': 'config', 'label': 'Config', 'icon': 'key', 'badge': application.configurations|rejectattr('name', 'equalto', 'CABOTAGE_SENTINEL') |list|length},
     {'id': 'images', 'label': 'Images', 'icon': 'image'},
     {'id': 'releases', 'label': 'Packages', 'icon': 'layers'},
-    {'id': 'deployments', 'label': 'Deploys', 'icon': 'deploy'}
+    {'id': 'deployments', 'label': 'Deploys', 'icon': 'deploy'},
+    {'id': 'pipeline', 'label': 'Pipeline', 'icon': 'bar-chart-2'}
     ]) }}
   </div>
 {% endblock tab_bar %}
@@ -611,65 +612,6 @@
       </div>
     {% endif %}
 
-    {# ── SECTION 2.25: LIVE STATUS (mini observability on overview) ── #}
-
-    {% if application.releases.count() > 0 and application.latest_release.built %}
-      <div class="live-status-widget mb-4"
-           data-live-status
-           data-application-id="{{ application.id }}">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Live Status</h2>
-          <a href="#observe"
-             data-switch-tab="observe"
-             class="text-xs text-base-content/25 hover:text-accent transition-colors inline-flex items-center gap-1">
-            Details
-            <svg class="w-3 h-3"
-                 viewBox="0 0 24 24"
-                 fill="none"
-                 stroke="currentColor"
-                 stroke-width="2">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </a>
-        </div>
-        <div class="live-status-grid">
-          {# CPU metric #}
-          <div class="live-status-metric" data-ls-cpu>
-            <div class="live-status-metric-head">
-              <span class="live-status-label">CPU</span>
-              <span class="live-status-value" data-ls-cpu-value>—</span>
-            </div>
-            <div class="live-status-spark" data-ls-cpu-spark>
-              <svg viewBox="0 0 120 32" preserveAspectRatio="none">
-              </svg>
-            </div>
-            <div class="live-status-limit" data-ls-cpu-limit></div>
-          </div>
-          {# Memory metric #}
-          <div class="live-status-metric" data-ls-mem>
-            <div class="live-status-metric-head">
-              <span class="live-status-label">Memory</span>
-              <span class="live-status-value" data-ls-mem-value>—</span>
-            </div>
-            <div class="live-status-spark" data-ls-mem-spark>
-              <svg viewBox="0 0 120 32" preserveAspectRatio="none">
-              </svg>
-            </div>
-            <div class="live-status-limit" data-ls-mem-limit></div>
-          </div>
-          {# Pods metric #}
-          <div class="live-status-metric" data-ls-pods>
-            <div class="live-status-metric-head">
-              <span class="live-status-label">Pods</span>
-              <span class="live-status-value" data-ls-pod-count>—</span>
-            </div>
-            <div class="live-status-pods-row" data-ls-pod-dots></div>
-            <div class="live-status-limit" data-ls-restart-count></div>
-          </div>
-        </div>
-      </div>
-    {% endif %}
-
     {# ── SECTION 2.5: CONFIGURATION AT A GLANCE ── #}
 
     <details class="mb-4">
@@ -730,29 +672,112 @@
       </div>
     </details>
 
-    {# ── SECTION 3: RECENT ACTIVITY ── #}
+    {# ── SECTION 3: RECENT ACTIVITY + LIVE STATUS ── #}
 
     {% set has_any_activity = images[:3]|length > 0 or releases[:3]|length > 0 or deployments[:3]|length > 0 %}
+    {% set has_live_status = application.releases.count() > 0 and application.latest_release.built %}
 
-    <div class="mb-4" data-live-activity>
+    <div class="mb-4">
       <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Recent Activity</h2>
-      {% if has_any_activity %}
-        <div class="card bg-base-200 border border-base-300">
-          <div class="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-base-content/5">
-            {# Builds #}
+      <div class="ls-bento{% if not has_live_status %} ls-bento-solo{% endif %}">
+
+        {# Live Status tile #}
+        {% if has_live_status %}
+          <div class="ls-card"
+               data-live-status
+               data-application-id="{{ application.id }}">
+            <div class="ls-header">
+              <span class="ls-title">Live</span>
+              <span class="ls-range">1h</span>
+              <a href="#observe" data-switch-tab="observe" class="ls-nav-arrow">
+                <svg viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2.5">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </a>
+            </div>
+            <div class="ls-row">
+              <div class="ls-left">
+                <span class="ls-label">CPU</span>
+                <span class="ls-val" data-ls-cpu-value>—</span>
+              </div>
+              <div class="ls-spark" data-ls-cpu-spark>
+                <svg viewBox="0 0 120 28" preserveAspectRatio="none">
+                </svg>
+              </div>
+            </div>
+            <div class="ls-row">
+              <div class="ls-left">
+                <span class="ls-label">Mem</span>
+                <span class="ls-val" data-ls-mem-value>—</span>
+              </div>
+              <div class="ls-spark" data-ls-mem-spark>
+                <svg viewBox="0 0 120 28" preserveAspectRatio="none">
+                </svg>
+              </div>
+            </div>
+            <div class="ls-row ls-row-last">
+              <div class="ls-left">
+                <span class="ls-label">Pods</span>
+                <span class="ls-val" data-ls-pod-count>—</span>
+              </div>
+              <div class="ls-pods" data-ls-pod-dots></div>
+            </div>
+          </div>
+        {% endif %}
+
+        {# Activity card #}
+        <div class="ls-bento-activity" data-live-activity>
+          {% if has_any_activity %}
+            <div class="card bg-base-200 border border-base-300">
+              <div class="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-base-content/5">
+                {# Builds #}
+                <div class="p-4">
+                  <div class="flex items-center gap-1.5 mb-2">
+                    {{ icon('image', 'w-3 h-3 text-base-content/30') }}
+                    <span class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Builds</span>
+                  </div>
+                  {% for img in images[:3] %}
+                    <a href="{{ url_for('user.image_detail', image_id=img.id) }}"
+                       class="flex items-center gap-1.5 py-1 hover:text-accent transition-colors">
+                      {% if img.built %}
+                        <span class="status-dot status-dot-success flex-shrink-0"
+                              style="width:5px;
+                                     height:5px"></span>
+                      {% elif img.error %}
+                        <span class="status-dot status-dot-error flex-shrink-0"
+                              style="width:5px;
+                                     height:5px"></span>
+                      {% else %}
+                        <span class="status-dot status-dot-info status-dot-pulse flex-shrink-0"
+                              style="width:5px;
+                                     height:5px"></span>
+                      {% endif %}
+                      <code class="text-xs text-accent/70">#{{ img.version }}</code>
+                    <span class="text-xs text-base-content/25 ml-auto"><time data-timestamp="{{ img.updated|isoformat_utc }}">{{ img.updated|humanize }}</time>
+                    {% if img.built %}<span class="text-base-content/15">({{ img|duration }})</span>{% endif %}
+                  </span>
+                </a>
+              {% else %}
+                <p class="text-xs text-base-content/20 py-1">No builds yet</p>
+              {% endfor %}
+            </div>
+            {# Packages #}
             <div class="p-4">
               <div class="flex items-center gap-1.5 mb-2">
-                {{ icon('image', 'w-3 h-3 text-base-content/30') }}
-                <span class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Builds</span>
+                {{ icon('layers', 'w-3 h-3 text-base-content/30') }}
+                <span class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Packages</span>
               </div>
-              {% for img in images[:3] %}
-                <a href="{{ url_for('user.image_detail', image_id=img.id) }}"
+              {% for rel in releases[:3] %}
+                <a href="{{ url_for('user.release_detail', release_id=rel.id) }}"
                    class="flex items-center gap-1.5 py-1 hover:text-accent transition-colors">
-                  {% if img.built %}
+                  {% if rel.built %}
                     <span class="status-dot status-dot-success flex-shrink-0"
                           style="width:5px;
                                  height:5px"></span>
-                  {% elif img.error %}
+                  {% elif rel.error %}
                     <span class="status-dot status-dot-error flex-shrink-0"
                           style="width:5px;
                                  height:5px"></span>
@@ -761,29 +786,29 @@
                           style="width:5px;
                                  height:5px"></span>
                   {% endif %}
-                  <code class="text-xs text-accent/70">#{{ img.version }}</code>
-                <span class="text-xs text-base-content/25 ml-auto"><time data-timestamp="{{ img.updated|isoformat_utc }}">{{ img.updated|humanize }}</time>
-                {% if img.built %}<span class="text-base-content/15">({{ img|duration }})</span>{% endif %}
+                  <code class="text-xs text-accent/70">v{{ rel.version }}</code>
+                <span class="text-xs text-base-content/25 ml-auto"><time data-timestamp="{{ rel.updated|isoformat_utc }}">{{ rel.updated|humanize }}</time>
+                {% if rel.built %}<span class="text-base-content/15">({{ rel|duration }})</span>{% endif %}
               </span>
             </a>
           {% else %}
-            <p class="text-xs text-base-content/20 py-1">No builds yet</p>
+            <p class="text-xs text-base-content/20 py-1">No packages yet</p>
           {% endfor %}
         </div>
-        {# Packages #}
+        {# Deploys #}
         <div class="p-4">
           <div class="flex items-center gap-1.5 mb-2">
-            {{ icon('layers', 'w-3 h-3 text-base-content/30') }}
-            <span class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Packages</span>
+            {{ icon('deploy', 'w-3 h-3 text-base-content/30') }}
+            <span class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Deploys</span>
           </div>
-          {% for rel in releases[:3] %}
-            <a href="{{ url_for('user.release_detail', release_id=rel.id) }}"
+          {% for dep in deployments[:3] %}
+            <a href="{{ url_for('user.deployment_detail', deployment_id=dep.id) }}"
                class="flex items-center gap-1.5 py-1 hover:text-accent transition-colors">
-              {% if rel.built %}
+              {% if dep.complete %}
                 <span class="status-dot status-dot-success flex-shrink-0"
                       style="width:5px;
                              height:5px"></span>
-              {% elif rel.error %}
+              {% elif dep.error %}
                 <span class="status-dot status-dot-error flex-shrink-0"
                       style="width:5px;
                              height:5px"></span>
@@ -792,54 +817,26 @@
                       style="width:5px;
                              height:5px"></span>
               {% endif %}
-              <code class="text-xs text-accent/70">v{{ rel.version }}</code>
-            <span class="text-xs text-base-content/25 ml-auto"><time data-timestamp="{{ rel.updated|isoformat_utc }}">{{ rel.updated|humanize }}</time>
-            {% if rel.built %}<span class="text-base-content/15">({{ rel|duration }})</span>{% endif %}
+              <code class="text-xs text-accent/70">v{{ dep.release_object.version if dep.release_object else '?' }}</code>
+            <span class="text-xs text-base-content/25 ml-auto"><time data-timestamp="{{ dep.updated|isoformat_utc }}">{{ dep.updated|humanize }}</time>
+            {% if dep.complete %}<span class="text-base-content/15">({{ dep|duration }})</span>{% endif %}
           </span>
         </a>
       {% else %}
-        <p class="text-xs text-base-content/20 py-1">No packages yet</p>
+        <p class="text-xs text-base-content/20 py-1">No deploys yet</p>
       {% endfor %}
     </div>
-    {# Deploys #}
-    <div class="p-4">
-      <div class="flex items-center gap-1.5 mb-2">
-        {{ icon('deploy', 'w-3 h-3 text-base-content/30') }}
-        <span class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Deploys</span>
-      </div>
-      {% for dep in deployments[:3] %}
-        <a href="{{ url_for('user.deployment_detail', deployment_id=dep.id) }}"
-           class="flex items-center gap-1.5 py-1 hover:text-accent transition-colors">
-          {% if dep.complete %}
-            <span class="status-dot status-dot-success flex-shrink-0"
-                  style="width:5px;
-                         height:5px"></span>
-          {% elif dep.error %}
-            <span class="status-dot status-dot-error flex-shrink-0"
-                  style="width:5px;
-                         height:5px"></span>
-          {% else %}
-            <span class="status-dot status-dot-info status-dot-pulse flex-shrink-0"
-                  style="width:5px;
-                         height:5px"></span>
-          {% endif %}
-          <code class="text-xs text-accent/70">v{{ dep.release_object.version if dep.release_object else '?' }}</code>
-        <span class="text-xs text-base-content/25 ml-auto"><time data-timestamp="{{ dep.updated|isoformat_utc }}">{{ dep.updated|humanize }}</time>
-        {% if dep.complete %}<span class="text-base-content/15">({{ dep|duration }})</span>{% endif %}
-      </span>
-    </a>
-  {% else %}
-    <p class="text-xs text-base-content/20 py-1">No deploys yet</p>
-  {% endfor %}
-</div>
-</div>
+  </div>
 </div>
 {% else %}
 <div class="text-xs text-base-content/20 py-2">No activity yet</div>
 {% endif %}
-</div>
+</div>{# /ls-bento-activity #}
 
-{# ── SECTION 4: PIPELINE STATUS (image → package → deploy) ── #}
+      </div>{# /ls-bento #}
+    </div>
+
+    {# ── SECTION 4: PIPELINE STATUS (image → package → deploy) ── #}
 
 <div class="mb-4" data-live-pipeline>
   <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Pipeline</h2>
@@ -1824,6 +1821,83 @@
       </div>
     </div>
   {% endif %}
+</div>
+
+{# ========================================================================== #}
+{# ===== TAB: PIPELINE METRICS                                        ===== #}
+{# ========================================================================== #}
+<div data-tab-panel="pipeline" class="tab-panel">
+  <div data-pipeline-metrics-panel
+       data-application-id="{{ application.id }}">
+
+    {# Header + range selector #}
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-medium text-base-content">Pipeline Metrics</h2>
+      <div class="obs-range-selector">
+        <button class="obs-range-btn" data-pm-range="25">25</button>
+        <button class="obs-range-btn obs-range-active" data-pm-range="50">50</button>
+        <button class="obs-range-btn" data-pm-range="100">100</button>
+      </div>
+    </div>
+
+    {# Summary cards #}
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+      <div class="obs-metric-card">
+        <div class="obs-metric-label">Build Success</div>
+        <div class="obs-metric-value" data-pm-build-rate>—</div>
+        <div class="obs-metric-sublabel" data-pm-build-counts></div>
+      </div>
+      <div class="obs-metric-card">
+        <div class="obs-metric-label">Avg Build</div>
+        <div class="obs-metric-value" data-pm-build-avg>—</div>
+        <div class="obs-metric-sublabel">p50 / p95</div>
+      </div>
+      <div class="obs-metric-card">
+        <div class="obs-metric-label">Avg Deploy</div>
+        <div class="obs-metric-value" data-pm-deploy-avg>—</div>
+        <div class="obs-metric-sublabel">p50 / p95</div>
+      </div>
+    </div>
+
+    {# Build stage #}
+    <div class="pm-stage-section">
+      <div class="pm-stage-header">
+        <span class="pm-stage-label">Build</span>
+        <div class="pm-stat-chips" data-pm-build-chips></div>
+      </div>
+      <div class="pm-bar-chart">
+        <svg data-pm-build-chart viewBox="0 0 600 120" preserveAspectRatio="none">
+        </svg>
+      </div>
+    </div>
+
+    {# Package stage #}
+    <div class="pm-stage-section">
+      <div class="pm-stage-header">
+        <span class="pm-stage-label">Package</span>
+        <div class="pm-stat-chips" data-pm-release-chips></div>
+      </div>
+      <div class="pm-bar-chart">
+        <svg data-pm-release-chart
+             viewBox="0 0 600 120"
+             preserveAspectRatio="none">
+        </svg>
+      </div>
+    </div>
+
+    {# Deploy stage #}
+    <div class="pm-stage-section">
+      <div class="pm-stage-header">
+        <span class="pm-stage-label">Deploy</span>
+        <div class="pm-stat-chips" data-pm-deploy-chips></div>
+      </div>
+      <div class="pm-bar-chart">
+        <svg data-pm-deploy-chart viewBox="0 0 600 120" preserveAspectRatio="none">
+        </svg>
+      </div>
+    </div>
+
+  </div>
 </div>
 
 {% endblock content %}

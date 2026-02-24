@@ -575,6 +575,88 @@ def application_pipeline_status(application_id):
     )
 
 
+@user_blueprint.route("/applications/<application_id>/pipeline-metrics")
+@login_required
+def application_pipeline_metrics(application_id):
+    application = Application.query.filter_by(id=application_id).first_or_404()
+    if not ViewApplicationPermission(application.id).can():
+        abort(403)
+
+    range_count = min(int(request.args.get("range", 50)), 200)
+
+    images = application.images.order_by(desc(Image.created)).limit(range_count).all()
+    releases = (
+        application.releases.order_by(desc(Release.created)).limit(range_count).all()
+    )
+    deployments = (
+        application.deployments.order_by(desc(Deployment.created))
+        .limit(range_count)
+        .all()
+    )
+
+    def _duration_secs(obj):
+        if not obj.created or not obj.updated:
+            return None
+        secs = int((obj.updated - obj.created).total_seconds())
+        return secs if secs >= 0 else None
+
+    def _stage_stats(items, is_done, is_err):
+        total = len(items)
+        successes = [x for x in items if is_done(x) and not is_err(x)]
+        errors = [x for x in items if is_err(x)]
+        durations = sorted(filter(None, [_duration_secs(x) for x in successes]))
+        return {
+            "total": total,
+            "success": len(successes),
+            "error": len(errors),
+            "success_rate": round(len(successes) / total * 100, 1) if total else None,
+            "avg_secs": round(sum(durations) / len(durations)) if durations else None,
+            "p50_secs": durations[len(durations) // 2] if durations else None,
+            "p95_secs": durations[int(len(durations) * 0.95)] if durations else None,
+            "history": list(
+                reversed(
+                    [
+                        {
+                            "version": getattr(
+                                x, "version", getattr(x, "version_id", None)
+                            ),
+                            "ok": is_done(x) and not is_err(x),
+                            "error": is_err(x),
+                            "secs": (
+                                _duration_secs(x) if (is_done(x) or is_err(x)) else None
+                            ),
+                            "created": (
+                                x.created.isoformat() + "Z" if x.created else None
+                            ),
+                        }
+                        for x in items
+                    ]
+                )
+            ),
+        }
+
+    return jsonify(
+        {
+            "range": range_count,
+            "images": _stage_stats(
+                images,
+                lambda x: x.built,
+                lambda x: x.error,
+            ),
+            "releases": _stage_stats(
+                releases,
+                lambda x: x.built,
+                lambda x: x.error,
+            ),
+            "deployments": _stage_stats(
+                deployments,
+                lambda x: x.complete,
+                lambda x: x.error,
+            ),
+        }
+    )
+
+
 @user_blueprint.route("/applications/<application_id>/observability")
 @login_required
 def application_observability(application_id):
@@ -1053,65 +1135,47 @@ def project_application_httplogs(ws, org_slug, project_slug, app_slug):
     api_client = kubernetes_ext.kubernetes_client
     core_api_instance = kubernetes.client.CoreV1Api(api_client)
 
-    traefik_namespace = current_app.config.get("TRAEFIK_NAMESPACE", "traefik")
-    traefik_label_selector = current_app.config.get(
-        "TRAEFIK_LABEL_SELECTOR", "app.kubernetes.io/name=traefik"
+    nginx_namespace = current_app.config.get("INGRESS_NGINX_NAMESPACE", "ingress-nginx")
+    nginx_label_selector = current_app.config.get(
+        "INGRESS_NGINX_LABEL_SELECTOR",
+        "app.kubernetes.io/name=ingress-nginx,app.kubernetes.io/component=controller",
     )
+    nginx_container = current_app.config.get("INGRESS_NGINX_CONTAINER", "controller")
 
-    namespace_pattern = f"{organization.slug}"
+    # nginx upstream names follow: {namespace}-{service}-{port}
+    # e.g. "cabotage-cabotage-app-web-8000"
+    upstream_pattern = f"{organization.slug}-{project.slug}-{application.slug}-"
 
     q = queue.Queue()
-    _ansi_re = re.compile(r"\x1b\[[0-9;]*m")
+    # Regex to extract the upstream name from nginx combined log format
+    # The upstream appears in square brackets after user-agent and request_length + duration
+    _upstream_re = re.compile(r"\[([^\]]*)\]")
 
-    def _format_json_log(raw):
-        """Parse a JSON access log line and return a human-readable string.
+    def _filter_nginx_log(raw):
+        """Filter nginx access log line by upstream name.
 
-        Filters by RouterName containing the org namespace.
-        Returns None if the line doesn't match or isn't valid JSON.
+        Returns the raw line if it matches the app's upstream pattern,
+        None otherwise.
         """
-        clean = _ansi_re.sub("", raw)
-        try:
-            entry = json.loads(clean)
-        except (json.JSONDecodeError, ValueError):
-            return None
-
-        router = entry.get("RouterName", "")
-        if not router or namespace_pattern not in router:
-            return None
-
-        host = entry.get("request_Host") or "-"
-        method = entry.get("RequestMethod", "-")
-        path = entry.get("RequestPath", "-")
-        proto = entry.get("RequestProtocol", "HTTP/1.1")
-        status = entry.get("DownstreamStatus", "-")
-        size = entry.get("DownstreamContentSize", "-")
-        duration = entry.get("Duration", 0)
-        duration_ms = (
-            f"{int(duration) // 1_000_000}ms"
-            if isinstance(duration, (int, float))
-            else "-"
-        )
-        client = entry.get("ClientAddr", "-")
-        ts = entry.get("StartUTC", "-")
-
-        return (
-            f'{client} - [{ts}] "{method} {path} {proto}"'
-            f" {status} {size} {duration_ms} {host} [{router}]"
-        )
+        brackets = _upstream_re.findall(raw)
+        for b in brackets:
+            if upstream_pattern in b:
+                return raw
+        return None
 
     def worker(pod_name, stream_handler):
         for line in stream_handler:
-            formatted = _format_json_log(line)
-            if formatted:
-                q.put(formatted)
+            filtered = _filter_nginx_log(line)
+            if filtered:
+                q.put(filtered)
 
     def update_pods():
         worker_threads = {}
         pod_watch = kubernetes.watch.Watch()
         for response in pod_watch.stream(
             core_api_instance.list_namespaced_pod,
-            namespace=traefik_namespace,
-            label_selector=traefik_label_selector,
+            namespace=nginx_namespace,
+            label_selector=nginx_label_selector,
         ):
             pod = response["object"]
             create = (
@@ -1127,7 +1191,7 @@ def project_application_httplogs(ws, org_slug, project_slug, app_slug):
                     core_api_instance.read_namespaced_pod_log,
                     name=pod.metadata.name,
                     namespace=pod.metadata.namespace,
-                    container="traefik",
+                    container=nginx_container,
                     follow=True,
                     _preload_content=False,
                     pretty="true",
@@ -1139,7 +1203,7 @@ def project_application_httplogs(ws, org_slug, project_slug, app_slug):
                     daemon=True,
                 )
                 worker_threads[pod.metadata.name] = thread
-                q.put(f"started following traefik pod {pod.metadata.name}...")
+                q.put(f"started following ingress pod {pod.metadata.name}...")
                 thread.start()
             if response["type"] == "DELETED":
                 if (
@@ -1147,7 +1211,7 @@ def project_application_httplogs(ws, org_slug, project_slug, app_slug):
                     and not worker_threads[pod.metadata.name].is_alive()
                 ):
                     worker_threads[pod.metadata.name].join()
-                    q.put(f"traefik pod {pod.metadata.name} terminated...")
+                    q.put(f"ingress pod {pod.metadata.name} terminated...")
                     del worker_threads[pod.metadata.name]
 
     update_thread = threading.Thread(target=update_pods, daemon=True)
