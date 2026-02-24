@@ -2,7 +2,9 @@
 
 /* ---------- Slugify ---------- */
 function slugify(text) {
-  return text.toString().toLowerCase()
+  return text
+    .toString()
+    .toLowerCase()
     .replace(/\s+/g, '-')
     .replace(/[^\w\-]+/g, '')
     .replace(/\-\-+/g, '-')
@@ -36,12 +38,12 @@ function initTabs(containerSelector) {
   var panels = document.querySelectorAll('[data-tab-panel]');
 
   function activateTab(tabId) {
-    tabs.forEach(function(t) {
+    tabs.forEach(function (t) {
       t.classList.toggle('tab-active', t.getAttribute('data-tab') === tabId);
     });
 
     // Emit lifecycle events before toggling visibility
-    panels.forEach(function(p) {
+    panels.forEach(function (p) {
       var panelId = p.getAttribute('data-tab-panel');
       if (panelId === tabId) {
         p.classList.add('tab-panel-active');
@@ -58,8 +60,8 @@ function initTabs(containerSelector) {
     }
   }
 
-  tabs.forEach(function(tab) {
-    tab.addEventListener('click', function(e) {
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function (e) {
       e.preventDefault();
       activateTab(tab.getAttribute('data-tab'));
     });
@@ -68,7 +70,7 @@ function initTabs(containerSelector) {
   // Activate from URL hash or default to first tab
   var hash = window.location.hash.replace('#', '');
   var validTab = false;
-  tabs.forEach(function(t) {
+  tabs.forEach(function (t) {
     if (t.getAttribute('data-tab') === hash) validTab = true;
   });
 
@@ -81,8 +83,8 @@ function initTabs(containerSelector) {
 
 /* ---------- Increment/Decrement (Process Scaling) ---------- */
 function initCountInputs() {
-  document.querySelectorAll('.incr-btn').forEach(function(button) {
-    button.addEventListener('click', function(e) {
+  document.querySelectorAll('.incr-btn').forEach(function (button) {
+    button.addEventListener('click', function (e) {
       e.preventDefault();
       var parent = button.closest('.count-input');
       if (!parent) return;
@@ -101,16 +103,16 @@ function initCountInputs() {
       }
 
       // Show the update button
-      document.querySelectorAll('.update_process_settings').forEach(function(el) {
+      document.querySelectorAll('.update_process_settings').forEach(function (el) {
         el.classList.remove('hidden');
       });
     });
   });
 
   // Pod size change handler
-  document.querySelectorAll('.pod-size').forEach(function(select) {
-    select.addEventListener('change', function() {
-      document.querySelectorAll('.update_process_settings').forEach(function(el) {
+  document.querySelectorAll('.pod-size').forEach(function (select) {
+    select.addEventListener('change', function () {
+      document.querySelectorAll('.update_process_settings').forEach(function (el) {
         el.classList.remove('hidden');
       });
     });
@@ -119,8 +121,8 @@ function initCountInputs() {
 
 /* ---------- Env Var Reveal ---------- */
 function initEnvReveal() {
-  document.querySelectorAll('[data-reveal]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
+  document.querySelectorAll('[data-reveal]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
       var target = document.getElementById(btn.getAttribute('data-reveal'));
       if (!target) return;
       var hidden = target.querySelector('.env-hidden');
@@ -136,9 +138,9 @@ function initEnvReveal() {
 
 /* ---------- Dropdown Close ---------- */
 function initDropdowns() {
-  document.addEventListener('click', function(e) {
+  document.addEventListener('click', function (e) {
     if (!e.target.closest('.dropdown')) {
-      document.querySelectorAll('.dropdown [tabindex]').forEach(function(el) {
+      document.querySelectorAll('.dropdown [tabindex]').forEach(function (el) {
         el.blur();
       });
     }
@@ -150,7 +152,7 @@ function initMobileNav() {
   var toggle = document.getElementById('mobile-nav-toggle');
   var menu = document.getElementById('mobile-nav-menu');
   if (toggle && menu) {
-    toggle.addEventListener('click', function() {
+    toggle.addEventListener('click', function () {
       menu.classList.toggle('hidden');
     });
   }
@@ -178,7 +180,7 @@ function initThemeToggle() {
       localStorage.setItem('accent-color', accent);
       document.documentElement.setAttribute('data-accent', accent);
       // Update swatch highlight if accent picker is initialized
-      document.querySelectorAll('.accent-opt').forEach(function(b) {
+      document.querySelectorAll('.accent-opt').forEach(function (b) {
         b.style.borderColor = b.getAttribute('data-accent') === accent ? 'var(--color-base-content)' : 'transparent';
       });
     }
@@ -188,7 +190,7 @@ function initThemeToggle() {
   // Click cycles light→dark→system; hover reveals dropdown
   var cycleThemes = ['light', 'dark', 'system'];
 
-  document.querySelectorAll('.theme-toggle-wrap').forEach(function(wrap) {
+  document.querySelectorAll('.theme-toggle-wrap').forEach(function (wrap) {
     var btn = wrap.querySelector('button');
     var dropdown = wrap.querySelector('.theme-dropdown');
     var hideTimer = null;
@@ -197,7 +199,9 @@ function initThemeToggle() {
       clearTimeout(hideTimer);
       dropdown.classList.remove('hidden');
     }
-    function hide() { dropdown.classList.add('hidden'); }
+    function hide() {
+      dropdown.classList.add('hidden');
+    }
     function hideDelayed() {
       hideTimer = setTimeout(hide, 200);
     }
@@ -210,7 +214,7 @@ function initThemeToggle() {
     }
 
     // Click cycles theme
-    btn.addEventListener('click', function(e) {
+    btn.addEventListener('click', function (e) {
       e.stopPropagation();
       hide();
       cycleTheme();
@@ -221,15 +225,15 @@ function initThemeToggle() {
     wrap.addEventListener('mouseleave', hideDelayed);
 
     // Close on click outside
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
       if (!wrap.contains(e.target)) {
         hide();
       }
     });
 
     // Theme option clicks
-    dropdown.querySelectorAll('.theme-opt').forEach(function(opt) {
-      opt.addEventListener('click', function(e) {
+    dropdown.querySelectorAll('.theme-opt').forEach(function (opt) {
+      opt.addEventListener('click', function (e) {
         e.stopPropagation();
         applyPref(opt.getAttribute('data-theme-val'));
         hide();
@@ -238,7 +242,7 @@ function initThemeToggle() {
   });
 
   // Listen for system theme changes (update resolved theme when in system mode)
-  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function() {
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function () {
     var pref = localStorage.getItem('theme-pref') || 'system';
     if (pref === 'system') {
       applyPref('system');
@@ -261,7 +265,7 @@ function initAccentPicker() {
   }
 
   function markActive(accent) {
-    document.querySelectorAll('.accent-opt').forEach(function(btn) {
+    document.querySelectorAll('.accent-opt').forEach(function (btn) {
       if (btn.getAttribute('data-accent') === accent) {
         btn.style.borderColor = 'var(--color-base-content)';
       } else {
@@ -274,8 +278,8 @@ function initAccentPicker() {
   markActive(current);
 
   // Bind all accent swatch buttons (inside theme dropdowns)
-  document.querySelectorAll('.accent-opt').forEach(function(opt) {
-    opt.addEventListener('click', function(e) {
+  document.querySelectorAll('.accent-opt').forEach(function (opt) {
+    opt.addEventListener('click', function (e) {
       e.stopPropagation();
       var name = opt.getAttribute('data-accent');
       localStorage.setItem('accent-color', name);
@@ -316,20 +320,20 @@ function initRawEditor() {
   if (backdrop) backdrop.addEventListener('click', closeModal);
 
   // Escape key
-  document.addEventListener('keydown', function(e) {
+  document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && modal.style.display !== 'none') {
       closeModal();
     }
   });
 
   // Tab switching
-  tabs.forEach(function(tab) {
-    tab.addEventListener('click', function() {
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
       var tabId = tab.getAttribute('data-editor-tab');
-      tabs.forEach(function(t) {
+      tabs.forEach(function (t) {
         t.classList.toggle('raw-editor-tab-active', t.getAttribute('data-editor-tab') === tabId);
       });
-      panels.forEach(function(p) {
+      panels.forEach(function (p) {
         p.style.display = p.getAttribute('data-editor-panel') === tabId ? '' : 'none';
       });
       if (formatInput) formatInput.value = tabId;
@@ -339,7 +343,8 @@ function initRawEditor() {
         if (tabId === 'json') {
           textarea.placeholder = '{\n  "DATABASE_URL": "postgres://...",\n  "REDIS_URL": "redis://..."\n}';
         } else {
-          textarea.placeholder = '# Paste your environment variables here\nDATABASE_URL=postgres://...\nREDIS_URL=redis://...';
+          textarea.placeholder =
+            '# Paste your environment variables here\nDATABASE_URL=postgres://...\nREDIS_URL=redis://...';
         }
       }
     });
@@ -347,20 +352,22 @@ function initRawEditor() {
 
   // Copy ENV button
   if (copyBtn) {
-    copyBtn.addEventListener('click', function() {
+    copyBtn.addEventListener('click', function () {
       var dataEl = document.getElementById('env-export-data');
       if (!dataEl) return;
       try {
         var configs = JSON.parse(dataEl.textContent);
-        var lines = configs.map(function(c) {
+        var lines = configs.map(function (c) {
           if (c.secret) return c.name + '=**secure**';
           return c.name + '=' + c.value;
         });
         var text = lines.join('\n');
-        navigator.clipboard.writeText(text).then(function() {
+        navigator.clipboard.writeText(text).then(function () {
           var orig = copyBtn.innerHTML;
           copyBtn.textContent = 'Copied!';
-          setTimeout(function() { copyBtn.innerHTML = orig; }, 1500);
+          setTimeout(function () {
+            copyBtn.innerHTML = orig;
+          }, 1500);
         });
       } catch (e) {
         // ignore
@@ -377,7 +384,10 @@ function initAddVarModal() {
   function openModal() {
     modal.style.display = 'flex';
     var nameInput = modal.querySelector('input[name="name"]');
-    if (nameInput) { nameInput.value = ''; nameInput.focus(); }
+    if (nameInput) {
+      nameInput.value = '';
+      nameInput.focus();
+    }
     var valueInput = modal.querySelector('input[name="value"]');
     if (valueInput) valueInput.value = '';
   }
@@ -386,17 +396,17 @@ function initAddVarModal() {
   }
 
   // Open buttons
-  document.querySelectorAll('#add-var-open, [data-add-var-open]').forEach(function(btn) {
+  document.querySelectorAll('#add-var-open, [data-add-var-open]').forEach(function (btn) {
     btn.addEventListener('click', openModal);
   });
 
   // Close buttons/backdrop
-  modal.querySelectorAll('[data-add-var-close]').forEach(function(el) {
+  modal.querySelectorAll('[data-add-var-close]').forEach(function (el) {
     el.addEventListener('click', closeModal);
   });
 
   // Escape key
-  document.addEventListener('keydown', function(e) {
+  document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && modal.style.display !== 'none') {
       closeModal();
     }
@@ -405,7 +415,7 @@ function initAddVarModal() {
   // Auto-uppercase name field
   var nameField = modal.querySelector('input[name="name"]');
   if (nameField) {
-    nameField.addEventListener('input', function() {
+    nameField.addEventListener('input', function () {
       var pos = this.selectionStart;
       this.value = this.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
       this.selectionStart = this.selectionEnd = pos;
@@ -439,26 +449,28 @@ function initExpandModal() {
   if (closeBtn) closeBtn.addEventListener('click', closeModal);
   if (backdrop) backdrop.addEventListener('click', closeModal);
 
-  document.addEventListener('keydown', function(e) {
+  document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
       closeModal();
     }
   });
 
   if (copyBtn) {
-    copyBtn.addEventListener('click', function() {
+    copyBtn.addEventListener('click', function () {
       var text = bodyEl.textContent;
-      navigator.clipboard.writeText(text).then(function() {
+      navigator.clipboard.writeText(text).then(function () {
         var orig = copyBtn.innerHTML;
         copyBtn.textContent = 'Copied!';
-        setTimeout(function() { copyBtn.innerHTML = orig; }, 1500);
+        setTimeout(function () {
+          copyBtn.innerHTML = orig;
+        }, 1500);
       });
     });
   }
 
   // Bind all expand buttons
-  document.querySelectorAll('[data-expand]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
+  document.querySelectorAll('[data-expand]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
       var targetId = btn.getAttribute('data-expand');
       var target = document.getElementById(targetId);
       if (!target) return;
@@ -537,7 +549,12 @@ function BuildProgressTracker(barFill, phaseLabel, type, stepsContainer, elapsed
     this.steps = [
       { id: 'setup', label: 'Setup', patterns: [/Constructing API Clients/i], progress: 5 },
       { id: 'namespace', label: 'Namespace', patterns: [/Fetching Namespace/i], progress: 10 },
-      { id: 'account', label: 'Account', patterns: [/Fetching ServiceAccount/i, /Patching ServiceAccount/i], progress: 20 },
+      {
+        id: 'account',
+        label: 'Account',
+        patterns: [/Fetching ServiceAccount/i, /Patching ServiceAccount/i],
+        progress: 20,
+      },
       { id: 'enrollment', label: 'Enrollment', patterns: [/Fetching CabotageEnrollment/i], progress: 25 },
       { id: 'secrets', label: 'Secrets', patterns: [/Fetching ImagePullSecrets/i], progress: 32 },
       { id: 'release', label: 'Release', patterns: [/Running release command/i], progress: 45 },
@@ -560,28 +577,33 @@ function BuildProgressTracker(barFill, phaseLabel, type, stepsContainer, elapsed
   this.startTimer();
 }
 
-BuildProgressTracker.prototype.renderSteps = function() {
+BuildProgressTracker.prototype.renderSteps = function () {
   if (!this.stepsContainer) return;
   this.stepsContainer.innerHTML = '';
-  var checkSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  var checkSvg =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
   for (var i = 0; i < this.steps.length; i++) {
     var step = this.steps[i];
     var el = document.createElement('div');
     el.className = 'progress-step';
     el.setAttribute('data-step', step.id);
     el.innerHTML =
-      '<div class="step-dot">' + checkSvg + '<div class="step-dot-spinner"></div></div>' +
-      '<span class="step-label">' + step.label + '</span>' +
+      '<div class="step-dot">' +
+      checkSvg +
+      '<div class="step-dot-spinner"></div></div>' +
+      '<span class="step-label">' +
+      step.label +
+      '</span>' +
       (step.substep ? '<span class="step-substep" data-substep></span>' : '');
     this.stepsContainer.appendChild(el);
   }
   this.stepEls = this.stepsContainer.querySelectorAll('.progress-step');
 };
 
-BuildProgressTracker.prototype.startTimer = function() {
+BuildProgressTracker.prototype.startTimer = function () {
   if (!this.elapsedEl) return;
   var self = this;
-  this.timerInterval = setInterval(function() {
+  this.timerInterval = setInterval(function () {
     var elapsed = Math.floor((Date.now() - self.startTime) / 1000);
     var min = Math.floor(elapsed / 60);
     var sec = elapsed % 60;
@@ -589,14 +611,14 @@ BuildProgressTracker.prototype.startTimer = function() {
   }, 1000);
 };
 
-BuildProgressTracker.prototype.stopTimer = function() {
+BuildProgressTracker.prototype.stopTimer = function () {
   if (this.timerInterval) {
     clearInterval(this.timerInterval);
     this.timerInterval = null;
   }
 };
 
-BuildProgressTracker.prototype.setStep = function(idx) {
+BuildProgressTracker.prototype.setStep = function (idx) {
   if (idx <= this.currentStepIdx) return;
   this.currentStepIdx = idx;
   if (!this.stepEls) return;
@@ -610,26 +632,26 @@ BuildProgressTracker.prototype.setStep = function(idx) {
   }
 };
 
-BuildProgressTracker.prototype.activate = function() {
+BuildProgressTracker.prototype.activate = function () {
   if (this.activated) return;
   this.activated = true;
   this.barFill.classList.add('build-progress-bar-determinate');
   this.barFill.style.width = '0%';
 };
 
-BuildProgressTracker.prototype.setProgress = function(pct) {
+BuildProgressTracker.prototype.setProgress = function (pct) {
   if (pct <= this.progress) return;
   this.progress = pct;
   this.barFill.style.width = Math.min(pct, 100) + '%';
 };
 
-BuildProgressTracker.prototype.setPhase = function(text) {
+BuildProgressTracker.prototype.setPhase = function (text) {
   if (this.phaseLabel) {
     this.phaseLabel.textContent = text;
   }
 };
 
-BuildProgressTracker.prototype.processLine = function(line) {
+BuildProgressTracker.prototype.processLine = function (line) {
   if (this.type === 'deploy') {
     this.processDeployLine(line);
   } else {
@@ -637,10 +659,9 @@ BuildProgressTracker.prototype.processLine = function(line) {
   }
 };
 
-BuildProgressTracker.prototype.processBuildLine = function(line) {
+BuildProgressTracker.prototype.processBuildLine = function (line) {
   // Detect error/failure patterns in build logs
-  if (/error|failed|failure|exception|traceback/i.test(line) &&
-      !/no error/i.test(line) && !/warning/i.test(line)) {
+  if (/error|failed|failure|exception|traceback/i.test(line) && !/no error/i.test(line) && !/warning/i.test(line)) {
     this.errored = true;
     if (this.errorStepIdx < 0) this.errorStepIdx = Math.max(this.currentStepIdx, 0);
   }
@@ -686,10 +707,9 @@ BuildProgressTracker.prototype.processBuildLine = function(line) {
   }
 };
 
-BuildProgressTracker.prototype.processDeployLine = function(line) {
+BuildProgressTracker.prototype.processDeployLine = function (line) {
   // Detect error/failure patterns in deploy logs
-  if (/error|failed|failure|exception|traceback|timed?\s*out/i.test(line) &&
-      !/no error/i.test(line)) {
+  if (/error|failed|failure|exception|traceback|timed?\s*out/i.test(line) && !/no error/i.test(line)) {
     this.errored = true;
     if (this.errorStepIdx < 0) this.errorStepIdx = Math.max(this.currentStepIdx, 0);
   }
@@ -714,7 +734,7 @@ BuildProgressTracker.prototype.processDeployLine = function(line) {
   }
 };
 
-BuildProgressTracker.prototype.complete = function() {
+BuildProgressTracker.prototype.complete = function () {
   this.activate();
   this.stopTimer();
 
@@ -749,23 +769,31 @@ BuildProgressTracker.prototype.complete = function() {
   }
 };
 
-/* ---------- Auto-deploy next-step polling ---------- */
-/* Reload the current page after a short delay; the server will render
-   with next_step_url populated once Celery creates the next object.
-   On reload, the banner JS picks up next_step_url and shows the link. */
+/* ---------- Auto-deploy next-step redirect ---------- */
+/* After an auto-deploy build/package finishes, poll the current page
+   until the server populates next_step_url, then redirect there
+   so the user follows the pipeline: image → release → deployment. */
 function pollForNextStep(currentUrl) {
   var attempts = 0;
   var maxAttempts = 12; // ~30s total
   (function poll() {
     attempts++;
-    setTimeout(function() {
-      /* Reload the page; if next_step_url is set, the banner will appear.
-         We use a fetch to check without navigating, then redirect. */
-      fetch(currentUrl, { headers: { 'Accept': 'text/html' } })
-        .then(function() {
-          window.location.reload();
+    setTimeout(function () {
+      fetch(currentUrl, { credentials: 'same-origin' })
+        .then(function (r) {
+          return r.text();
         })
-        .catch(function() {
+        .then(function (html) {
+          var match = html.match(/var nextStepUrl\s*=\s*"([^"]+)"/);
+          if (match) {
+            window.location.href = match[1];
+          } else if (attempts < maxAttempts) {
+            poll();
+          } else {
+            window.location.reload();
+          }
+        })
+        .catch(function () {
           if (attempts < maxAttempts) poll();
           else window.location.reload();
         });
@@ -800,18 +828,22 @@ function PipelineTracker(container) {
   this.startPolling(10000); // idle: check every 10s for new pipelines
 }
 
-PipelineTracker.prototype.poll = function() {
+PipelineTracker.prototype.poll = function () {
   var self = this;
   fetch(this.statusUrl, { credentials: 'same-origin' })
-    .then(function(r) {
+    .then(function (r) {
       if (!r.ok) throw new Error('pipeline_status ' + r.status);
       return r.json();
     })
-    .then(function(data) { self.update(data); })
-    .catch(function(err) { console.warn('[PipelineTracker]', err); });
+    .then(function (data) {
+      self.update(data);
+    })
+    .catch(function (err) {
+      console.warn('[PipelineTracker]', err);
+    });
 };
 
-PipelineTracker.prototype.startPolling = function(rate) {
+PipelineTracker.prototype.startPolling = function (rate) {
   rate = rate || 3000;
   // Already polling at this rate — no-op
   if (this.pollInterval && this.pollRate === rate) return;
@@ -819,10 +851,12 @@ PipelineTracker.prototype.startPolling = function(rate) {
   if (this.pollInterval) clearInterval(this.pollInterval);
   var self = this;
   this.pollRate = rate;
-  this.pollInterval = setInterval(function() { self.poll(); }, rate);
+  this.pollInterval = setInterval(function () {
+    self.poll();
+  }, rate);
 };
 
-PipelineTracker.prototype.stopPolling = function() {
+PipelineTracker.prototype.stopPolling = function () {
   if (this.pollInterval) {
     clearInterval(this.pollInterval);
     this.pollInterval = null;
@@ -830,7 +864,7 @@ PipelineTracker.prototype.stopPolling = function() {
   }
 };
 
-PipelineTracker.prototype.update = function(data) {
+PipelineTracker.prototype.update = function (data) {
   if (!data) return;
 
   if (data.pipeline_active) {
@@ -870,7 +904,7 @@ PipelineTracker.prototype.update = function(data) {
         target = '/image/' + data.build.id;
       }
     }
-    setTimeout(function() {
+    setTimeout(function () {
       if (target) {
         window.location.href = target;
       } else {
@@ -880,12 +914,12 @@ PipelineTracker.prototype.update = function(data) {
   }
 };
 
-PipelineTracker.prototype.showProgress = function() {
+PipelineTracker.prototype.showProgress = function () {
   if (this.bannersEl) this.bannersEl.style.display = 'none';
   if (this.progressEl) this.progressEl.style.display = '';
 };
 
-PipelineTracker.prototype.updateSegment = function(name, info) {
+PipelineTracker.prototype.updateSegment = function (name, info) {
   var seg = this.segments[name];
   if (!seg) return;
 
@@ -916,17 +950,25 @@ PipelineTracker.prototype.updateSegment = function(name, info) {
     seg.className = 'pipe-segment pipe-seg-complete';
     if (dot) dot.className = 'pipe-seg-dot pipe-seg-dot-success';
     if (label) label.textContent = 'Complete';
-    if (fill) { fill.style.width = '100%'; fill.className = 'pipe-seg-fill pipe-seg-fill-success'; }
+    if (fill) {
+      fill.style.width = '100%';
+      fill.className = 'pipe-seg-fill pipe-seg-fill-success';
+    }
   } else if (info.status === 'error') {
     seg.className = 'pipe-segment pipe-seg-error';
     if (dot) dot.className = 'pipe-seg-dot pipe-seg-dot-error';
     if (label) label.textContent = info.error_detail ? 'Failed' : 'Error';
-    if (fill) { fill.style.width = '100%'; fill.className = 'pipe-seg-fill pipe-seg-fill-error'; }
+    if (fill) {
+      fill.style.width = '100%';
+      fill.className = 'pipe-seg-fill pipe-seg-fill-error';
+    }
   } else if (info.status === 'in_progress') {
     seg.className = 'pipe-segment pipe-seg-active';
     if (dot) dot.className = 'pipe-seg-dot pipe-seg-dot-active';
     if (label) label.textContent = name === 'build' ? 'Building' : name === 'release' ? 'Packaging' : 'Deploying';
-    if (fill) { fill.className = 'pipe-seg-fill pipe-seg-fill-active'; }
+    if (fill) {
+      fill.className = 'pipe-seg-fill pipe-seg-fill-active';
+    }
   }
 
   // Update detail link
@@ -936,7 +978,7 @@ PipelineTracker.prototype.updateSegment = function(name, info) {
   }
 };
 
-PipelineTracker.prototype.updateCommitIndicator = function(data) {
+PipelineTracker.prototype.updateCommitIndicator = function (data) {
   if (!this.commitEl) return;
 
   var sha = data.commit_sha;
@@ -976,9 +1018,18 @@ PipelineTracker.prototype.updateCommitIndicator = function(data) {
   if (sha) {
     var shortSha = sha.substring(0, 8);
     if (repo) {
-      shaHtml = '<a href="https://github.com/' + repo + '/commit/' + sha + '"'
-        + ' target="_blank" rel="noopener"'
-        + ' class="live-commit-sha" title="' + sha + '">' + shortSha + '</a>';
+      shaHtml =
+        '<a href="https://github.com/' +
+        repo +
+        '/commit/' +
+        sha +
+        '"' +
+        ' target="_blank" rel="noopener"' +
+        ' class="live-commit-sha" title="' +
+        sha +
+        '">' +
+        shortSha +
+        '</a>';
     } else {
       shaHtml = '<code class="live-commit-sha" title="' + sha + '">' + shortSha + '</code>';
     }
@@ -1000,7 +1051,9 @@ PipelineTracker.prototype.updateCommitIndicator = function(data) {
   // Remove flash class after animation
   if (freshClass) {
     var el = this.commitEl;
-    setTimeout(function() { el.classList.remove('live-commit-fresh'); }, 1500);
+    setTimeout(function () {
+      el.classList.remove('live-commit-fresh');
+    }, 1500);
   }
 };
 
@@ -1010,35 +1063,16 @@ function initPipelineTracker() {
     window.pipelineTracker = new PipelineTracker(container);
   }
 
-  // Intercept the Deploy button — submit via fetch, stay on page, start tracking
+  // Auto-deploy form: show spinner, let browser submit normally so
+  // it follows the server redirect to the image build page.
   var deployForm = document.querySelector('[data-full-deploy-form]');
-  if (deployForm && container) {
-    deployForm.addEventListener('submit', function(e) {
-      e.preventDefault();
+  if (deployForm) {
+    deployForm.addEventListener('submit', function () {
       var btn = deployForm.querySelector('button[type="submit"]');
       if (btn) {
         btn.disabled = true;
         btn.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Deploying\u2026';
       }
-      // Fire the POST in the background
-      fetch(deployForm.action, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams(new FormData(deployForm)),
-        redirect: 'follow',
-      })
-        .then(function() {
-          // POST succeeded (server redirected, we don't follow) — start polling
-          if (window.pipelineTracker) {
-            window.pipelineTracker.showProgress();
-            window.pipelineTracker.startPolling();
-          }
-        })
-        .catch(function() {
-          // On error, fall back to normal form submission
-          deployForm.submit();
-        });
     });
   }
 }
@@ -1055,22 +1089,26 @@ function showPipelineToast(pipeline) {
   else if (pipeline.stages.build) stageLabel = 'Building';
   else stageLabel = 'Pipeline running';
 
-  var href = '/projects/' + pipeline.org_slug + '/' + pipeline.project_slug
-    + '/applications/' + pipeline.app_slug;
+  var href = '/projects/' + pipeline.org_slug + '/' + pipeline.project_slug + '/applications/' + pipeline.app_slug;
 
   var toast = document.createElement('a');
   toast.href = href;
   toast.className = 'pipeline-toast';
   toast.setAttribute('data-toast-app', pipeline.app_id);
-  toast.innerHTML = '<span class="pipeline-toast-dot"></span>'
-    + '<span><strong>' + pipeline.app_name + '</strong> '
-    + '<span class="text-base-content/50">' + stageLabel + '</span></span>'
-    + '<span class="pipeline-toast-dismiss" title="Dismiss">'
-    + '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
-    + '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>';
+  toast.innerHTML =
+    '<span class="pipeline-toast-dot"></span>' +
+    '<span><strong>' +
+    pipeline.app_name +
+    '</strong> ' +
+    '<span class="text-base-content/50">' +
+    stageLabel +
+    '</span></span>' +
+    '<span class="pipeline-toast-dismiss" title="Dismiss">' +
+    '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+    '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>';
 
   // Dismiss on X click (don't navigate)
-  toast.querySelector('.pipeline-toast-dismiss').addEventListener('click', function(e) {
+  toast.querySelector('.pipeline-toast-dismiss').addEventListener('click', function (e) {
     e.preventDefault();
     e.stopPropagation();
     dismissToast(toast);
@@ -1079,13 +1117,17 @@ function showPipelineToast(pipeline) {
   container.appendChild(toast);
 
   // Auto-dismiss after 15 seconds
-  setTimeout(function() { dismissToast(toast); }, 15000);
+  setTimeout(function () {
+    dismissToast(toast);
+  }, 15000);
 }
 
 function dismissToast(toast) {
   if (!toast || !toast.parentNode) return;
   toast.classList.add('toast-out');
-  toast.addEventListener('animationend', function() { toast.remove(); });
+  toast.addEventListener('animationend', function () {
+    toast.remove();
+  });
 }
 
 function DashboardPipelinePoller() {
@@ -1095,23 +1137,29 @@ function DashboardPipelinePoller() {
   this.startPolling();
 }
 
-DashboardPipelinePoller.prototype.startPolling = function() {
+DashboardPipelinePoller.prototype.startPolling = function () {
   var self = this;
-  this.pollInterval = setInterval(function() { self.poll(); }, 5000);
+  this.pollInterval = setInterval(function () {
+    self.poll();
+  }, 5000);
 };
 
-DashboardPipelinePoller.prototype.poll = function() {
+DashboardPipelinePoller.prototype.poll = function () {
   var self = this;
   fetch('/active_pipelines', { credentials: 'same-origin' })
-    .then(function(r) {
+    .then(function (r) {
       if (!r.ok) throw new Error('active_pipelines ' + r.status);
       return r.json();
     })
-    .then(function(data) { self.update(data.pipelines); })
-    .catch(function(err) { console.warn('[DashboardPoller]', err); });
+    .then(function (data) {
+      self.update(data.pipelines);
+    })
+    .catch(function (err) {
+      console.warn('[DashboardPoller]', err);
+    });
 };
 
-DashboardPipelinePoller.prototype.update = function(pipelines) {
+DashboardPipelinePoller.prototype.update = function (pipelines) {
   var nowActive = {};
   for (var i = 0; i < pipelines.length; i++) {
     var p = pipelines[i];
@@ -1144,7 +1192,7 @@ function initCompactTopbar() {
 
   // Clone tab items into the inline container
   var sourceTabs = tabBar.querySelectorAll('[data-tab]');
-  sourceTabs.forEach(function(tab) {
+  sourceTabs.forEach(function (tab) {
     var clone = document.createElement('button');
     clone.className = 'topbar-inline-tab';
     clone.setAttribute('data-inline-tab', tab.getAttribute('data-tab'));
@@ -1169,7 +1217,7 @@ function initCompactTopbar() {
   });
 
   // Click handler: sync with real tabs
-  inlineTabs.addEventListener('click', function(e) {
+  inlineTabs.addEventListener('click', function (e) {
     var btn = e.target.closest('[data-inline-tab]');
     if (!btn) return;
     var tabId = btn.getAttribute('data-inline-tab');
@@ -1178,8 +1226,8 @@ function initCompactTopbar() {
   });
 
   // Keep inline tabs in sync when real tabs change
-  var observer = new MutationObserver(function() {
-    sourceTabs.forEach(function(tab) {
+  var observer = new MutationObserver(function () {
+    sourceTabs.forEach(function (tab) {
       var id = tab.getAttribute('data-tab');
       var inline = inlineTabs.querySelector('[data-inline-tab="' + id + '"]');
       if (inline) {
@@ -1187,7 +1235,7 @@ function initCompactTopbar() {
       }
     });
   });
-  sourceTabs.forEach(function(tab) {
+  sourceTabs.forEach(function (tab) {
     observer.observe(tab, { attributes: true, attributeFilter: ['class'] });
   });
 
@@ -1197,7 +1245,7 @@ function initCompactTopbar() {
   var compactPref = localStorage.getItem('compact-mode') === 'true';
 
   // Remove pre-paint class so transitions work after hydration
-  requestAnimationFrame(function() {
+  requestAnimationFrame(function () {
     document.documentElement.classList.remove('compact-mode-pref');
   });
 
@@ -1221,19 +1269,21 @@ function initCompactTopbar() {
 
   // Toggle handlers
   var toggles = document.querySelectorAll('.compact-mode-toggle');
-  toggles.forEach(function(toggle) {
+  toggles.forEach(function (toggle) {
     toggle.checked = compactPref;
-    toggle.addEventListener('change', function() {
+    toggle.addEventListener('change', function () {
       compactPref = toggle.checked;
       localStorage.setItem('compact-mode', compactPref);
       // Sync all toggles
-      toggles.forEach(function(t) { t.checked = compactPref; });
+      toggles.forEach(function (t) {
+        t.checked = compactPref;
+      });
       checkScroll();
     });
   });
 }
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   initTabs();
   initCompactTopbar();
   initCountInputs();
@@ -1249,7 +1299,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initDashboardPoller();
   autoExpandCollapsibleCards();
   syncDetailLogHeight();
-  window.addEventListener('resize', function() {
+  window.addEventListener('resize', function () {
     autoExpandCollapsibleCards();
     syncDetailLogHeight();
   });

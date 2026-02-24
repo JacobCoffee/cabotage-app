@@ -106,7 +106,7 @@
           <div class="deploy-progress-spinner"></div>
           <div>
             <p class="text-sm font-medium text-base-content" id="deployPhase">Waiting for logs…</p>
-            <p class="text-xs text-base-content/40">Streaming logs below. Page will refresh on completion.</p>
+            <p class="text-xs text-base-content/40">Streaming logs below. Updates live on completion.</p>
           </div>
         </div>
         <span class="progress-elapsed" id="deployElapsed">00:00</span>
@@ -455,22 +455,45 @@
       });
     }
 
+    var statusPollAttempts = 0;
+    var maxStatusPolls = 20; /* 20 × 2s = 40s max wait */
+
     function fetchDeploymentStatus() {
+      statusPollAttempts++;
       fetch(window.location.pathname, { headers: { 'Accept': 'text/html' } })
         .then(function(r) { return r.text(); })
         .then(function(html) {
           var parser = new DOMParser();
           var doc = parser.parseFromString(html, 'text/html');
-          /* Replace the status orb + header */
           var newOrb = doc.querySelector('.deploy-status-orb');
+
+          /* If server still shows "deploying", retry after a delay */
+          if (newOrb && newOrb.classList.contains('deploy-status-deploying') && statusPollAttempts < maxStatusPolls) {
+            setTimeout(fetchDeploymentStatus, 2000);
+            return;
+          }
+
+          /* Server has final state — update DOM */
           var curOrb = document.querySelector('.deploy-status-orb');
           if (newOrb && curOrb) curOrb.parentElement.innerHTML = newOrb.parentElement.innerHTML;
           /* Replace deployment info card */
           var newInfo = doc.querySelector('[data-log-left]');
           var curInfo = document.querySelector('[data-log-left]');
           if (newInfo && curInfo) curInfo.innerHTML = newInfo.innerHTML;
+          /* Show error banner if present */
+          var newError = doc.querySelector('.deploy-error-banner');
+          if (newError && !document.querySelector('.deploy-error-banner')) {
+            var headerEl = document.querySelector('.mb-6');
+            if (headerEl) headerEl.insertAdjacentElement('afterend', newError);
+          }
           /* Hide the progress banner */
           if (progressBanner) progressBanner.style.display = 'none';
+        })
+        .catch(function() {
+          /* On network error, retry if we haven't exceeded attempts */
+          if (statusPollAttempts < maxStatusPolls) {
+            setTimeout(fetchDeploymentStatus, 2000);
+          }
         });
     }
 
