@@ -895,7 +895,7 @@ a.live-commit-sha:hover {
   font-size: 0.8125rem;
   line-height: 1.7;
   background: #0a0a0f;
-  color: rgba(226, 226, 233, 0.82);
+  color: rgba(226, 226, 233, 0.9);
   padding: 1rem;
   border-radius: 0.75rem;
   overflow-x: auto;
@@ -2033,7 +2033,7 @@ a.pipeline-stage-body:hover {
   font-size: 0.75rem;
   line-height: 1.7;
   background: #0a0a0f;
-  color: rgba(226, 226, 233, 0.82);
+  color: rgba(226, 226, 233, 0.9);
   padding: 1rem;
   border-radius: 0.5rem;
   overflow-x: auto;
