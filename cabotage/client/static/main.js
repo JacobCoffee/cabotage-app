@@ -644,9 +644,12 @@ function PipelineTracker(container) {
 PipelineTracker.prototype.poll = function() {
   var self = this;
   fetch(this.statusUrl, { credentials: 'same-origin' })
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      if (!r.ok) throw new Error('pipeline_status ' + r.status);
+      return r.json();
+    })
     .then(function(data) { self.update(data); })
-    .catch(function() { /* silent */ });
+    .catch(function(err) { console.warn('[PipelineTracker]', err); });
 };
 
 PipelineTracker.prototype.startPolling = function() {
@@ -740,17 +743,35 @@ function initPipelineTracker() {
     window.pipelineTracker = new PipelineTracker(container);
   }
 
-  // Intercept the Deploy button to start polling immediately
-  var deployBtn = document.querySelector('[data-full-deploy-form]');
-  if (deployBtn && container) {
-    deployBtn.addEventListener('submit', function() {
-      // Start polling after a short delay to let the POST redirect
-      setTimeout(function() {
-        if (window.pipelineTracker) {
-          window.pipelineTracker.showProgress();
-          window.pipelineTracker.startPolling();
-        }
-      }, 1500);
+  // Intercept the Deploy button — submit via fetch, stay on page, start tracking
+  var deployForm = document.querySelector('[data-full-deploy-form]');
+  if (deployForm && container) {
+    deployForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var btn = deployForm.querySelector('button[type="submit"]');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Deploying\u2026';
+      }
+      // Fire the POST in the background
+      fetch(deployForm.action, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(new FormData(deployForm)),
+        redirect: 'follow',
+      })
+        .then(function() {
+          // POST succeeded (server redirected, we don't follow) — start polling
+          if (window.pipelineTracker) {
+            window.pipelineTracker.showProgress();
+            window.pipelineTracker.startPolling();
+          }
+        })
+        .catch(function() {
+          // On error, fall back to normal form submission
+          deployForm.submit();
+        });
     });
   }
 }

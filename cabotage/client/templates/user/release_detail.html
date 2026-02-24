@@ -141,6 +141,26 @@
     </div>
   {% endif %}
 
+  {# ===== NEXT STEP BANNER (auto-deploy chain) ===== #}
+  <div id="nextStepBanner" hidden class="mb-6">
+    <a href="#" class="action-banner action-banner-info">
+      <div class="flex items-center gap-3">
+        <div class="action-banner-spinner"></div>
+        <div>
+          <p class="text-sm font-medium text-base-content">Release complete — deployment is starting</p>
+          <p class="text-xs text-base-content/40">Click to follow the auto-deploy pipeline</p>
+        </div>
+      </div>
+      <svg class="w-4 h-4 text-base-content/20 flex-shrink-0"
+           viewBox="0 0 24 24"
+           fill="none"
+           stroke="currentColor"
+           stroke-width="2">
+        <polyline points="9 18 15 12 9 6" />
+      </svg>
+    </a>
+  </div>
+
   {# ===== PACKAGE DETAILS GRID ===== #}
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
 

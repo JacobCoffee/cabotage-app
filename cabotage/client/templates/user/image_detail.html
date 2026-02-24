@@ -124,6 +124,26 @@
     </div>
   {% endif %}
 
+  {# ===== NEXT STEP BANNER (auto-deploy chain) ===== #}
+  <div id="nextStepBanner" hidden class="mb-6">
+    <a href="#" class="action-banner action-banner-info">
+      <div class="flex items-center gap-3">
+        <div class="action-banner-spinner"></div>
+        <div>
+          <p class="text-sm font-medium text-base-content">Build complete — release is building next</p>
+          <p class="text-xs text-base-content/40">Click to follow the auto-deploy pipeline</p>
+        </div>
+      </div>
+      <svg class="w-4 h-4 text-base-content/20 flex-shrink-0"
+           viewBox="0 0 24 24"
+           fill="none"
+           stroke="currentColor"
+           stroke-width="2">
+        <polyline points="9 18 15 12 9 6" />
+      </svg>
+    </a>
+  </div>
+
   {# ===== BUILD DETAILS GRID ===== #}
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
 
@@ -444,13 +464,13 @@
 
 {% block js %}
   <script>
-  /* Auto-deploy: redirect to app page to follow the auto-created release */
-  {% if image.built and image.image_metadata and image.image_metadata.get('auto_deploy') %}
-    (function() {
-      var appUrl = '{{ url_for("user.project_application", org_slug=org_slug, project_slug=project_slug, app_slug=app_slug) }}';
-      window.location.href = appUrl;
-    })();
-  {% endif %}
+  /* Auto-deploy: show next-step banner instead of hard redirect */
+  var nextStepUrl = {{ next_step_url | tojson }};
+  var nextStepBanner = document.getElementById('nextStepBanner');
+  if (nextStepUrl && nextStepBanner) {
+    nextStepBanner.querySelector('a').href = nextStepUrl;
+    nextStepBanner.hidden = false;
+  }
 
   /* Live log streaming for in-progress builds */
   var logsPre = document.getElementById('buildLog');
@@ -463,6 +483,7 @@
     var stepsEl = document.getElementById('buildSteps');
     var elapsedEl = document.getElementById('buildElapsed');
     var tracker = (barFill) ? new BuildProgressTracker(barFill, phaseLabel, 'build', stepsEl, elapsedEl) : null;
+    var isAutoDeploy = {{ (image.image_metadata or {}).get('auto_deploy', false) | tojson }};
     var protocol = (window.location.protocol === 'https:') ? 'wss://' : 'ws://';
     var socket = new WebSocket(protocol + window.location.host + '/image/' + '{{ image.id }}' + '/livelogs');
     socket.addEventListener('message', function(ev) {
@@ -477,7 +498,12 @@
     });
     socket.addEventListener('close', function() {
       if (tracker) tracker.complete();
-      setTimeout(function() { window.location.reload(); }, 5000);
+      if (isAutoDeploy) {
+        /* Poll for the auto-created release, then redirect to it */
+        pollForNextStep(window.location.href);
+      } else {
+        setTimeout(function() { window.location.reload(); }, 5000);
+      }
     });
   }
 
