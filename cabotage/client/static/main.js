@@ -1187,6 +1187,11 @@ function initCompactTopbar() {
   var isCompact = false;
   var compactPref = localStorage.getItem('compact-mode') === 'true';
 
+  // Remove pre-paint class so transitions work after hydration
+  requestAnimationFrame(function() {
+    document.documentElement.classList.remove('compact-mode-pref');
+  });
+
   function applyCompact(compact) {
     if (compact !== isCompact) {
       isCompact = compact;

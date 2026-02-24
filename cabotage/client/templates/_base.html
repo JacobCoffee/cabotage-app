@@ -76,6 +76,11 @@
       var accent = localStorage.getItem('accent-color') || 'purple';
       document.documentElement.setAttribute('data-accent', accent);
       applyAccent(accent, resolved);
+
+      // Compact mode: apply before paint to prevent flash
+      if (localStorage.getItem('compact-mode') === 'true') {
+        document.documentElement.classList.add('compact-mode-pref');
+      }
     })();
     </script>
     <title>

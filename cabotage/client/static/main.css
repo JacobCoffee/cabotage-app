@@ -92,6 +92,20 @@ html:not([data-theme-pref]) .theme-icon-system { display: block !important; }
   pointer-events: none;
 }
 
+/* Pre-paint compact: hide tab bar instantly (no transition) before JS hydrates */
+.compact-mode-pref [data-tab-bar-wrapper] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+  transition: none;
+}
+.compact-mode-pref .topbar-inline-tabs {
+  max-width: 40rem;
+  opacity: 1;
+  pointer-events: auto;
+  transition: none;
+}
+
 /* Inline tabs: hidden by default, appear in compact mode */
 .topbar-inline-tabs {
   display: flex;
