@@ -3069,6 +3069,7 @@ a.pipeline-stage-body:hover {
   font-weight: 600;
   color: var(--text-bright);
   white-space: nowrap;
+  margin-right: 0.35em;
 }
 .obs-event-message {
   color: var(--text-muted);
