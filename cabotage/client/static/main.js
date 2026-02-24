@@ -185,22 +185,51 @@ function initThemeToggle() {
     if (window.__applyAccent) window.__applyAccent(accent, resolved);
   }
 
-  // Click-to-toggle dropdown for each theme-toggle-wrap
+  // Click cycles light→dark→system; long-press opens dropdown
+  var cycleThemes = ['light', 'dark', 'system'];
+
   document.querySelectorAll('.theme-toggle-wrap').forEach(function(wrap) {
     var btn = wrap.querySelector('button');
     var dropdown = wrap.querySelector('.theme-dropdown');
+    var longPressTimer = null;
+    var didLongPress = false;
 
-    function toggle() {
-      dropdown.classList.toggle('hidden');
+    function show() { dropdown.classList.remove('hidden'); }
+    function hide() { dropdown.classList.add('hidden'); }
+
+    function cycleTheme() {
+      var current = localStorage.getItem('theme-pref') || 'system';
+      var idx = cycleThemes.indexOf(current);
+      var next = cycleThemes[(idx + 1) % cycleThemes.length];
+      applyPref(next);
     }
 
-    function hide() {
-      dropdown.classList.add('hidden');
-    }
+    // Pointer down starts long-press timer
+    btn.addEventListener('pointerdown', function(e) {
+      didLongPress = false;
+      longPressTimer = setTimeout(function() {
+        didLongPress = true;
+        show();
+      }, 400);
+    });
 
+    // Pointer up: if not a long-press, cycle theme
+    btn.addEventListener('pointerup', function(e) {
+      clearTimeout(longPressTimer);
+      if (!didLongPress) {
+        e.stopPropagation();
+        hide();
+        cycleTheme();
+      }
+    });
+
+    btn.addEventListener('pointerleave', function() {
+      clearTimeout(longPressTimer);
+    });
+
+    // Prevent click from also firing (we handle everything via pointer events)
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
-      toggle();
     });
 
     // Close on click outside
@@ -774,12 +803,26 @@ PipelineTracker.prototype.update = function(data) {
   this.updateSegment('release', data.release);
   this.updateSegment('deploy', data.deploy);
 
-  // Pipeline just finished — reload to get fresh server-rendered content
+  // Pipeline just finished — redirect to the furthest completed stage
   if (!data.pipeline_active && !this.settled && this.pollInterval) {
     this.settled = true;
     this.stopPolling();
-    var self = this;
-    setTimeout(function() { window.location.reload(); }, 2000);
+    var target = null;
+    // Redirect to the furthest completed stage, or to the errored stage
+    if (data.deploy && (data.deploy.status === 'complete' || data.deploy.status === 'error') && data.deploy.id) {
+      target = '/deployment/' + data.deploy.id;
+    } else if (data.release && (data.release.status === 'complete' || data.release.status === 'error') && data.release.id) {
+      target = '/release/' + data.release.id;
+    } else if (data.build && (data.build.status === 'complete' || data.build.status === 'error') && data.build.id) {
+      target = '/image/' + data.build.id;
+    }
+    setTimeout(function() {
+      if (target) {
+        window.location.href = target;
+      } else {
+        window.location.reload();
+      }
+    }, 2000);
   }
 };
 
