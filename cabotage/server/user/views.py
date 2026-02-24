@@ -538,6 +538,7 @@ def application_pipeline_status(application_id):
             auto_chain_pending = True
 
     deployed_commit = None
+    commit_info = {}
     completed_deploy = application.latest_deployment_completed
     if completed_deploy:
         rel = completed_deploy.release_object
@@ -545,6 +546,20 @@ def application_pipeline_status(application_id):
             sha = rel.commit_sha
             if sha and sha != "null":
                 deployed_commit = sha
+            img = rel.image_object
+            commit_info["deploy_time"] = (
+                completed_deploy.created.isoformat() if completed_deploy.created else ""
+            )
+            commit_info["release_version"] = str(rel.version) if rel.version else ""
+            commit_info["image_version"] = (
+                str(img.version) if img and img.version else ""
+            )
+            meta = rel.release_metadata or {}
+            img_meta = img.image_metadata if img else {} or {}
+            commit_info["ref"] = meta.get("ref", img_meta.get("ref", ""))
+            commit_info["author"] = (
+                (img_meta.get("creator") or {}).get("login", "") if img_meta else ""
+            )
 
     return jsonify(
         {
@@ -553,6 +568,7 @@ def application_pipeline_status(application_id):
             "release": release_info,
             "deploy": deploy_info,
             "commit_sha": deployed_commit,
+            "commit_info": commit_info,
             "github_repository": application.github_repository,
         }
     )
