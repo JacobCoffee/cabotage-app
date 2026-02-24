@@ -1278,7 +1278,8 @@
             </div>
             <div class="flex-1 min-w-0">
               {% if configuration.secret %}
-                <span class="env-secret">{{ icon('lock', 'w-3 h-3') }} <span>Secret</span></span>
+                <span class="env-secret tooltip tooltip-right"
+                      data-tip="Secret values cannot be viewed once set — only replaced">{{ icon('lock', 'w-3 h-3') }} <span>Secret</span></span>
               {% else %}
                 <code class="env-value">{{ configuration.value }}</code>
               {% endif %}

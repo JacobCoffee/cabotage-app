@@ -1472,7 +1472,16 @@ def project_application_create(org_slug, project_slug):
                 configuration,
             )
         except Exception:
-            raise  # No, we should def not do this
+            current_app.logger.exception(
+                "Failed to write configuration for new application"
+            )
+            db.session.rollback()
+            flash(
+                "Failed to write application configuration to backend storage", "error"
+            )
+            return redirect(
+                url_for("user.project", org_slug=org_slug, project_slug=project_slug)
+            )
         configuration.key_slug = key_slugs["config_key_slug"]
         configuration.build_key_slug = key_slugs["build_key_slug"]
         db.session.add(configuration)
@@ -1573,7 +1582,17 @@ def project_application_configuration_create(org_slug, project_slug, app_slug):
                 configuration,
             )
         except Exception:
-            raise  # No, we should def not do this
+            current_app.logger.exception("Failed to write configuration")
+            db.session.rollback()
+            flash("Failed to write configuration to backend storage", "error")
+            return redirect(
+                url_for(
+                    "user.project_application",
+                    org_slug=org_slug,
+                    project_slug=project_slug,
+                    app_slug=app_slug,
+                )
+            )
         configuration.key_slug = key_slugs["config_key_slug"]
         configuration.build_key_slug = key_slugs["build_key_slug"]
         if configuration.secret:
@@ -1692,7 +1711,17 @@ def project_application_configuration_bulk(org_slug, project_slug, app_slug):
                     org_slug, project_slug, app_slug, existing_config
                 )
             except Exception:
-                raise
+                current_app.logger.exception("Failed to write configuration")
+                db.session.rollback()
+                flash("Failed to write configuration to backend storage", "error")
+                return redirect(
+                    url_for(
+                        "user.project_application",
+                        org_slug=org_slug,
+                        project_slug=project_slug,
+                        app_slug=app_slug,
+                    )
+                )
             existing_config.key_slug = key_slugs["config_key_slug"]
             existing_config.build_key_slug = key_slugs["build_key_slug"]
             db.session.flush()
@@ -1719,7 +1748,17 @@ def project_application_configuration_bulk(org_slug, project_slug, app_slug):
                     org_slug, project_slug, app_slug, configuration
                 )
             except Exception:
-                raise
+                current_app.logger.exception("Failed to write configuration")
+                db.session.rollback()
+                flash("Failed to write configuration to backend storage", "error")
+                return redirect(
+                    url_for(
+                        "user.project_application",
+                        org_slug=org_slug,
+                        project_slug=project_slug,
+                        app_slug=app_slug,
+                    )
+                )
             configuration.key_slug = key_slugs["config_key_slug"]
             configuration.build_key_slug = key_slugs["build_key_slug"]
             db.session.add(configuration)
@@ -1797,7 +1836,17 @@ def project_application_configuration_edit(org_slug, project_slug, app_slug, con
                 configuration,
             )
         except Exception:
-            raise  # No, we should def not do this
+            current_app.logger.exception("Failed to write configuration")
+            db.session.rollback()
+            flash("Failed to write configuration to backend storage", "error")
+            return redirect(
+                url_for(
+                    "user.project_application",
+                    org_slug=org_slug,
+                    project_slug=project_slug,
+                    app_slug=app_slug,
+                )
+            )
         configuration.key_slug = key_slugs["config_key_slug"]
         configuration.build_key_slug = key_slugs["build_key_slug"]
         if configuration.secret:
