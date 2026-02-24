@@ -716,7 +716,7 @@
               </div>
               {% for rel in releases[:3] %}
                 <a href="{{ url_for('user.release_detail', release_id=rel.id) }}"
-                   class="flex items-center gap-1.5 py-1 hover:text-accent transition-colors">
+                   class="flex items-center gap-1.5 py-1 px-1.5 -mx-1.5 rounded hover:bg-base-content/5 hover:text-accent transition-colors">
                   {% if rel.built %}
                     <span class="status-dot status-dot-success flex-shrink-0"
                           style="width:5px;
@@ -747,7 +747,7 @@
           </div>
           {% for dep in deployments[:3] %}
             <a href="{{ url_for('user.deployment_detail', deployment_id=dep.id) }}"
-               class="flex items-center gap-1.5 py-1 hover:text-accent transition-colors">
+               class="flex items-center gap-1.5 py-1 px-1.5 -mx-1.5 rounded hover:bg-base-content/5 hover:text-accent transition-colors">
               {% if dep.complete %}
                 <span class="status-dot status-dot-success flex-shrink-0"
                       style="width:5px;
