@@ -191,6 +191,7 @@
   var httpSocket = null;
   var activeTab = 'runtime';
   var processFilter = 'all';
+  var podFilter = [];
 
   var logsPre = document.getElementById('appLogs');
   var buildLogPre = document.getElementById('build-log-content');
@@ -266,10 +267,19 @@
     return bestMatch;
   }
 
+  function getLogPodName(logLine) {
+    var colonIdx = logLine.indexOf(':');
+    if (colonIdx === -1) return null;
+    return logLine.substring(0, colonIdx);
+  }
+
   function matchesProcessFilter(logLine) {
-    if (processFilter === 'all') return true;
-    // Paused/resumed markers always show
     if (logLine.indexOf('**** ') === 0) return true;
+    if (podFilter.length > 0) {
+      var podName = getLogPodName(logLine);
+      return podFilter.indexOf(podName) !== -1;
+    }
+    if (processFilter === 'all') return true;
     var proc = getLogProcess(logLine);
     return proc === processFilter;
   }
@@ -296,7 +306,36 @@
     applyAllFilters();
   }
 
-  function applyAllFilters() {
+  function clearPodFilter() {
+    podFilter = [];
+    var url = new URL(window.location);
+    url.searchParams.delete('pod');
+    history.replaceState(null, '', url);
+    window.location.href = url.pathname + url.hash;
+  }
+
+  function togglePodChip(chip) {
+    var podName = chip.getAttribute('data-pod-chip');
+    var idx = podFilter.indexOf(podName);
+    if (idx !== -1) {
+      podFilter.splice(idx, 1);
+      chip.classList.remove('process-chip-active');
+    } else {
+      podFilter.push(podName);
+      chip.classList.add('process-chip-active');
+    }
+    var url = new URL(window.location);
+    url.searchParams.delete('pod');
+    podFilter.forEach(function(p) { url.searchParams.append('pod', p); });
+    history.replaceState(null, '', url);
+    if (podFilter.length === 0) {
+      clearPodFilter();
+      return;
+    }
+    applyAllFilters();
+  }
+
+function applyAllFilters() {
     var searchVal = document.getElementById('log-search').value.toLowerCase();
     var lines = logsPre.querySelectorAll('.log-line');
     lines.forEach(function(line) {
@@ -662,12 +701,27 @@
      For the default (runtime) tab, connectRuntimeWs is called via onTabSwitch.
      For deep links like #build/#deploy, the appropriate tab handler runs. */
 
-  /* ===== Read ?process= param on load ===== */
+  /* ===== Read ?process= and ?pod= params on load ===== */
   (function() {
     var params = new URLSearchParams(window.location.search);
+
+    var pods = params.getAll('pod');
+    if (pods.length > 0) {
+      podFilter = pods;
+      var filterEl = document.getElementById('process-filter');
+      if (filterEl) {
+        filterEl.style.display = '';
+        filterEl.innerHTML =
+          '<button class="process-chip" data-process="all" onclick="clearPodFilter()">All</button>' +
+          pods.map(function(p) {
+            return '<button class="process-chip process-chip-active" data-pod-chip="' + p.replace(/[<>&"]/g, '') + '" onclick="togglePodChip(this)">' + p.replace(/[<>&"]/g, '') + '</button>';
+          }).join('');
+      }
+      return;
+    }
+
     var proc = params.get('process');
     if (proc) {
-      // Verify it's a valid process name
       var chip = document.querySelector('#process-filter [data-process="' + CSS.escape(proc) + '"]');
       if (chip) {
         setProcessFilter(proc);
