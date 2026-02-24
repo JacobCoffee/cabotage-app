@@ -121,13 +121,12 @@ def celery_init_app(app):
 
     # Force-sync schedules into RedBeat on every app init so new tasks
     # and schedule changes are always picked up after deploys.
+    celery_app.conf.redbeat_redis_url = app.config["CELERY_BROKER_URL"]
     try:
         from redbeat import RedBeatSchedulerEntry
+        import logging
 
-        # Ensure RedBeat can find its Redis (defaults to broker URL)
-        if not celery_app.conf.get("redbeat_redis_url"):
-            celery_app.conf.redbeat_redis_url = app.config["CELERY_BROKER_URL"]
-
+        _logger = logging.getLogger(__name__)
         for name, entry in beat_schedule.items():
             rbe = RedBeatSchedulerEntry(
                 name=name,
@@ -138,11 +137,17 @@ def celery_init_app(app):
                 app=celery_app,
             )
             rbe.save()
-        print(f"[cabotage] RedBeat schedules synced: {list(beat_schedule.keys())}")
+        _logger.warning("RedBeat schedules synced: %s", list(beat_schedule.keys()))
     except Exception as exc:
-        print(f"[cabotage] RedBeat schedule sync failed (non-fatal): {exc}")
+        import logging
+        import traceback
+
+        logging.getLogger(__name__).warning(
+            "RedBeat schedule sync failed (non-fatal): %s\n%s",
+            exc,
+            traceback.format_exc(),
+        )
         # Don't block app startup if Redis is unreachable (e.g. local dev)
-        pass
 
     app.extensions["celery"] = celery_app
     return celery_app
