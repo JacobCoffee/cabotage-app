@@ -281,7 +281,7 @@ def process_check_suite_hook(hook):
                 access_token=access_token,
                 application=application,
                 repository_name=repository_name,
-                ref=commit_sha,
+                ref=application.auto_deploy_branch,
             )
             results.append(deployment_result)
 
