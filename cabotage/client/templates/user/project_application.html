@@ -492,6 +492,67 @@
     </div>
     {# /data-pipeline-tracker #}
 
+    {# ── ACTIVE DEPLOY: what's running right now ── #}
+    {% set _active = application.latest_deployment_completed %}
+    {% if _active %}
+      {% set _arel = _active.release_object %}
+      {% set _aimg = _arel.image_object if _arel else none %}
+      {% set _asha = _arel.commit_sha if _arel and _arel.commit_sha and _arel.commit_sha != 'null' else none %}
+      {% set _aref = "" %}
+      {% if _arel %}
+        {% set _aref = (_arel.release_metadata or {}).get('ref', '') %}
+        {% if not _aref and _aimg %}
+          {% set _aref = (_aimg.image_metadata or {}).get('ref', '') %}
+        {% endif %}
+      {% endif %}
+      <div class="dpl-hero mb-4" data-active-deploy>
+        <div class="dpl-hero-inner">
+          <div class="dpl-hero-left">
+            <div class="dpl-hero-orb">{{ icon('check', 'w-4 h-4') }}</div>
+            <div class="dpl-hero-info">
+              <div class="dpl-hero-title-row">
+                <span class="dpl-badge dpl-badge-active">Live</span>
+                {% if _arel %}<code class="dpl-hero-version">v{{ _arel.version }}</code>{% endif %}
+              </div>
+              <div class="dpl-hero-meta">
+                {% if _asha %}
+                  <span class="dpl-meta-chip">
+                    {{ icon('git-commit', 'w-3 h-3') }}
+                    {% if application.github_repository %}
+                      <a href="https://github.com/{{ application.github_repository }}/commit/{{ _asha }}"
+                         target="_blank"
+                         rel="noopener"
+                         class="dpl-meta-link">{{ _asha[:8] }}</a>
+                    {% else %}
+                      <code>{{ _asha[:8] }}</code>
+                    {% endif %}
+                  </span>
+                {% endif %}
+                {% if _aref %}
+                  <span class="dpl-meta-chip">
+                    {{ icon('git-branch', 'w-3 h-3') }}
+                    <span>{{ _aref }}</span>
+                  </span>
+                {% endif %}
+                {% if _aimg %}
+                  <span class="dpl-meta-chip">
+                    {{ icon('image', 'w-3 h-3') }}
+                    <span>#{{ _aimg.version }}</span>
+                  </span>
+                {% endif %}
+                <span class="dpl-meta-chip dpl-meta-chip-dim">
+                  {{ icon('clock', 'w-3 h-3') }}
+                  <span><time data-timestamp="{{ _active.updated|isoformat_utc }}">{{ _active.updated|humanize }}</time></span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <a href="{{ url_for('user.deployment_detail', deployment_id=_active.id) }}"
+             class="btn btn-ghost btn-sm gap-1.5 dpl-hero-action">{{ icon('file-text', 'w-3.5 h-3.5') }} Logs</a>
+        </div>
+      </div>
+    {% endif %}
+
     {# ── SECTION 2: PROCESSES ── #}
 
     {% if application.releases.count() > 0 and application.latest_release.built %}
