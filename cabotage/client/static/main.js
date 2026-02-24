@@ -1826,9 +1826,14 @@ ObservabilityPanel.prototype.renderChart = function (svgEl, history, key, limit,
     return;
   }
 
+  var isMemory = key === 'memory_usage_bytes';
+  var self = this;
   var w = 600,
     h = 200,
-    pad = 30;
+    padL = 52,
+    padR = 10,
+    padT = 30,
+    padB = 30;
   var values = history.map(function (p) {
     return p[key] || 0;
   });
@@ -1842,23 +1847,44 @@ ObservabilityPanel.prototype.renderChart = function (svgEl, history, key, limit,
   if (maxVal === 0) maxVal = 1;
 
   // Scale values
-  var xStep = (w - pad) / Math.max(values.length - 1, 1);
+  var chartW = w - padL - padR;
+  var chartH = h - padT - padB;
+  var xStep = chartW / Math.max(values.length - 1, 1);
   var points = values.map(function (v, i) {
-    return { x: pad + i * xStep, y: h - pad - (v / maxVal) * (h - 2 * pad) };
+    return { x: padL + i * xStep, y: padT + chartH - (v / maxVal) * chartH };
   });
 
   var svg = '';
 
-  // Grid lines
+  // Grid lines + Y-axis labels
   for (var g = 0; g < 4; g++) {
-    var gy = pad + ((h - 2 * pad) / 3) * g;
-    svg += '<line x1="' + pad + '" y1="' + gy + '" x2="' + w + '" y2="' + gy + '" class="obs-grid-line" />';
+    var gy = padT + (chartH / 3) * g;
+    var gridVal = maxVal * (1 - g / 3);
+    var label = isMemory ? self.formatBytes(gridVal) : Math.round(gridVal) + 'm';
+    svg += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (w - padR) + '" y2="' + gy + '" class="obs-grid-line" />';
+    svg +=
+      '<text x="' +
+      (padL - 4) +
+      '" y="' +
+      (gy + 4) +
+      '" text-anchor="end" class="obs-chart-label">' +
+      label +
+      '</text>';
   }
 
   // Limit line (only draw if it falls within the visible range)
   if (limit && limit <= maxVal) {
-    var ly = h - pad - (limit / maxVal) * (h - 2 * pad);
-    svg += '<line x1="' + pad + '" y1="' + ly + '" x2="' + w + '" y2="' + ly + '" class="obs-limit-line" />';
+    var ly = padT + chartH - (limit / maxVal) * chartH;
+    svg += '<line x1="' + padL + '" y1="' + ly + '" x2="' + (w - padR) + '" y2="' + ly + '" class="obs-limit-line" />';
+    var limitLabel = isMemory ? self.formatBytes(limit) : Math.round(limit) + 'm';
+    svg +=
+      '<text x="' +
+      (w - padR) +
+      '" y="' +
+      (ly - 4) +
+      '" text-anchor="end" class="obs-chart-label obs-chart-limit-label">' +
+      limitLabel +
+      ' limit</text>';
   }
 
   // Area fill
@@ -1867,9 +1893,24 @@ ObservabilityPanel.prototype.renderChart = function (svgEl, history, key, limit,
     pathD += ' L' + points[i].x + ',' + points[i].y;
   }
   var areaD =
-    pathD + ' L' + points[points.length - 1].x + ',' + (h - pad) + ' L' + points[0].x + ',' + (h - pad) + ' Z';
+    pathD + ' L' + points[points.length - 1].x + ',' + (h - padB) + ' L' + points[0].x + ',' + (h - padB) + ' Z';
   svg += '<path d="' + areaD + '" class="obs-area-fill" fill="' + color + '" />';
   svg += '<path d="' + pathD + '" class="obs-line" stroke="' + color + '" />';
+
+  // Current value label at the last data point
+  var lastPt = points[points.length - 1];
+  var lastVal = values[values.length - 1];
+  var currentLabel = isMemory ? self.formatBytes(lastVal) : Math.round(lastVal) + 'm';
+  svg +=
+    '<text x="' +
+    lastPt.x +
+    '" y="' +
+    (lastPt.y - 8) +
+    '" text-anchor="end" class="obs-chart-current-label" fill="' +
+    color +
+    '">' +
+    currentLabel +
+    '</text>';
 
   svgEl.innerHTML = svg;
 };
