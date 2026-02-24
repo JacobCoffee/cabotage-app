@@ -1273,13 +1273,47 @@
             <div class="flex items-center gap-2 min-w-0 flex-1">
               <code class="env-key truncate">{{ configuration.name }}</code>
               {% if configuration.buildtime %}
-                <span class="tooltip" data-tip="Build-time variable">{{ icon('settings', 'w-3 h-3 text-base-content/30') }}</span>
+                <div class="info-popup-anchor">
+                  <span class="env-badge env-badge-build">{{ icon('box', 'w-3 h-3') }} Build</span>
+                  <div class="info-popup">
+                    <div class="info-popup-header">
+                      {{ icon('box', 'w-3 h-3 info-popup-header-icon') }}
+                      <span class="info-popup-header-text">Build-time Variable</span>
+                    </div>
+                    <div class="info-popup-body">
+                      <div class="info-popup-row">
+                        <span class="info-popup-desc">Injected during <strong>docker build</strong> as a build arg. Available only at image build time — not at runtime.</span>
+                      </div>
+                      <div class="info-popup-row">
+                        <span class="info-popup-desc">Use for compile flags, asset URLs, or build-stage configuration that gets baked into the image.</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              {% endif %}
+              {% if configuration.secret %}
+                <div class="info-popup-anchor">
+                  <span class="env-badge env-badge-secret">{{ icon('lock', 'w-3 h-3') }} Secret</span>
+                  <div class="info-popup">
+                    <div class="info-popup-header">
+                      {{ icon('shield', 'w-3 h-3 info-popup-header-icon') }}
+                      <span class="info-popup-header-text">Secret Variable</span>
+                    </div>
+                    <div class="info-popup-body">
+                      <div class="info-popup-row">
+                        <span class="info-popup-desc">Stored encrypted and delivered via <strong>Vault</strong> at runtime. The value is never displayed after being set.</span>
+                      </div>
+                      <div class="info-popup-row">
+                        <span class="info-popup-desc">To change a secret, replace it with a new value — you cannot view the current one.</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               {% endif %}
             </div>
             <div class="flex-1 min-w-0">
               {% if configuration.secret %}
-                <span class="env-secret tooltip tooltip-right"
-                      data-tip="Secret values cannot be viewed once set — only replaced">{{ icon('lock', 'w-3 h-3') }} <span>Secret</span></span>
+                <span class="env-secret-dots" aria-label="Hidden value">••••••••</span>
               {% else %}
                 <code class="env-value">{{ configuration.value }}</code>
               {% endif %}
