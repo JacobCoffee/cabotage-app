@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 
 from citext import CIText
 from flask import current_app
@@ -85,6 +86,33 @@ pod_classes = {
 }
 
 DEFAULT_POD_CLASS = "m1.large"
+
+
+class ObservabilitySnapshot(db.Model):
+    __tablename__ = "observability_snapshots"
+
+    id = db.Column(db.Integer, primary_key=True)
+    application_id = db.Column(
+        postgresql.UUID(as_uuid=True),
+        db.ForeignKey("project_applications.id"),
+        nullable=False,
+        index=True,
+    )
+    timestamp = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow, index=True
+    )
+    cpu_usage_m = db.Column(db.Float, default=0)
+    memory_usage_bytes = db.Column(db.BigInteger, default=0)
+    pod_count = db.Column(db.Integer, default=0)
+    restart_count = db.Column(db.Integer, default=0)
+
+    __table_args__ = (
+        db.Index(
+            "ix_observability_snapshots_app_ts",
+            "application_id",
+            "timestamp",
+        ),
+    )
 
 
 class Project(db.Model, Timestamp):

@@ -16,3 +16,8 @@ from .prune_images import (
 )
 
 from .github import process_github_hook  # noqa: F401
+
+from .observability import (
+    collect_observability_snapshots,  # noqa: F401
+    prune_observability_snapshots,  # noqa: F401
+)

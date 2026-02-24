@@ -90,9 +90,24 @@ def celery_init_app(app):
         app.name, broker=app.config["CELERY_BROKER_URL"], task_cls=FlaskTask
     )
     celery_app.set_default()
+    celery_app.conf.task_reject_on_worker_lost = True
+    celery_app.conf.worker_prefetch_multiplier = 1
     celery_app.conf.beat_schedule = {
         "pod-reaper": {
             "task": "cabotage.celery.tasks.maintain.reap_pods",
+            "schedule": crontab(minute="*/5"),
+            "args": None,
+        },
+        "observability-collector": {
+            "task": "cabotage.celery.tasks.observability.collect_observability_snapshots",
+            "schedule": crontab(minute="*"),
+        },
+        "observability-pruner": {
+            "task": "cabotage.celery.tasks.observability.prune_observability_snapshots",
+            "schedule": crontab(hour=3, minute=0),
+        },
+        "recover-stuck-pipelines": {
+            "task": "cabotage.celery.tasks.maintain.recover_stuck_pipelines",
             "schedule": crontab(minute="*/5"),
             "args": None,
         },
@@ -153,6 +168,21 @@ def create_app():
     @app.template_filter("humanize")
     def humanize_filter(value):
         return humanize_lib.naturaltime(value)
+
+    @app.template_filter("duration")
+    def duration_filter(obj):
+        if not getattr(obj, "created", None) or not getattr(obj, "updated", None):
+            return ""
+        total = int((obj.updated - obj.created).total_seconds())
+        if total < 0:
+            return ""
+        if total < 60:
+            return f"{total}s"
+        m, s = divmod(total, 60)
+        if m < 60:
+            return f"{m}m {s}s" if s else f"{m}m"
+        h, m = divmod(m, 60)
+        return f"{h}h {m}m"
 
     @app.template_filter("highlight_code")
     def highlight_code_filter(value, language="text"):

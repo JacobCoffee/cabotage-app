@@ -62,6 +62,7 @@ from cabotage.server.models.projects import (
     Deployment,
     Hook,
     Image,
+    ObservabilitySnapshot,
     Project,
     Release,
     pod_classes,
@@ -572,6 +573,247 @@ def application_pipeline_status(application_id):
             "github_repository": application.github_repository,
         }
     )
+
+
+@user_blueprint.route("/applications/<application_id>/observability")
+@login_required
+def application_observability(application_id):
+    application = Application.query.filter_by(id=application_id).first_or_404()
+    if not ViewApplicationPermission(application.id).can():
+        abort(403)
+
+    range_param = request.args.get("range", "1h")
+    range_map = {
+        "1h": datetime.timedelta(hours=1),
+        "6h": datetime.timedelta(hours=6),
+        "24h": datetime.timedelta(hours=24),
+        "7d": datetime.timedelta(days=7),
+        "30d": datetime.timedelta(days=30),
+    }
+    delta = range_map.get(range_param, datetime.timedelta(hours=1))
+    since = datetime.datetime.utcnow() - delta
+
+    namespace = application.project.organization.slug
+    label_selector = (
+        f"organization={application.project.organization.slug},"
+        f"project={application.project.slug},"
+        f"application={application.slug},"
+        f"resident-pod.cabotage.io=true"
+    )
+
+    # Compute resource limits from process_counts × pod_classes
+    total_cpu_limit_m = 0
+    total_memory_limit_bytes = 0
+    per_process = {}
+    for proc_name, count in (application.process_counts or {}).items():
+        if count <= 0:
+            continue
+        pod_class = (application.process_pod_classes or {}).get(
+            proc_name, DEFAULT_POD_CLASS
+        )
+        spec = pod_classes.get(pod_class, pod_classes[DEFAULT_POD_CLASS])
+        cpu_limit_str = spec["cpu"]["limits"]
+        mem_limit_str = spec["memory"]["limits"]
+        cpu_m = int(cpu_limit_str.replace("m", ""))
+        mem_bytes = _parse_k8s_memory(mem_limit_str)
+        per_process[proc_name] = {
+            "cpu_limit_m": cpu_m * count,
+            "memory_limit_bytes": mem_bytes * count,
+            "pod_class": pod_class,
+            "count": count,
+        }
+        total_cpu_limit_m += cpu_m * count
+        total_memory_limit_bytes += mem_bytes * count
+
+    # Live data from K8s
+    current_cpu = None
+    current_memory = None
+    current_pod_count = 0
+    current_restart_count = 0
+    pods_list = []
+    events_list = []
+
+    try:
+        api_client = kubernetes_ext.kubernetes_client
+        core_api = kubernetes.client.CoreV1Api(api_client)
+        custom_api = kubernetes.client.CustomObjectsApi(api_client)
+
+        # Pod list
+        pods = core_api.list_namespaced_pod(namespace, label_selector=label_selector)
+        pod_names = set()
+        for pod in pods.items:
+            pod_names.add(pod.metadata.name)
+            phase = pod.status.phase if pod.status else "Unknown"
+            restarts = 0
+            if pod.status and pod.status.container_statuses:
+                for cs in pod.status.container_statuses:
+                    restarts += cs.restart_count or 0
+            current_pod_count += 1
+            current_restart_count += restarts
+            pods_list.append(
+                {
+                    "name": pod.metadata.name,
+                    "process": pod.metadata.labels.get("process", ""),
+                    "phase": phase,
+                    "cpu_m": 0,
+                    "memory_bytes": 0,
+                    "restart_count": restarts,
+                    "cpu_display": "—",
+                    "mem_display": "—",
+                }
+            )
+
+        # Metrics per pod
+        try:
+            metrics = custom_api.list_namespaced_custom_object(
+                "metrics.k8s.io",
+                "v1beta1",
+                namespace,
+                "pods",
+                label_selector=label_selector,
+            )
+            pod_metrics = {}
+            for pm in metrics.get("items", []):
+                name = pm.get("metadata", {}).get("name", "")
+                cpu_total = 0
+                mem_total = 0
+                for c in pm.get("containers", []):
+                    usage = c.get("usage", {})
+                    cpu_total += _parse_k8s_cpu(usage.get("cpu", "0"))
+                    mem_total += _parse_k8s_memory(usage.get("memory", "0"))
+                pod_metrics[name] = {"cpu_m": cpu_total, "memory_bytes": mem_total}
+
+            current_cpu = 0
+            current_memory = 0
+            for p in pods_list:
+                m = pod_metrics.get(p["name"])
+                if m:
+                    p["cpu_m"] = round(m["cpu_m"], 1)
+                    p["memory_bytes"] = m["memory_bytes"]
+                    p["cpu_display"] = f"{round(m['cpu_m'])}m"
+                    p["mem_display"] = _format_bytes(m["memory_bytes"])
+                    current_cpu += m["cpu_m"]
+                    current_memory += m["memory_bytes"]
+        except kubernetes.client.exceptions.ApiException as exc:
+            if exc.status != 404:
+                current_app.logger.warning("Metrics API error: %s", exc.status)
+
+        # Events
+        try:
+            events = core_api.list_namespaced_event(namespace, limit=100)
+            now = datetime.datetime.now(datetime.timezone.utc)
+            for ev in events.items:
+                obj_name = ev.involved_object.name if ev.involved_object else ""
+                # Match events for our pods
+                if not any(obj_name.startswith(pn) for pn in pod_names):
+                    continue
+                ev_time = ev.last_timestamp or ev.event_time
+                time_ago = ""
+                if ev_time:
+                    if ev_time.tzinfo is None:
+                        ev_time = ev_time.replace(tzinfo=datetime.timezone.utc)
+                    diff = now - ev_time
+                    mins = int(diff.total_seconds() / 60)
+                    if mins < 60:
+                        time_ago = f"{mins}m ago"
+                    elif mins < 1440:
+                        time_ago = f"{mins // 60}h ago"
+                    else:
+                        time_ago = f"{mins // 1440}d ago"
+                events_list.append(
+                    {
+                        "reason": ev.reason or "",
+                        "message": ev.message or "",
+                        "type": ev.type or "Normal",
+                        "time_ago": time_ago,
+                        "timestamp": (ev_time.isoformat() if ev_time else ""),
+                    }
+                )
+            events_list = events_list[:50]
+        except kubernetes.client.exceptions.ApiException:
+            pass
+
+    except Exception:
+        current_app.logger.exception("Observability K8s query failed")
+
+    # Historical data from DB
+    history_query = (
+        ObservabilitySnapshot.query.filter(
+            ObservabilitySnapshot.application_id == application.id,
+            ObservabilitySnapshot.timestamp >= since,
+        )
+        .order_by(ObservabilitySnapshot.timestamp.asc())
+        .all()
+    )
+
+    # Downsample to max 200 points
+    history = []
+    step = max(1, len(history_query) // 200)
+    for i in range(0, len(history_query), step):
+        s = history_query[i]
+        history.append(
+            {
+                "timestamp": s.timestamp.isoformat(),
+                "cpu_usage_m": s.cpu_usage_m,
+                "memory_usage_bytes": s.memory_usage_bytes,
+            }
+        )
+
+    return jsonify(
+        {
+            "current": {
+                "cpu_usage_m": (
+                    round(current_cpu, 1) if current_cpu is not None else None
+                ),
+                "memory_usage_bytes": current_memory,
+                "pod_count": current_pod_count,
+                "restart_count": current_restart_count,
+            },
+            "limits": {
+                "total_cpu_limit_m": total_cpu_limit_m,
+                "total_memory_limit_bytes": total_memory_limit_bytes,
+                "per_process": per_process,
+            },
+            "pods": pods_list,
+            "events": events_list,
+            "history": history,
+        }
+    )
+
+
+def _parse_k8s_cpu(value):
+    """Parse K8s CPU value to millicores."""
+    if not value:
+        return 0
+    value = str(value)
+    if value.endswith("n"):
+        return int(value[:-1]) / 1_000_000
+    if value.endswith("m"):
+        return int(value[:-1])
+    return float(value) * 1000
+
+
+def _parse_k8s_memory(value):
+    """Parse K8s memory value to bytes."""
+    if not value:
+        return 0
+    value = str(value)
+    suffixes = {"Ki": 1024, "Mi": 1024**2, "Gi": 1024**3, "Ti": 1024**4}
+    for suffix, multiplier in suffixes.items():
+        if value.endswith(suffix):
+            return int(value[: -len(suffix)]) * multiplier
+    return int(value)
+
+
+def _format_bytes(b):
+    """Format bytes as human-readable."""
+    if b < 1024:
+        return f"{b}B"
+    if b < 1024**2:
+        return f"{b // 1024}Ki"
+    if b < 1024**3:
+        return f"{round(b / 1024**2)}Mi"
+    return f"{round(b / 1024**3, 1)}Gi"
 
 
 @user_blueprint.route(

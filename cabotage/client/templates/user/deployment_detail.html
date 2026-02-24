@@ -173,6 +173,12 @@
               <span class="deploy-meta-label">Updated</span>
               <span class="deploy-meta-value text-base-content/70">{{ deployment.updated|humanize }}</span>
             </div>
+            {% if deployment.complete or deployment.error %}
+              <div class="deploy-meta-row">
+                <span class="deploy-meta-label">Duration</span>
+                <span class="deploy-meta-value text-base-content/70">{{ deployment|duration }}</span>
+              </div>
+            {% endif %}
           </div>
         </div>
       </div>

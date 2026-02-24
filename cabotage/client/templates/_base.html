@@ -288,7 +288,7 @@
           </div>
 
           {# Right: Nav + user #}
-          <div class="flex items-center gap-1">
+          <div class="flex items-center gap-1 flex-shrink-0">
             {% if current_user.is_authenticated %}
               <nav class="hidden md:flex items-center gap-1">
                 <a href="{{ url_for('user.organizations') }}"

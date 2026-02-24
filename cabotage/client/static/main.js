@@ -543,6 +543,8 @@ function BuildProgressTracker(barFill, phaseLabel, type, stepsContainer, elapsed
   this.timerInterval = null;
   this.errored = false;
   this.errorStepIdx = -1;
+  this.phaseStartTimes = {};
+  this.phaseDurations = {};
 
   // Define step pipelines
   if (this.type === 'deploy') {
@@ -594,6 +596,7 @@ BuildProgressTracker.prototype.renderSteps = function () {
       '<span class="step-label">' +
       step.label +
       '</span>' +
+      '<span class="step-duration" data-step-duration></span>' +
       (step.substep ? '<span class="step-substep" data-substep></span>' : '');
     this.stepsContainer.appendChild(el);
   }
@@ -620,7 +623,15 @@ BuildProgressTracker.prototype.stopTimer = function () {
 
 BuildProgressTracker.prototype.setStep = function (idx) {
   if (idx <= this.currentStepIdx) return;
+  var prevIdx = this.currentStepIdx;
   this.currentStepIdx = idx;
+  // Finalize duration for the previous step
+  if (prevIdx >= 0 && this.phaseStartTimes[prevIdx] && !this.phaseDurations[prevIdx]) {
+    this.phaseDurations[prevIdx] = (Date.now() - this.phaseStartTimes[prevIdx]) / 1000;
+    this.showStepDuration(prevIdx);
+  }
+  // Start timing the new step
+  this.phaseStartTimes[idx] = Date.now();
   if (!this.stepEls) return;
   for (var i = 0; i < this.stepEls.length; i++) {
     this.stepEls[i].classList.remove('step-done', 'step-active');
@@ -630,6 +641,19 @@ BuildProgressTracker.prototype.setStep = function (idx) {
       this.stepEls[i].classList.add('step-active');
     }
   }
+};
+
+BuildProgressTracker.prototype.formatStepDuration = function (seconds) {
+  var s = Math.round(seconds);
+  var m = Math.floor(s / 60);
+  s = s % 60;
+  return '(' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s + ')';
+};
+
+BuildProgressTracker.prototype.showStepDuration = function (idx) {
+  if (!this.stepEls || !this.phaseDurations[idx]) return;
+  var durEl = this.stepEls[idx].querySelector('[data-step-duration]');
+  if (durEl) durEl.textContent = this.formatStepDuration(this.phaseDurations[idx]);
 };
 
 BuildProgressTracker.prototype.activate = function () {
@@ -738,6 +762,12 @@ BuildProgressTracker.prototype.complete = function () {
   this.activate();
   this.stopTimer();
 
+  // Finalize duration for the last active step
+  if (this.currentStepIdx >= 0 && this.phaseStartTimes[this.currentStepIdx] && !this.phaseDurations[this.currentStepIdx]) {
+    this.phaseDurations[this.currentStepIdx] = (Date.now() - this.phaseStartTimes[this.currentStepIdx]) / 1000;
+    this.showStepDuration(this.currentStepIdx);
+  }
+
   if (this.errored) {
     // Show error state — don't advance progress to 100%
     var failedAt = this.errorStepIdx >= 0 ? this.errorStepIdx : this.currentStepIdx;
@@ -751,7 +781,6 @@ BuildProgressTracker.prototype.complete = function () {
         } else if (i === failedAt) {
           this.stepEls[i].classList.add('step-error');
         }
-        // Steps after failedAt remain in default (pending) state
       }
     }
     return;
@@ -765,6 +794,7 @@ BuildProgressTracker.prototype.complete = function () {
     for (var i = 0; i < this.stepEls.length; i++) {
       this.stepEls[i].classList.remove('step-active');
       this.stepEls[i].classList.add('step-done');
+      this.showStepDuration(i);
     }
   }
 };
@@ -1122,14 +1152,48 @@ function initCommitPopup() {
   commitEl.classList.add('commit-popup-anchor');
   commitEl.style.cursor = 'pointer';
 
-  commitEl.addEventListener('click', function (e) {
-    // Don't intercept ctrl/cmd+click (let it open GitHub link)
-    if (e.ctrlKey || e.metaKey) return;
-    e.preventDefault();
-    e.stopPropagation();
-    toggleCommitPopup(commitEl);
+  var hoverTimeout = null;
+  var leaveTimeout = null;
+
+  function showPopup() {
+    clearTimeout(leaveTimeout);
+    if (_commitPopup) return;
+    hoverTimeout = setTimeout(function () {
+      toggleCommitPopup(commitEl);
+    }, 200);
+  }
+
+  function hidePopup() {
+    clearTimeout(hoverTimeout);
+    leaveTimeout = setTimeout(function () {
+      closeCommitPopup();
+    }, 300);
+  }
+
+  // Hover on the SHA element opens popup
+  commitEl.addEventListener('mouseenter', showPopup);
+  commitEl.addEventListener('mouseleave', hidePopup);
+
+  // Keep popup open while hovering over it
+  commitEl.addEventListener('mouseover', function (e) {
+    if (e.target.closest && e.target.closest('.commit-popup')) {
+      clearTimeout(leaveTimeout);
+    }
   });
 
+  // Click SHA opens popup immediately (and prevents navigation)
+  var shaLink = commitEl.querySelector('a.live-commit-sha');
+  if (shaLink) {
+    shaLink.addEventListener('click', function (e) {
+      if (e.ctrlKey || e.metaKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      clearTimeout(hoverTimeout);
+      if (!_commitPopup) toggleCommitPopup(commitEl);
+    });
+  }
+
+  // Close on click outside or Escape
   document.addEventListener('click', function (e) {
     if (_commitPopup && !commitEl.contains(e.target)) {
       closeCommitPopup();
@@ -1472,6 +1536,228 @@ function initDashboardPoller() {
   window.dashboardPoller = new DashboardPipelinePoller(trackedAppId);
 }
 
+/* ---------- Observability Panel ---------- */
+function ObservabilityPanel(container) {
+  this.container = container;
+  this.appId = container.getAttribute('data-application-id');
+  this.active = false;
+  this.timer = null;
+  this.range = '1h';
+
+  // DOM refs
+  this.cpuValue = container.querySelector('[data-obs-cpu-value]');
+  this.cpuLimit = container.querySelector('[data-obs-cpu-limit]');
+  this.cpuGauge = container.querySelector('[data-obs-cpu-gauge]');
+  this.memValue = container.querySelector('[data-obs-mem-value]');
+  this.memLimit = container.querySelector('[data-obs-mem-limit]');
+  this.memGauge = container.querySelector('[data-obs-mem-gauge]');
+  this.podValue = container.querySelector('[data-obs-pod-value]');
+  this.podLabel = container.querySelector('[data-obs-pod-label]');
+  this.restartValue = container.querySelector('[data-obs-restart-value]');
+  this.cpuChart = container.querySelector('[data-obs-cpu-chart]');
+  this.memChart = container.querySelector('[data-obs-mem-chart]');
+  this.podsGrid = container.querySelector('[data-obs-pods-grid]');
+  this.eventsEl = container.querySelector('[data-obs-events]');
+
+  // Range buttons
+  var self = this;
+  var rangeButtons = container.querySelectorAll('[data-obs-range]');
+  rangeButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      rangeButtons.forEach(function (b) { b.classList.remove('obs-range-active'); });
+      btn.classList.add('obs-range-active');
+      self.range = btn.getAttribute('data-obs-range');
+      self.fetch();
+    });
+  });
+
+  // Listen for tab lifecycle
+  var panel = container.closest('[data-tab-panel]');
+  if (panel) {
+    panel.addEventListener('tab-activated', function () { self.activate(); });
+    panel.addEventListener('tab-deactivated', function () { self.deactivate(); });
+  }
+}
+
+ObservabilityPanel.prototype.activate = function () {
+  if (this.active) return;
+  this.active = true;
+  this.fetch();
+  var self = this;
+  this.timer = setInterval(function () { self.fetch(); }, 15000);
+};
+
+ObservabilityPanel.prototype.deactivate = function () {
+  this.active = false;
+  if (this.timer) { clearInterval(this.timer); this.timer = null; }
+};
+
+ObservabilityPanel.prototype.fetch = function () {
+  var self = this;
+  var url = '/user/applications/' + this.appId + '/observability?range=' + this.range;
+  fetch(url, { credentials: 'same-origin' })
+    .then(function (r) { return r.json(); })
+    .then(function (data) { self.render(data); })
+    .catch(function (err) { console.warn('Observability fetch error:', err); });
+};
+
+ObservabilityPanel.prototype.render = function (data) {
+  this.updateGauges(data.current, data.limits);
+  this.renderChart(this.cpuChart, data.history, 'cpu_usage_m', data.limits ? data.limits.total_cpu_limit_m : null, '#22d3ee');
+  this.renderChart(this.memChart, data.history, 'memory_usage_bytes', data.limits ? data.limits.total_memory_limit_bytes : null, '#a78bfa');
+  this.updatePodsGrid(data.pods);
+  this.updateEvents(data.events);
+};
+
+ObservabilityPanel.prototype.updateGauges = function (current, limits) {
+  if (!current) return;
+
+  // CPU
+  var cpuVal = current.cpu_usage_m;
+  if (cpuVal != null && this.cpuValue) {
+    this.cpuValue.textContent = Math.round(cpuVal) + 'm';
+    if (limits && limits.total_cpu_limit_m && this.cpuLimit) {
+      this.cpuLimit.textContent = '/ ' + limits.total_cpu_limit_m + 'm';
+      var cpuPct = Math.min((cpuVal / limits.total_cpu_limit_m) * 100, 100);
+      if (this.cpuGauge) {
+        this.cpuGauge.style.width = cpuPct + '%';
+        this.cpuGauge.className = 'obs-gauge-fill' + (cpuPct > 90 ? ' obs-gauge-fill-danger' : cpuPct > 70 ? ' obs-gauge-fill-warning' : '');
+      }
+    }
+  } else if (this.cpuValue) {
+    this.cpuValue.textContent = '—';
+  }
+
+  // Memory
+  var memVal = current.memory_usage_bytes;
+  if (memVal != null && this.memValue) {
+    this.memValue.textContent = this.formatBytes(memVal);
+    if (limits && limits.total_memory_limit_bytes && this.memLimit) {
+      this.memLimit.textContent = '/ ' + this.formatBytes(limits.total_memory_limit_bytes);
+      var memPct = Math.min((memVal / limits.total_memory_limit_bytes) * 100, 100);
+      if (this.memGauge) {
+        this.memGauge.style.width = memPct + '%';
+        this.memGauge.className = 'obs-gauge-fill' + (memPct > 90 ? ' obs-gauge-fill-danger' : memPct > 70 ? ' obs-gauge-fill-warning' : '');
+      }
+    }
+  } else if (this.memValue) {
+    this.memValue.textContent = '—';
+  }
+
+  // Pods & Restarts
+  if (this.podValue) this.podValue.textContent = current.pod_count || 0;
+  if (this.podLabel) {
+    var running = (current.pod_count || 0);
+    this.podLabel.textContent = running === 1 ? 'running' : running + ' running';
+  }
+  if (this.restartValue) this.restartValue.textContent = current.restart_count || 0;
+};
+
+ObservabilityPanel.prototype.formatBytes = function (bytes) {
+  if (bytes == null) return '—';
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(0) + 'Ki';
+  if (bytes < 1073741824) return (bytes / 1048576).toFixed(0) + 'Mi';
+  return (bytes / 1073741824).toFixed(1) + 'Gi';
+};
+
+ObservabilityPanel.prototype.renderChart = function (svgEl, history, key, limit, color) {
+  if (!svgEl || !history || !history.length) {
+    if (svgEl) svgEl.innerHTML = '<text x="300" y="100" text-anchor="middle" fill="var(--text-muted)" font-size="13">No data yet</text>';
+    return;
+  }
+
+  var w = 600, h = 200, pad = 30;
+  var values = history.map(function (p) { return p[key] || 0; });
+  var maxVal = Math.max.apply(null, values);
+  if (limit && limit > maxVal) maxVal = limit;
+  if (maxVal === 0) maxVal = 1;
+
+  // Scale values
+  var xStep = (w - pad) / Math.max(values.length - 1, 1);
+  var points = values.map(function (v, i) {
+    return { x: pad + i * xStep, y: h - pad - ((v / maxVal) * (h - 2 * pad)) };
+  });
+
+  var svg = '';
+
+  // Grid lines
+  for (var g = 0; g < 4; g++) {
+    var gy = pad + ((h - 2 * pad) / 3) * g;
+    svg += '<line x1="' + pad + '" y1="' + gy + '" x2="' + w + '" y2="' + gy + '" class="obs-grid-line" />';
+  }
+
+  // Limit line
+  if (limit) {
+    var ly = h - pad - ((limit / maxVal) * (h - 2 * pad));
+    svg += '<line x1="' + pad + '" y1="' + ly + '" x2="' + w + '" y2="' + ly + '" class="obs-limit-line" />';
+  }
+
+  // Area fill
+  var pathD = 'M' + points[0].x + ',' + points[0].y;
+  for (var i = 1; i < points.length; i++) {
+    pathD += ' L' + points[i].x + ',' + points[i].y;
+  }
+  var areaD = pathD + ' L' + points[points.length - 1].x + ',' + (h - pad) + ' L' + points[0].x + ',' + (h - pad) + ' Z';
+  svg += '<path d="' + areaD + '" class="obs-area-fill" fill="' + color + '" />';
+  svg += '<path d="' + pathD + '" class="obs-line" stroke="' + color + '" />';
+
+  svgEl.innerHTML = svg;
+};
+
+ObservabilityPanel.prototype.updatePodsGrid = function (pods) {
+  if (!this.podsGrid) return;
+  if (!pods || !pods.length) {
+    this.podsGrid.innerHTML = '<div class="obs-empty-state">No pods running</div>';
+    return;
+  }
+  var html = '';
+  pods.forEach(function (pod) {
+    var phase = (pod.phase || 'Unknown').toLowerCase();
+    var dotClass = phase === 'running' ? 'obs-pod-dot-ok' : phase === 'pending' ? 'obs-pod-dot-warn' : 'obs-pod-dot-err';
+    var name = (pod.name || '').replace(/[<>&"]/g, '');
+    html += '<div class="obs-pod-card">' +
+      '<div class="obs-pod-header"><span class="obs-pod-dot ' + dotClass + '"></span>' +
+      '<span class="obs-pod-name">' + name + '</span></div>' +
+      '<div class="obs-pod-metrics">' +
+      '<span class="obs-pod-metric">' + (pod.cpu_display || '—') + '</span>' +
+      '<span class="obs-pod-metric">' + (pod.mem_display || '—') + '</span>' +
+      (pod.restart_count > 0 ? '<span class="obs-pod-metric obs-pod-restarts">' + pod.restart_count + ' restart' + (pod.restart_count > 1 ? 's' : '') + '</span>' : '') +
+      '</div></div>';
+  });
+  this.podsGrid.innerHTML = html;
+};
+
+ObservabilityPanel.prototype.updateEvents = function (events) {
+  if (!this.eventsEl) return;
+  if (!events || !events.length) {
+    this.eventsEl.innerHTML = '<div class="obs-empty-state">No recent events</div>';
+    return;
+  }
+  var html = '';
+  events.forEach(function (ev) {
+    var dotClass = ev.type === 'Warning' ? 'obs-event-dot-warn' : 'obs-event-dot-ok';
+    var reason = (ev.reason || '').replace(/[<>&"]/g, '');
+    var msg = (ev.message || '').replace(/[<>&"]/g, '');
+    var time = (ev.time_ago || '').replace(/[<>&"]/g, '');
+    html += '<div class="obs-event-item">' +
+      '<span class="obs-event-dot ' + dotClass + '"></span>' +
+      '<div class="obs-event-content">' +
+      '<span class="obs-event-reason">' + reason + '</span>' +
+      '<span class="obs-event-msg">' + msg + '</span>' +
+      '</div>' +
+      '<span class="obs-event-time">' + time + '</span>' +
+      '</div>';
+  });
+  this.eventsEl.innerHTML = html;
+};
+
+function initObservabilityPanel() {
+  var container = document.querySelector('[data-observability-panel]');
+  if (!container) return;
+  window.observabilityPanel = new ObservabilityPanel(container);
+}
+
 /* ---------- Init All ---------- */
 /* ---------- Compact Topbar (scroll collapse) ---------- */
 function initCompactTopbar() {
@@ -1590,6 +1876,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initCommitPopup();
   initPipelineTracker();
   initDashboardPoller();
+  initObservabilityPanel();
   autoExpandCollapsibleCards();
   syncDetailLogHeight();
   window.addEventListener('resize', function () {

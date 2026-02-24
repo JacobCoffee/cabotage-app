@@ -21,6 +21,7 @@
   <div class="app-content-padded !py-0">
     {{ tab_nav([
         {'id': 'overview', 'label': 'Overview', 'icon': 'activity'},
+        {'id': 'observe', 'label': 'Observe', 'icon': 'bar-chart'},
         {'id': 'config', 'label': 'Config', 'icon': 'key', 'badge': application.configurations|rejectattr('name', 'equalto', 'CABOTAGE_SENTINEL') |list|length},
     {'id': 'images', 'label': 'Images', 'icon': 'image'},
     {'id': 'releases', 'label': 'Packages', 'icon': 'layers'},
@@ -74,10 +75,9 @@
             <a href="https://github.com/{{ application.github_repository }}/commit/{{ _sha }}"
                target="_blank"
                rel="noopener"
-               class="live-commit-sha"
-               title="{{ _sha }}">{{ _sha[:8] }}</a>
+               class="live-commit-sha">{{ _sha[:8] }}</a>
           {% else %}
-            <code class="live-commit-sha" title="{{ _sha }}">{{ _sha[:8] }}</code>
+            <code class="live-commit-sha">{{ _sha[:8] }}</code>
           {% endif %}
         {% elif not has_pending and not show_ready_to_deploy and not is_deploying and application.latest_image and application.releases.count() > 0 %}
           <span class="live-commit-dot live-commit-dot-ok"></span>
@@ -85,7 +85,7 @@
         {% endif %}
       </span>
     </div>
-    <div class="flex flex-wrap items-center gap-1.5">
+    <div class="app-header-actions">
       {# Primary action: full auto-deploy pipeline (build → package → deploy) #}
       {% if application.auto_deploy_branch %}
         <form action="{{ url_for('user.application_full_deploy', application_id=application.id) }}"
@@ -616,6 +616,67 @@
       </div>
     {% endif %}
 
+    {# ── SECTION 2.5: CONFIGURATION AT A GLANCE ── #}
+
+    <div class="mb-4">
+      <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Configuration</h2>
+      <div class="card bg-base-200 border border-base-300">
+        <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-base-content/5">
+          <div class="p-4">
+            <div class="flex items-center gap-1.5 mb-2">
+              {{ icon('image', 'w-3 h-3 text-base-content/30') }}
+              <span class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Build</span>
+            </div>
+            <div class="flex flex-col gap-2">
+              <div class="deploy-meta-row">
+                <span class="deploy-meta-label">Builder</span>
+                <span class="deploy-meta-value text-base-content/50">Dockerfile</span>
+              </div>
+              {% if application.github_repository %}
+                <div class="deploy-meta-row">
+                  <span class="deploy-meta-label">Repository</span>
+                  <a href="https://github.com/{{ application.github_repository }}"
+                     target="_blank"
+                     rel="noopener"
+                     class="deploy-meta-value text-accent hover:text-accent/80 transition-colors">{{ application.github_repository }}</a>
+                </div>
+              {% endif %}
+              {% if application.auto_deploy_branch %}
+                <div class="deploy-meta-row">
+                  <span class="deploy-meta-label">Auto-deploy</span>
+                  <span class="deploy-meta-value text-base-content/50">{{ application.auto_deploy_branch }}</span>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+          <div class="p-4">
+            <div class="flex items-center gap-1.5 mb-2">
+              {{ icon('deploy', 'w-3 h-3 text-base-content/30') }}
+              <span class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Deploy</span>
+            </div>
+            <div class="flex flex-col gap-2">
+              {% if application.health_check_path %}
+                <div class="deploy-meta-row">
+                  <span class="deploy-meta-label">Healthcheck</span>
+                  <code class="deploy-meta-value text-base-content/50 text-xs">{{ application.health_check_path }}</code>
+                </div>
+              {% endif %}
+              {% if application.deployment_timeout %}
+                <div class="deploy-meta-row">
+                  <span class="deploy-meta-label">Timeout</span>
+                  <span class="deploy-meta-value text-base-content/50">{{ application.deployment_timeout }}s</span>
+                </div>
+              {% endif %}
+              <div class="deploy-meta-row">
+                <span class="deploy-meta-label">Replicas</span>
+                <span class="deploy-meta-value text-base-content/50">{{ application.process_counts.values() |sum }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     {# ── SECTION 3: RECENT ACTIVITY ── #}
 
     {% set has_any_activity = images[:3]|length > 0 or releases[:3]|length > 0 or deployments[:3]|length > 0 %}
@@ -648,7 +709,9 @@
                                  height:5px"></span>
                   {% endif %}
                   <code class="text-xs text-accent/70">#{{ img.version }}</code>
-                  <span class="text-xs text-base-content/25 ml-auto">{{ img.updated|humanize }}</span>
+                  <span class="text-xs text-base-content/25 ml-auto">{{ img.updated|humanize }}
+                    {% if img.built %}<span class="text-base-content/15">({{ img|duration }})</span>{% endif %}
+                  </span>
                 </a>
               {% else %}
                 <p class="text-xs text-base-content/20 py-1">No builds yet</p>
@@ -677,7 +740,9 @@
                                  height:5px"></span>
                   {% endif %}
                   <code class="text-xs text-accent/70">v{{ rel.version }}</code>
-                  <span class="text-xs text-base-content/25 ml-auto">{{ rel.updated|humanize }}</span>
+                  <span class="text-xs text-base-content/25 ml-auto">{{ rel.updated|humanize }}
+                    {% if rel.built %}<span class="text-base-content/15">({{ rel|duration }})</span>{% endif %}
+                  </span>
                 </a>
               {% else %}
                 <p class="text-xs text-base-content/20 py-1">No packages yet</p>
@@ -706,7 +771,9 @@
                                  height:5px"></span>
                   {% endif %}
                   <code class="text-xs text-accent/70">v{{ dep.release_object.version if dep.release_object else '?' }}</code>
-                  <span class="text-xs text-base-content/25 ml-auto">{{ dep.updated|humanize }}</span>
+                  <span class="text-xs text-base-content/25 ml-auto">{{ dep.updated|humanize }}
+                    {% if dep.complete %}<span class="text-base-content/15">({{ dep|duration }})</span>{% endif %}
+                  </span>
                 </a>
               {% else %}
                 <p class="text-xs text-base-content/20 py-1">No deploys yet</p>
@@ -894,6 +961,90 @@
       </a>
     </div>
 
+  </div>
+
+  {# ========================================================================== #}
+  {# ===== TAB: OBSERVE                                                  ===== #}
+  {# ========================================================================== #}
+  <div data-tab-panel="observe" class="tab-panel">
+    <div data-observability-panel data-application-id="{{ application.id }}">
+
+      {# Time range selector #}
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-medium text-base-content">Observability</h2>
+        <div class="obs-range-selector">
+          <button class="obs-range-btn obs-range-active" data-obs-range="1h">1h</button>
+          <button class="obs-range-btn" data-obs-range="6h">6h</button>
+          <button class="obs-range-btn" data-obs-range="24h">24h</button>
+          <button class="obs-range-btn" data-obs-range="7d">7d</button>
+          <button class="obs-range-btn" data-obs-range="30d">30d</button>
+        </div>
+      </div>
+
+      {# Metric cards #}
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div class="obs-metric-card">
+          <div class="obs-metric-label">CPU</div>
+          <div class="obs-metric-value" data-obs-cpu-value>—</div>
+          <div class="obs-metric-limit" data-obs-cpu-limit></div>
+          <div class="obs-gauge">
+            <div class="obs-gauge-fill" data-obs-cpu-gauge></div>
+          </div>
+        </div>
+        <div class="obs-metric-card">
+          <div class="obs-metric-label">Memory</div>
+          <div class="obs-metric-value" data-obs-mem-value>—</div>
+          <div class="obs-metric-limit" data-obs-mem-limit></div>
+          <div class="obs-gauge">
+            <div class="obs-gauge-fill" data-obs-mem-gauge></div>
+          </div>
+        </div>
+        <div class="obs-metric-card">
+          <div class="obs-metric-label">Pods</div>
+          <div class="obs-metric-value" data-obs-pod-count>—</div>
+          <div class="obs-metric-sublabel" data-obs-pod-status></div>
+        </div>
+        <div class="obs-metric-card">
+          <div class="obs-metric-label">Restarts</div>
+          <div class="obs-metric-value" data-obs-restart-count>—</div>
+        </div>
+      </div>
+
+      {# Charts #}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+        <div class="obs-chart-card">
+          <div class="obs-chart-title">CPU Usage</div>
+          <div class="obs-chart" data-obs-cpu-chart>
+            <svg viewBox="0 0 600 200" preserveAspectRatio="none">
+            </svg>
+          </div>
+        </div>
+        <div class="obs-chart-card">
+          <div class="obs-chart-title">Memory Usage</div>
+          <div class="obs-chart" data-obs-mem-chart>
+            <svg viewBox="0 0 600 200" preserveAspectRatio="none">
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      {# Pods + Events #}
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div class="obs-section-card">
+          <div class="obs-section-title">Pods</div>
+          <div data-obs-pods-grid>
+            <div class="obs-empty-state">No pod data available</div>
+          </div>
+        </div>
+        <div class="obs-section-card">
+          <div class="obs-section-title">Events</div>
+          <div data-obs-events class="obs-event-list">
+            <div class="obs-empty-state">No events</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
   </div>
 
   {# ========================================================================== #}
