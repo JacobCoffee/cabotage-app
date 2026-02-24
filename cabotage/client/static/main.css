@@ -2885,6 +2885,10 @@ a.pipeline-stage-body:hover {
   margin-bottom: 0.5rem;
 }
 
+.obs-pods-list {
+  max-height: 16rem;
+  overflow-y: auto;
+}
 .obs-pod-card {
   display: flex;
   align-items: center;
@@ -3022,6 +3026,129 @@ a.pipeline-stage-body:hover {
   animation: obs-shimmer 1.5s ease-in-out infinite;
   pointer-events: none;
   border-radius: inherit;
+}
+
+/* ---------- Live Status Widget (Overview mini-observability) ---------- */
+.live-status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0;
+  background: var(--surface-card);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.live-status-metric {
+  padding: 0.75rem 1rem;
+  position: relative;
+}
+.live-status-metric + .live-status-metric {
+  border-left: 1px solid var(--border-color-subtle);
+}
+.live-status-metric-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.375rem;
+}
+.live-status-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faintest);
+}
+.live-status-value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-bright);
+  transition: color 0.3s ease;
+}
+.live-status-value-warn { color: #f59e0b; }
+.live-status-value-danger { color: #ef4444; }
+
+.live-status-spark {
+  height: 32px;
+  margin-bottom: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.live-status-spark.ls-loaded {
+  opacity: 1;
+}
+.live-status-spark svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.live-status-limit {
+  font-size: 0.625rem;
+  color: var(--text-faintest);
+  font-variant-numeric: tabular-nums;
+  min-height: 0.875rem;
+}
+
+/* Pod dots row */
+.live-status-pods-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  height: 32px;
+  margin-bottom: 0.25rem;
+}
+.ls-pod-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: oklch(0.75 0.18 160); /* green */
+  flex-shrink: 0;
+  animation: ls-pod-pulse 3s ease-in-out infinite;
+}
+.ls-pod-dot-warn {
+  background: #f59e0b;
+  animation-name: ls-pod-pulse-warn;
+}
+.ls-pod-dot-err {
+  background: #ef4444;
+  animation: none;
+}
+@keyframes ls-pod-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 oklch(0.75 0.18 160 / 0); }
+  50% { opacity: 0.85; box-shadow: 0 0 0 3px oklch(0.75 0.18 160 / 0.15); }
+}
+@keyframes ls-pod-pulse-warn {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+  50% { opacity: 0.85; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); }
+}
+
+/* Shimmer loading state */
+.live-status-widget.ls-loading .live-status-metric::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 30%, var(--surface-card-hover, rgba(255,255,255,0.04)) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: obs-shimmer 1.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Sparkline path animation */
+@keyframes ls-spark-draw {
+  from { stroke-dashoffset: var(--ls-path-len); }
+  to { stroke-dashoffset: 0; }
+}
+
+/* Responsive: stack on narrow screens */
+@media (max-width: 639px) {
+  .live-status-grid {
+    grid-template-columns: 1fr;
+  }
+  .live-status-metric + .live-status-metric {
+    border-left: none;
+    border-top: 1px solid var(--border-color-subtle);
+  }
 }
 
 /* ---------- Responsive Utils ---------- */

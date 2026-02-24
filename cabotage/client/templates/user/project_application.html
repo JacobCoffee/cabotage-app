@@ -611,6 +611,65 @@
       </div>
     {% endif %}
 
+    {# ── SECTION 2.25: LIVE STATUS (mini observability on overview) ── #}
+
+    {% if application.releases.count() > 0 and application.latest_release.built %}
+      <div class="live-status-widget mb-4"
+           data-live-status
+           data-application-id="{{ application.id }}">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Live Status</h2>
+          <a href="#observe"
+             data-switch-tab="observe"
+             class="text-xs text-base-content/25 hover:text-accent transition-colors inline-flex items-center gap-1">
+            Details
+            <svg class="w-3 h-3"
+                 viewBox="0 0 24 24"
+                 fill="none"
+                 stroke="currentColor"
+                 stroke-width="2">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </a>
+        </div>
+        <div class="live-status-grid">
+          {# CPU metric #}
+          <div class="live-status-metric" data-ls-cpu>
+            <div class="live-status-metric-head">
+              <span class="live-status-label">CPU</span>
+              <span class="live-status-value" data-ls-cpu-value>—</span>
+            </div>
+            <div class="live-status-spark" data-ls-cpu-spark>
+              <svg viewBox="0 0 120 32" preserveAspectRatio="none">
+              </svg>
+            </div>
+            <div class="live-status-limit" data-ls-cpu-limit></div>
+          </div>
+          {# Memory metric #}
+          <div class="live-status-metric" data-ls-mem>
+            <div class="live-status-metric-head">
+              <span class="live-status-label">Memory</span>
+              <span class="live-status-value" data-ls-mem-value>—</span>
+            </div>
+            <div class="live-status-spark" data-ls-mem-spark>
+              <svg viewBox="0 0 120 32" preserveAspectRatio="none">
+              </svg>
+            </div>
+            <div class="live-status-limit" data-ls-mem-limit></div>
+          </div>
+          {# Pods metric #}
+          <div class="live-status-metric" data-ls-pods>
+            <div class="live-status-metric-head">
+              <span class="live-status-label">Pods</span>
+              <span class="live-status-value" data-ls-pod-count>—</span>
+            </div>
+            <div class="live-status-pods-row" data-ls-pod-dots></div>
+            <div class="live-status-limit" data-ls-restart-count></div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
     {# ── SECTION 2.5: CONFIGURATION AT A GLANCE ── #}
 
     <details class="mb-4">
@@ -1035,7 +1094,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
       <div class="obs-section-card">
         <div class="obs-section-title">Pods</div>
-        <div data-obs-pods-grid>
+        <div data-obs-pods-grid class="obs-pods-list">
           <div class="obs-empty-state">No pod data available</div>
         </div>
       </div>

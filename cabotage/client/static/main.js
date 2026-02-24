@@ -1829,8 +1829,13 @@ ObservabilityPanel.prototype.renderChart = function (svgEl, history, key, limit,
   var values = history.map(function (p) {
     return p[key] || 0;
   });
-  var maxVal = Math.max.apply(null, values);
-  if (limit && limit > maxVal) maxVal = limit;
+  var dataMax = Math.max.apply(null, values);
+  var dataMin = Math.min.apply(null, values);
+
+  // Auto-scale to data range with 20% headroom; show limit line as reference
+  var maxVal = dataMax * 1.2 || 1;
+  // If limit is close to the data (within 2x), include it in the range
+  if (limit && limit <= dataMax * 2) maxVal = Math.max(maxVal, limit * 1.05);
   if (maxVal === 0) maxVal = 1;
 
   // Scale values
@@ -1847,8 +1852,8 @@ ObservabilityPanel.prototype.renderChart = function (svgEl, history, key, limit,
     svg += '<line x1="' + pad + '" y1="' + gy + '" x2="' + w + '" y2="' + gy + '" class="obs-grid-line" />';
   }
 
-  // Limit line
-  if (limit) {
+  // Limit line (only draw if it falls within the visible range)
+  if (limit && limit <= maxVal) {
     var ly = h - pad - (limit / maxVal) * (h - 2 * pad);
     svg += '<line x1="' + pad + '" y1="' + ly + '" x2="' + w + '" y2="' + ly + '" class="obs-limit-line" />';
   }
@@ -1942,6 +1947,197 @@ function initObservabilityPanel() {
   var container = document.querySelector('[data-observability-panel]');
   if (!container) return;
   window.observabilityPanel = new ObservabilityPanel(container);
+}
+
+/* ---------- Live Status Mini (Overview tab) ---------- */
+function ObservabilityMini(container) {
+  this.container = container;
+  this.appId = container.getAttribute('data-application-id');
+  this.timer = null;
+  this._loaded = false;
+
+  // DOM refs
+  this.cpuValue = container.querySelector('[data-ls-cpu-value]');
+  this.cpuSpark = container.querySelector('[data-ls-cpu-spark]');
+  this.cpuLimit = container.querySelector('[data-ls-cpu-limit]');
+  this.memValue = container.querySelector('[data-ls-mem-value]');
+  this.memSpark = container.querySelector('[data-ls-mem-spark]');
+  this.memLimit = container.querySelector('[data-ls-mem-limit]');
+  this.podCount = container.querySelector('[data-ls-pod-count]');
+  this.podDots = container.querySelector('[data-ls-pod-dots]');
+  this.restartCount = container.querySelector('[data-ls-restart-count]');
+}
+
+ObservabilityMini.prototype.activate = function () {
+  if (this.timer) return;
+  this.container.classList.add('ls-loading');
+  this.fetch();
+  var self = this;
+  this.timer = setInterval(function () {
+    self.fetch();
+  }, 30000);
+};
+
+ObservabilityMini.prototype.deactivate = function () {
+  if (this.timer) {
+    clearInterval(this.timer);
+    this.timer = null;
+  }
+};
+
+ObservabilityMini.prototype.fetch = function () {
+  var self = this;
+  var url = '/applications/' + this.appId + '/observability?range=1h';
+  fetch(url, { credentials: 'same-origin' })
+    .then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function (data) {
+      self.container.classList.remove('ls-loading');
+      self._loaded = true;
+      self.render(data);
+    })
+    .catch(function () {
+      self.container.classList.remove('ls-loading');
+    });
+};
+
+ObservabilityMini.prototype.formatBytes = function (bytes) {
+  if (bytes == null) return '—';
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(0) + 'Ki';
+  if (bytes < 1073741824) return (bytes / 1048576).toFixed(0) + 'Mi';
+  return (bytes / 1073741824).toFixed(1) + 'Gi';
+};
+
+ObservabilityMini.prototype.render = function (data) {
+  var current = data.current;
+  var limits = data.limits;
+  if (!current) return;
+
+  // CPU
+  var cpuVal = current.cpu_usage_m;
+  var cpuLim = limits ? limits.total_cpu_limit_m : 0;
+  var cpuPct = cpuLim ? (cpuVal / cpuLim) * 100 : 0;
+  if (this.cpuValue) {
+    this.cpuValue.textContent = cpuVal != null ? Math.round(cpuVal) + 'm' : '—';
+    this.cpuValue.className = 'live-status-value' +
+      (cpuPct > 90 ? ' live-status-value-danger' : cpuPct > 70 ? ' live-status-value-warn' : '');
+  }
+  if (this.cpuLimit && cpuLim) {
+    this.cpuLimit.textContent = '/ ' + cpuLim + 'm';
+  }
+
+  // Memory
+  var memVal = current.memory_usage_bytes;
+  var memLim = limits ? limits.total_memory_limit_bytes : 0;
+  var memPct = memLim ? (memVal / memLim) * 100 : 0;
+  if (this.memValue) {
+    this.memValue.textContent = memVal != null ? this.formatBytes(memVal) : '—';
+    this.memValue.className = 'live-status-value' +
+      (memPct > 90 ? ' live-status-value-danger' : memPct > 70 ? ' live-status-value-warn' : '');
+  }
+  if (this.memLimit && memLim) {
+    this.memLimit.textContent = '/ ' + this.formatBytes(memLim);
+  }
+
+  // Pods
+  var podN = current.pod_count || 0;
+  var restarts = current.restart_count || 0;
+  if (this.podCount) {
+    this.podCount.textContent = podN;
+  }
+  if (this.podDots) {
+    var dotsHtml = '';
+    var pods = data.pods || [];
+    if (pods.length > 0) {
+      pods.forEach(function (pod) {
+        var phase = (pod.phase || '').toLowerCase();
+        var cls = 'ls-pod-dot';
+        if (phase === 'pending') cls += ' ls-pod-dot-warn';
+        else if (phase !== 'running') cls += ' ls-pod-dot-err';
+        dotsHtml += '<span class="' + cls + '" title="' + (pod.name || '').replace(/"/g, '') + '"></span>';
+      });
+    } else if (podN > 0) {
+      for (var i = 0; i < podN; i++) {
+        dotsHtml += '<span class="ls-pod-dot"></span>';
+      }
+    }
+    this.podDots.innerHTML = dotsHtml;
+  }
+  if (this.restartCount) {
+    this.restartCount.textContent = restarts > 0 ? restarts + ' restart' + (restarts !== 1 ? 's' : '') : '';
+  }
+
+  // Sparklines
+  this.renderSparkline(this.cpuSpark, data.history, 'cpu_usage_m', cpuLim, 'oklch(0.7 0.15 230)');
+  this.renderSparkline(this.memSpark, data.history, 'memory_usage_bytes', memLim, 'oklch(0.7 0.15 290)');
+};
+
+ObservabilityMini.prototype.renderSparkline = function (container, history, key, limit, color) {
+  if (!container) return;
+  var svg = container.querySelector('svg');
+  if (!svg) return;
+  if (!history || !history.length) {
+    svg.innerHTML = '';
+    return;
+  }
+
+  var values = history.map(function (h) { return h[key] || 0; });
+  var max = limit || Math.max.apply(null, values) || 1;
+  var w = 120;
+  var h = 32;
+  var pad = 1;
+
+  var points = [];
+  for (var i = 0; i < values.length; i++) {
+    var x = (i / Math.max(values.length - 1, 1)) * w;
+    var y = pad + (h - pad * 2) - ((values[i] / max) * (h - pad * 2));
+    points.push(x.toFixed(1) + ',' + y.toFixed(1));
+  }
+  var pathD = 'M' + points.join('L');
+
+  // Gradient fill under the line
+  var areaPath = pathD + 'L' + w + ',' + h + 'L0,' + h + 'Z';
+
+  var gradId = 'ls-grad-' + key;
+  svg.innerHTML =
+    '<defs><linearGradient id="' + gradId + '" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0%" stop-color="' + color + '" stop-opacity="0.2"/>' +
+    '<stop offset="100%" stop-color="' + color + '" stop-opacity="0"/>' +
+    '</linearGradient></defs>' +
+    '<path d="' + areaPath + '" fill="url(#' + gradId + ')"/>' +
+    '<path d="' + pathD + '" fill="none" stroke="' + color + '" stroke-width="1.5" ' +
+    'stroke-linecap="round" stroke-linejoin="round" class="ls-spark-path"/>';
+
+  // Animate the line drawing in
+  var linePath = svg.querySelector('.ls-spark-path');
+  if (linePath) {
+    var len = linePath.getTotalLength();
+    linePath.style.strokeDasharray = len;
+    linePath.style.strokeDashoffset = len;
+    linePath.style.setProperty('--ls-path-len', len);
+    linePath.style.animation = 'ls-spark-draw 0.8s ease-out forwards';
+  }
+
+  container.classList.add('ls-loaded');
+};
+
+function initLiveStatus() {
+  var container = document.querySelector('[data-live-status]');
+  if (!container) return;
+  var mini = new ObservabilityMini(container);
+
+  // Activate when overview tab is visible
+  var panel = container.closest('[data-tab-panel]');
+  if (panel) {
+    panel.addEventListener('tab-activated', function () { mini.activate(); });
+    panel.addEventListener('tab-deactivated', function () { mini.deactivate(); });
+    if (panel.classList.contains('tab-panel-active')) {
+      mini.activate();
+    }
+  }
 }
 
 /* ---------- Init All ---------- */
@@ -2073,6 +2269,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initPipelineTracker();
   initDashboardPoller();
   initObservabilityPanel();
+  initLiveStatus();
   autoExpandCollapsibleCards();
   syncDetailLogHeight();
   window.addEventListener('resize', function () {
