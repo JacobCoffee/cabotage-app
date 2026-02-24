@@ -483,11 +483,13 @@
     var stepsEl = document.getElementById('buildSteps');
     var elapsedEl = document.getElementById('buildElapsed');
     var tracker = (barFill) ? new BuildProgressTracker(barFill, phaseLabel, 'build', stepsEl, elapsedEl) : null;
+    var logsFinished = false;
     var isAutoDeploy = {{ (image.image_metadata or {}).get('auto_deploy', false) | tojson }};
     var protocol = (window.location.protocol === 'https:') ? 'wss://' : 'ws://';
     var socket = new WebSocket(protocol + window.location.host + '/image/' + '{{ image.id }}' + '/livelogs');
     socket.addEventListener('message', function(ev) {
       if (ev.data === '=================END OF LOGS=================') {
+        logsFinished = true;
         if (tracker) tracker.complete();
         socket.close();
         return;
@@ -497,12 +499,15 @@
       if (tracker) tracker.processLine(ev.data);
     });
     socket.addEventListener('close', function() {
-      if (tracker) tracker.complete();
-      if (isAutoDeploy) {
-        /* Poll for the auto-created release, then redirect to it */
-        pollForNextStep(window.location.href);
+      if (logsFinished) {
+        if (isAutoDeploy) {
+          pollForNextStep(window.location.href);
+        } else {
+          setTimeout(function() { window.location.reload(); }, 5000);
+        }
       } else {
-        setTimeout(function() { window.location.reload(); }, 5000);
+        if (tracker) tracker.setPhase('Waiting for build logs\u2026');
+        setTimeout(function() { window.location.reload(); }, 10000);
       }
     });
   }
