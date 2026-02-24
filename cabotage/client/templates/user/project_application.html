@@ -1550,7 +1550,10 @@
               {% endif %}
               {% if image.built %}<span class="dpl-row-dur">{{ image|duration }}</span>{% endif %}
               {% if is_latest %}<span class="dpl-badge dpl-badge-latest">Latest</span>{% endif %}
-              {% if img_auto %}<span class="dpl-badge dpl-badge-auto">{{ icon('zap', 'w-2.5 h-2.5') }} Auto</span>{% endif %}
+              {% if img_auto %}
+                <span class="dpl-badge dpl-badge-auto tooltip tooltip-top"
+                      data-tip="Triggered by a push to the deploy branch">{{ icon('zap', 'w-2.5 h-2.5') }} Auto</span>
+              {% endif %}
             </div>
             <div class="dpl-row-meta">
               {% if img_ref %}
@@ -1681,7 +1684,10 @@
               {% endif %}
               {% if release.built %}<span class="dpl-row-dur">{{ release|duration }}</span>{% endif %}
               {% if is_latest %}<span class="dpl-badge dpl-badge-latest">Latest</span>{% endif %}
-              {% if rel_auto %}<span class="dpl-badge dpl-badge-auto">{{ icon('zap', 'w-2.5 h-2.5') }} Auto</span>{% endif %}
+              {% if rel_auto %}
+                <span class="dpl-badge dpl-badge-auto tooltip tooltip-top"
+                      data-tip="Triggered by a push to the deploy branch">{{ icon('zap', 'w-2.5 h-2.5') }} Auto</span>
+              {% endif %}
             </div>
             <div class="dpl-row-meta">
               {% if rel_ref %}
@@ -1901,7 +1907,10 @@
               {% endif %}
               {% if deployment.complete or deployment.error %}<span class="dpl-row-dur">{{ deployment|duration }}</span>{% endif %}
               {% if is_active %}<span class="dpl-badge dpl-badge-active">Active</span>{% endif %}
-              {% if dep_auto %}<span class="dpl-badge dpl-badge-auto">{{ icon('zap', 'w-2.5 h-2.5') }} Auto</span>{% endif %}
+              {% if dep_auto %}
+                <span class="dpl-badge dpl-badge-auto tooltip tooltip-top"
+                      data-tip="Triggered by a push to the deploy branch">{{ icon('zap', 'w-2.5 h-2.5') }} Auto</span>
+              {% endif %}
             </div>
             <div class="dpl-row-meta">
               {% if dep_ref %}

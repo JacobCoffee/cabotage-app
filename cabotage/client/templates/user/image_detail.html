@@ -54,7 +54,10 @@
               Build <span class="font-mono text-accent">#{{ image.version }}</span>
             </h1>
             {% if image.image_metadata and image.image_metadata.get('auto_deploy') %}
-              <span class="badge badge-sm badge-ghost text-accent/70 border-accent/20 gap-1">{{ icon('zap', 'w-3 h-3') }} auto</span>
+              <div class="tooltip tooltip-right"
+                   data-tip="Triggered automatically by a push to the deploy branch">
+                <span class="badge badge-sm badge-ghost text-accent/70 border-accent/20 gap-1 cursor-help">{{ icon('zap', 'w-3 h-3') }} auto</span>
+              </div>
             {% endif %}
           </div>
           <p class="text-sm text-base-content/40 font-mono mt-0.5">{{ image.repository_name }}</p>
