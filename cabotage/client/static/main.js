@@ -1182,20 +1182,41 @@ function initCompactTopbar() {
     observer.observe(tab, { attributes: true, attributeFilter: ['class'] });
   });
 
-  // Scroll detection
+  // Compact mode: "always" (user pref) or scroll-based
   var THRESHOLD = 20;
   var isCompact = false;
+  var compactPref = localStorage.getItem('compact-mode') === 'true';
 
-  function checkScroll() {
-    var scrolled = window.scrollY > THRESHOLD;
-    if (scrolled !== isCompact) {
-      isCompact = scrolled;
+  function applyCompact(compact) {
+    if (compact !== isCompact) {
+      isCompact = compact;
       topbar.classList.toggle('topbar-compact', isCompact);
     }
   }
 
+  function checkScroll() {
+    if (compactPref) {
+      applyCompact(true);
+      return;
+    }
+    applyCompact(window.scrollY > THRESHOLD);
+  }
+
   window.addEventListener('scroll', checkScroll, { passive: true });
   checkScroll();
+
+  // Toggle handlers
+  var toggles = document.querySelectorAll('.compact-mode-toggle');
+  toggles.forEach(function(toggle) {
+    toggle.checked = compactPref;
+    toggle.addEventListener('change', function() {
+      compactPref = toggle.checked;
+      localStorage.setItem('compact-mode', compactPref);
+      // Sync all toggles
+      toggles.forEach(function(t) { t.checked = compactPref; });
+      checkScroll();
+    });
+  });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
