@@ -181,6 +181,8 @@ def render_cabotage_enrollment(release):
             "name": cabotage_enrollment_name,
         },
     }
+    if release.application.privileged:
+        cabotage_enrollment_object["spec"] = {"consulAdmin": True}
     return cabotage_enrollment_object
 
 
