@@ -171,6 +171,9 @@ function initThemeToggle() {
     if (meta) {
       meta.content = resolved === 'light' ? '#fafafe' : resolved === 'terminal' ? '#0a0a0a' : '#0f0f17';
     }
+    // Re-apply accent for the new theme
+    var accent = localStorage.getItem('accent-color') || 'purple';
+    if (window.__applyAccent) window.__applyAccent(accent, resolved);
   }
 
   function cyclePref() {
@@ -185,23 +188,25 @@ function initThemeToggle() {
     var btn = wrap.querySelector('button');
     var dropdown = wrap.querySelector('.theme-dropdown');
     var hoverTimer = null;
-    var dropdownOpen = false;
+    var optClicked = false;
 
     function showDropdown() {
       dropdown.classList.remove('hidden');
-      dropdownOpen = true;
     }
 
     function hideDropdown() {
       dropdown.classList.add('hidden');
-      dropdownOpen = false;
     }
 
-    // Click: cycle themes (only if dropdown isn't open)
+    // Click on button always cycles — unless a dropdown option was just picked
     btn.addEventListener('click', function() {
-      if (!dropdownOpen) {
-        cyclePref();
+      if (optClicked) {
+        optClicked = false;
+        return;
       }
+      clearTimeout(hoverTimer);
+      hideDropdown();
+      cyclePref();
     });
 
     // Long hover (800ms) reveals dropdown
@@ -218,6 +223,7 @@ function initThemeToggle() {
     dropdown.querySelectorAll('.theme-opt').forEach(function(opt) {
       opt.addEventListener('click', function(e) {
         e.stopPropagation();
+        optClicked = true;
         applyPref(opt.getAttribute('data-theme-val'));
         hideDropdown();
       });
@@ -235,6 +241,65 @@ function initThemeToggle() {
   // Ensure data-theme-pref attribute is set on load
   var pref = localStorage.getItem('theme-pref') || 'system';
   document.documentElement.setAttribute('data-theme-pref', pref);
+}
+
+/* ---------- Accent Color Picker ---------- */
+function initAccentPicker() {
+  function getResolvedTheme() {
+    var pref = localStorage.getItem('theme-pref') || 'system';
+    if (pref === 'system') {
+      return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    return pref;
+  }
+
+  function markActive(accent) {
+    document.querySelectorAll('.accent-opt').forEach(function(btn) {
+      if (btn.getAttribute('data-accent') === accent) {
+        btn.style.borderColor = 'var(--color-base-content)';
+      } else {
+        btn.style.borderColor = 'transparent';
+      }
+    });
+  }
+
+  var current = localStorage.getItem('accent-color') || 'purple';
+  markActive(current);
+
+  document.querySelectorAll('.accent-picker-wrap').forEach(function(wrap) {
+    var btn = wrap.querySelector('.accent-toggle-btn, #accent-toggle');
+    var dropdown = wrap.querySelector('.accent-dropdown, #accent-dropdown');
+
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var isHidden = dropdown.classList.contains('hidden');
+      // Close all accent dropdowns first
+      document.querySelectorAll('.accent-dropdown, #accent-dropdown').forEach(function(d) {
+        d.classList.add('hidden');
+      });
+      if (isHidden) dropdown.classList.remove('hidden');
+    });
+
+    dropdown.querySelectorAll('.accent-opt').forEach(function(opt) {
+      opt.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var name = opt.getAttribute('data-accent');
+        localStorage.setItem('accent-color', name);
+        document.documentElement.setAttribute('data-accent', name);
+        var theme = getResolvedTheme();
+        if (window.__applyAccent) window.__applyAccent(name, theme);
+        markActive(name);
+        dropdown.classList.add('hidden');
+      });
+    });
+  });
+
+  // Close accent dropdown on outside click
+  document.addEventListener('click', function() {
+    document.querySelectorAll('.accent-dropdown, #accent-dropdown').forEach(function(d) {
+      d.classList.add('hidden');
+    });
+  });
 }
 
 /* ---------- Raw Editor Modal ---------- */
@@ -851,6 +916,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initRawEditor();
   initAddVarModal();
   initExpandModal();
+  initAccentPicker();
   initPipelineTracker();
   autoExpandCollapsibleCards();
   syncDetailLogHeight();
