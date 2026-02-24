@@ -96,27 +96,6 @@
         </div>
       {% endif %}
 
-      {# Force create package #}
-      <a href="{{ url_for('user.application_release_create', application_id=application.id) }}"
-         class="btn btn-ghost btn-sm gap-1.5 text-base-content/40 hover:text-base-content/70">{{ icon('scissors', 'w-3.5 h-3.5') }} Package</a>
-
-      {# Force deploy latest release #}
-      {% if has_deployable %}
-        <form action="{{ url_for('user.release_deploy', release_id=application.latest_release.id) }}"
-              method="post"
-              name="header_deploy_form"
-              enctype="multipart/form-data"
-              class="inline">
-          {{ deploy_form.hidden_tag() }}
-          <button type="submit"
-                  class="btn btn-ghost btn-sm gap-1.5 text-base-content/40 hover:text-base-content/70">
-            {{ icon('upload', 'w-3.5 h-3.5') }} Push Live
-          </button>
-        </form>
-      {% endif %}
-
-      <span class="text-base-content/10 mx-0.5 hidden sm:inline">|</span>
-
       {# Utility actions #}
       <form action="{{ url_for('user.application_clear_cache', application_id=application.id) }}"
             method="post"
