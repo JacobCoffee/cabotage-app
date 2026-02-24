@@ -60,19 +60,13 @@
       {% endif %}
     </div>
     <div class="flex flex-wrap items-center gap-1.5">
-      {# Primary action: full pipeline deploy (build → package → deploy) #}
+      {# Primary action: full auto-deploy pipeline (build → package → deploy) #}
       {% if application.auto_deploy_branch %}
         <form action="{{ url_for('user.application_full_deploy', application_id=application.id) }}"
               method="post"
               class="inline"
               data-full-deploy-form>
-          {% if has_pending %}
-            <button class="btn btn-primary btn-sm gap-1.5" type="submit">{{ icon('deploy', 'w-3.5 h-3.5') }} Deploy</button>
-          {% else %}
-            <button class="btn btn-ghost btn-sm gap-1.5 text-base-content/40 hover:text-base-content/70"
-                    type="submit"
-                    title="No pending changes — manual deploy">{{ icon('deploy', 'w-3.5 h-3.5') }} Deploy</button>
-          {% endif %}
+          <button class="btn btn-primary btn-sm gap-1.5" type="submit">{{ icon('deploy', 'w-3.5 h-3.5') }} Deploy</button>
         </form>
       {% else %}
         <div class="tooltip"
@@ -80,6 +74,25 @@
           <button class="btn btn-ghost btn-sm gap-1.5 btn-disabled text-base-content/20"
                   disabled>{{ icon('deploy', 'w-3.5 h-3.5') }} Deploy</button>
         </div>
+      {% endif %}
+
+      {# Force create package #}
+      <a href="{{ url_for('user.application_release_create', application_id=application.id) }}"
+         class="btn btn-ghost btn-sm gap-1.5 text-base-content/40 hover:text-base-content/70">{{ icon('scissors', 'w-3.5 h-3.5') }} Package</a>
+
+      {# Force deploy latest release #}
+      {% if has_deployable %}
+        <form action="{{ url_for('user.release_deploy', release_id=application.latest_release.id) }}"
+              method="post"
+              name="header_deploy_form"
+              enctype="multipart/form-data"
+              class="inline">
+          {{ deploy_form.hidden_tag() }}
+          <button type="submit"
+                  class="btn btn-ghost btn-sm gap-1.5 text-base-content/40 hover:text-base-content/70">
+            {{ icon('upload', 'w-3.5 h-3.5') }} Push Live
+          </button>
+        </form>
       {% endif %}
 
       <span class="text-base-content/10 mx-0.5 hidden sm:inline">|</span>
@@ -737,10 +750,13 @@
               <p class="text-xs text-base-content/30">No images</p>
             </div>
           {% endif %}
-          <div class="pipeline-stage-action">
+          <div class="pipeline-stage-action flex gap-1">
+            <a href="#images"
+               class="btn btn-ghost btn-xs flex-1 gap-1"
+               data-switch-tab="images">{{ icon('image', 'w-3 h-3') }} All</a>
             <form action="{{ url_for('user.application_images_build_fromsource', application_id=application.id) }}"
                   method="post"
-                  class="w-full">
+                  class="flex-1">
               <button class="btn btn-ghost btn-xs w-full gap-1" type="submit">{{ icon('play', 'w-3 h-3') }} Build</button>
             </form>
           </div>
@@ -786,15 +802,12 @@
               <p class="text-xs text-base-content/30">No packages</p>
             </div>
           {% endif %}
-          <div class="pipeline-stage-action">
-            {% if has_pending %}
-              <a href="{{ url_for('user.application_release_create', application_id=application.id) }}"
-                 class="btn btn-ghost btn-xs w-full gap-1">{{ icon('scissors', 'w-3 h-3') }} Create</a>
-            {% else %}
-              <a href="#releases"
-                 class="btn btn-ghost btn-xs w-full gap-1"
-                 data-switch-tab="releases">{{ icon('layers', 'w-3 h-3') }} All</a>
-            {% endif %}
+          <div class="pipeline-stage-action flex gap-1">
+            <a href="#releases"
+               class="btn btn-ghost btn-xs flex-1 gap-1"
+               data-switch-tab="releases">{{ icon('layers', 'w-3 h-3') }} All</a>
+            <a href="{{ url_for('user.application_release_create', application_id=application.id) }}"
+               class="btn btn-ghost btn-xs flex-1 gap-1">{{ icon('scissors', 'w-3 h-3') }} Create</a>
           </div>
         </div>
 
@@ -846,23 +859,19 @@
               <p class="text-xs text-base-content/30">Not deployed</p>
             </div>
           {% endif %}
-          <div class="pipeline-stage-action">
-            {% if is_deploying %}
-              <a href="{{ url_for('user.deployment_detail', deployment_id=application.latest_deployment.id) }}"
-                 class="btn btn-ghost btn-xs w-full gap-1">{{ icon('deploy', 'w-3 h-3') }} View</a>
-            {% elif has_deployable and not latest_release_live %}
+          <div class="pipeline-stage-action flex gap-1">
+            <a href="#deployments"
+               class="btn btn-ghost btn-xs flex-1 gap-1"
+               data-switch-tab="deployments">{{ icon('deploy', 'w-3 h-3') }} All</a>
+            {% if has_deployable %}
               <form action="{{ url_for('user.release_deploy', release_id=application.latest_release.id) }}"
                     method="post"
                     name="pipeline_deploy_form"
                     enctype="multipart/form-data"
-                    class="w-full">
+                    class="flex-1">
                 {{ deploy_form.hidden_tag() }}
-                <button type="submit" class="btn btn-ghost btn-xs w-full gap-1">{{ icon('deploy', 'w-3 h-3') }} Deploy</button>
+                <button type="submit" class="btn btn-ghost btn-xs w-full gap-1">{{ icon('upload', 'w-3 h-3') }} Deploy</button>
               </form>
-            {% else %}
-              <a href="#deployments"
-                 class="btn btn-ghost btn-xs w-full gap-1"
-                 data-switch-tab="deployments">{{ icon('deploy', 'w-3 h-3') }} All</a>
             {% endif %}
           </div>
         </div>
