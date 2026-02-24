@@ -664,7 +664,9 @@ def _build_observability_response(application, since, empty_response):
         custom_api = kubernetes.client.CustomObjectsApi(api_client)
 
         # Pod list
-        pods = core_api.list_namespaced_pod(namespace, label_selector=label_selector)
+        pods = core_api.list_namespaced_pod(
+            namespace, label_selector=label_selector, _request_timeout=10
+        )
         pod_names = set()
         for pod in pods.items:
             pod_names.add(pod.metadata.name)
@@ -696,6 +698,7 @@ def _build_observability_response(application, since, empty_response):
                 namespace,
                 "pods",
                 label_selector=label_selector,
+                _request_timeout=10,
             )
             pod_metrics = {}
             for pm in metrics.get("items", []):
@@ -722,10 +725,14 @@ def _build_observability_response(application, since, empty_response):
         except kubernetes.client.exceptions.ApiException as exc:
             if exc.status != 404:
                 current_app.logger.warning("Metrics API error: %s", exc.status)
+        except Exception:
+            current_app.logger.warning("Metrics API unavailable", exc_info=True)
 
         # Events
         try:
-            events = core_api.list_namespaced_event(namespace, limit=100)
+            events = core_api.list_namespaced_event(
+                namespace, limit=50, _request_timeout=10
+            )
             now = datetime.datetime.now(datetime.timezone.utc)
             for ev in events.items:
                 obj_name = ev.involved_object.name if ev.involved_object else ""
@@ -755,8 +762,8 @@ def _build_observability_response(application, since, empty_response):
                     }
                 )
             events_list = events_list[:50]
-        except kubernetes.client.exceptions.ApiException:
-            pass
+        except Exception:
+            current_app.logger.warning("Events query failed", exc_info=True)
 
     except Exception:
         current_app.logger.exception("Observability K8s query failed")
@@ -1051,15 +1058,52 @@ def project_application_httplogs(ws, org_slug, project_slug, app_slug):
         "TRAEFIK_LABEL_SELECTOR", "app.kubernetes.io/name=traefik"
     )
 
-    router_pattern = f"{organization.slug}-"
+    namespace_pattern = f"{organization.slug}"
 
     q = queue.Queue()
     _ansi_re = re.compile(r"\x1b\[[0-9;]*m")
 
+    def _format_json_log(raw):
+        """Parse a JSON access log line and return a human-readable string.
+
+        Filters by RouterName containing the org namespace.
+        Returns None if the line doesn't match or isn't valid JSON.
+        """
+        clean = _ansi_re.sub("", raw)
+        try:
+            entry = json.loads(clean)
+        except (json.JSONDecodeError, ValueError):
+            return None
+
+        router = entry.get("RouterName", "")
+        if not router or namespace_pattern not in router:
+            return None
+
+        host = entry.get("request_Host") or "-"
+        method = entry.get("RequestMethod", "-")
+        path = entry.get("RequestPath", "-")
+        proto = entry.get("RequestProtocol", "HTTP/1.1")
+        status = entry.get("DownstreamStatus", "-")
+        size = entry.get("DownstreamContentSize", "-")
+        duration = entry.get("Duration", 0)
+        duration_ms = (
+            f"{int(duration) // 1_000_000}ms"
+            if isinstance(duration, (int, float))
+            else "-"
+        )
+        client = entry.get("ClientAddr", "-")
+        ts = entry.get("StartUTC", "-")
+
+        return (
+            f'{client} - [{ts}] "{method} {path} {proto}"'
+            f" {status} {size} {duration_ms} {host} [{router}]"
+        )
+
     def worker(pod_name, stream_handler):
         for line in stream_handler:
-            if router_pattern in line:
-                q.put(_ansi_re.sub("", line))
+            formatted = _format_json_log(line)
+            if formatted:
+                q.put(formatted)
 
     def update_pods():
         worker_threads = {}
