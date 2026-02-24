@@ -446,7 +446,9 @@
         if (logsFinished) return;
         reconnectAttempts++;
         if (reconnectAttempts >= maxReconnectAttempts) {
-          if (tracker) tracker.setPhase('Connection lost. Refresh to retry.');
+          /* Connection lost — try fetching final status instead of giving up */
+          if (tracker) tracker.setPhase('Checking status\u2026');
+          fetchDeploymentStatus();
           return;
         }
         if (tracker) tracker.setPhase('Reconnecting\u2026');
@@ -456,15 +458,18 @@
     }
 
     var statusPollAttempts = 0;
-    var maxStatusPolls = 20; /* 20 × 2s = 40s max wait */
+    var maxStatusPolls = 30; /* 30 × 2s = 60s max wait */
 
     function fetchDeploymentStatus() {
       statusPollAttempts++;
-      fetch(window.location.pathname, { headers: { 'Accept': 'text/html' } })
+      var cacheBust = '?_t=' + Date.now();
+      fetch(window.location.pathname + cacheBust, {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'text/html', 'Cache-Control': 'no-cache' }
+      })
         .then(function(r) { return r.text(); })
         .then(function(html) {
-          var parser = new DOMParser();
-          var doc = parser.parseFromString(html, 'text/html');
+          var doc = new DOMParser().parseFromString(html, 'text/html');
           var newOrb = doc.querySelector('.deploy-status-orb');
 
           /* If server still shows "deploying", retry after a delay */
@@ -473,9 +478,11 @@
             return;
           }
 
-          /* Server has final state — update DOM */
-          var curOrb = document.querySelector('.deploy-status-orb');
-          if (newOrb && curOrb) curOrb.parentElement.innerHTML = newOrb.parentElement.innerHTML;
+          /* Server has final state — update entire header row */
+          var newHeader = newOrb ? newOrb.closest('.mb-6') : null;
+          var curHeader = document.querySelector('.deploy-status-orb');
+          curHeader = curHeader ? curHeader.closest('.mb-6') : null;
+          if (newHeader && curHeader) curHeader.innerHTML = newHeader.innerHTML;
           /* Replace deployment info card */
           var newInfo = doc.querySelector('[data-log-left]');
           var curInfo = document.querySelector('[data-log-left]');
@@ -483,14 +490,12 @@
           /* Show error banner if present */
           var newError = doc.querySelector('.deploy-error-banner');
           if (newError && !document.querySelector('.deploy-error-banner')) {
-            var headerEl = document.querySelector('.mb-6');
-            if (headerEl) headerEl.insertAdjacentElement('afterend', newError);
+            if (curHeader) curHeader.insertAdjacentElement('afterend', newError);
           }
           /* Hide the progress banner */
           if (progressBanner) progressBanner.style.display = 'none';
         })
         .catch(function() {
-          /* On network error, retry if we haven't exceeded attempts */
           if (statusPollAttempts < maxStatusPolls) {
             setTimeout(fetchDeploymentStatus, 2000);
           }

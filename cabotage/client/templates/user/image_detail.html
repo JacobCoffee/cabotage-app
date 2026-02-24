@@ -464,13 +464,14 @@
 
 {% block js %}
   <script>
-  /* Auto-deploy: show next-step banner instead of hard redirect */
+  /* Auto-deploy: if already built and next step exists, show banner immediately */
   var nextStepUrl = {{ next_step_url | tojson }};
   var nextStepBanner = document.getElementById('nextStepBanner');
   if (nextStepUrl && nextStepBanner) {
     nextStepBanner.querySelector('a').href = nextStepUrl;
     nextStepBanner.hidden = false;
   }
+  var autoDeployAppId = '{{ app.id }}';
 
   /* Live log streaming for in-progress builds */
   var logsPre = document.getElementById('buildLog');
@@ -505,23 +506,28 @@
       if (tracker) tracker.processLine(ev.data);
     });
     var statusPollAttempts = 0;
-    var maxStatusPolls = 20;
+    var maxStatusPolls = 30;
     function fetchBuildStatus() {
       statusPollAttempts++;
-      fetch(window.location.pathname, { headers: { 'Accept': 'text/html' } })
+      var cacheBust = '?_t=' + Date.now();
+      fetch(window.location.pathname + cacheBust, {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'text/html', 'Cache-Control': 'no-cache' }
+      })
         .then(function(r) { return r.text(); })
         .then(function(html) {
-          var parser = new DOMParser();
-          var doc = parser.parseFromString(html, 'text/html');
+          var doc = new DOMParser().parseFromString(html, 'text/html');
           var newOrb = doc.querySelector('.build-status-orb');
           /* If server still shows "building", retry */
           if (newOrb && newOrb.classList.contains('build-status-building') && statusPollAttempts < maxStatusPolls) {
             setTimeout(fetchBuildStatus, 2000);
             return;
           }
-          /* Update header (orb + actions) */
-          var curOrb = document.querySelector('.build-status-orb');
-          if (newOrb && curOrb) curOrb.parentElement.innerHTML = newOrb.parentElement.innerHTML;
+          /* Update entire header row (orb + title + actions) */
+          var newHeader = newOrb ? newOrb.closest('.mb-6') : null;
+          var curHeader = document.querySelector('.build-status-orb');
+          curHeader = curHeader ? curHeader.closest('.mb-6') : null;
+          if (newHeader && curHeader) curHeader.innerHTML = newHeader.innerHTML;
           /* Update info cards */
           var newInfo = doc.querySelector('[data-log-left]');
           var curInfo = document.querySelector('[data-log-left]');
@@ -529,17 +535,12 @@
           /* Show error banner if present */
           var newError = doc.querySelector('.build-error-banner');
           if (newError && !document.querySelector('.build-error-banner')) {
-            var headerEl = document.querySelector('.mb-6');
-            if (headerEl) headerEl.insertAdjacentElement('afterend', newError);
+            if (curHeader) curHeader.insertAdjacentElement('afterend', newError);
           }
           /* Hide the progress banner */
           if (progressBanner) progressBanner.style.display = 'none';
-          /* Update sub-header text */
-          var newSubHeader = doc.querySelector('.build-status-orb').closest('.mb-6');
-          var curHeader = document.querySelector('.build-status-orb').closest('.mb-6');
-          if (newSubHeader && curHeader) curHeader.innerHTML = newSubHeader.innerHTML;
-          /* Auto-deploy: show next-step banner */
-          if (isAutoDeploy) pollForNextStep(window.location.href);
+          /* Auto-deploy: poll pipeline_status for the release, then redirect */
+          if (isAutoDeploy) pollForNextStep(autoDeployAppId, 'build');
         })
         .catch(function() {
           if (statusPollAttempts < maxStatusPolls) setTimeout(fetchBuildStatus, 2000);

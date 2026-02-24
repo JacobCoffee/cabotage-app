@@ -773,31 +773,48 @@ BuildProgressTracker.prototype.complete = function () {
 /* After an auto-deploy build/package finishes, poll the current page
    until the server populates next_step_url, then redirect there
    so the user follows the pipeline: image → release → deployment. */
-function pollForNextStep(currentUrl) {
+/* Poll pipeline_status until the next stage appears, then redirect.
+   stage = 'build' → wait for release, 'release' → wait for deploy. */
+function pollForNextStep(appId, stage) {
+  var url = '/applications/' + appId + '/pipeline_status';
   var attempts = 0;
-  var maxAttempts = 12; // ~30s total
+  var maxAttempts = 40; // 40 × 3s = 2 min max wait
+  var banner = document.getElementById('nextStepBanner');
+
+  // Show the "building next" banner immediately
+  if (banner) banner.hidden = false;
+
   (function poll() {
     attempts++;
     setTimeout(function () {
-      fetch(currentUrl, { credentials: 'same-origin' })
+      fetch(url, { credentials: 'same-origin' })
         .then(function (r) {
-          return r.text();
+          if (!r.ok) throw new Error('pipeline_status ' + r.status);
+          return r.json();
         })
-        .then(function (html) {
-          var match = html.match(/var nextStepUrl\s*=\s*"([^"]+)"/);
-          if (match) {
-            window.location.href = match[1];
+        .then(function (data) {
+          var target = null;
+          if (stage === 'build' && data.release && data.release.id) {
+            target = '/release/' + data.release.id;
+          } else if (stage === 'release' && data.deploy && data.deploy.id) {
+            target = '/deployment/' + data.deploy.id;
+          }
+          if (target) {
+            // Update banner link so user can click it even before auto-redirect
+            if (banner) {
+              var link = banner.querySelector('a');
+              if (link) link.href = target;
+            }
+            window.location.href = target;
           } else if (attempts < maxAttempts) {
             poll();
-          } else {
-            window.location.reload();
           }
+          // After max attempts, just stay on the page (already shows complete state)
         })
         .catch(function () {
           if (attempts < maxAttempts) poll();
-          else window.location.reload();
         });
-    }, 2500);
+    }, 3000);
   })();
 }
 
