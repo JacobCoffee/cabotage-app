@@ -469,6 +469,84 @@ def project_application(org_slug, project_slug, app_slug):
     )
 
 
+@user_blueprint.route("/applications/<application_id>/pipeline_status")
+@login_required
+def application_pipeline_status(application_id):
+    application = Application.query.filter_by(id=application_id).first_or_404()
+    if not ViewApplicationPermission(application.id).can():
+        abort(403)
+
+    def _stage_status(obj, complete_field="built"):
+        if obj is None:
+            return None
+        is_complete = getattr(obj, complete_field, False)
+        is_error = getattr(obj, "error", False)
+        if is_error:
+            status = "error"
+        elif is_complete:
+            status = "complete"
+        else:
+            status = "in_progress"
+        meta = (
+            getattr(obj, "image_metadata", None)
+            or getattr(obj, "release_metadata", None)
+            or getattr(obj, "deploy_metadata", None)
+            or {}
+        )
+        return {
+            "id": str(obj.id),
+            "version": getattr(obj, "version", None),
+            "status": status,
+            "auto_deploy": (
+                meta.get("auto_deploy", False) if isinstance(meta, dict) else False
+            ),
+            "error_detail": obj.error_detail if is_error else None,
+            "updated": obj.updated.isoformat() if obj.updated else None,
+        }
+
+    building_image = application.latest_image_building
+    build_obj = building_image if building_image else application.latest_image
+
+    building_release = application.latest_release_building
+    release_obj = building_release if building_release else application.latest_release
+
+    running_deployment = application.latest_deployment_running
+    deploy_obj = (
+        running_deployment if running_deployment else application.latest_deployment
+    )
+
+    build_info = _stage_status(build_obj, "built")
+    release_info = _stage_status(release_obj, "built")
+    deploy_info = _stage_status(deploy_obj, "complete")
+
+    any_in_progress = any(
+        s and s["status"] == "in_progress"
+        for s in [build_info, release_info, deploy_info]
+    )
+    auto_chain_pending = False
+    if build_info and build_info["auto_deploy"]:
+        if build_info["status"] == "complete" and (
+            not release_info or release_info["status"] == "in_progress"
+        ):
+            auto_chain_pending = True
+        if (
+            release_info
+            and release_info["auto_deploy"]
+            and release_info["status"] == "complete"
+            and (not deploy_info or deploy_info["status"] == "in_progress")
+        ):
+            auto_chain_pending = True
+
+    return jsonify(
+        {
+            "pipeline_active": any_in_progress or auto_chain_pending,
+            "build": build_info,
+            "release": release_info,
+            "deploy": deploy_info,
+        }
+    )
+
+
 @user_blueprint.route(
     "/projects/<org_slug>/<project_slug>/applications/<app_slug>/logs"
 )
