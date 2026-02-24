@@ -3044,6 +3044,13 @@ a.pipeline-stage-body:hover {
 .ls-bento-activity > .card {
   height: 100%;
 }
+.activity-row {
+  transition: background 0.15s ease, color 0.15s ease;
+  text-decoration: none;
+}
+.activity-row:hover {
+  background: var(--hover-overlay);
+}
 @media (max-width: 639px) {
   .ls-bento {
     grid-template-columns: 1fr;
