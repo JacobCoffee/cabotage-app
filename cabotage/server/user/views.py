@@ -754,6 +754,9 @@ def _build_observability_response(application, since, empty_response):
         for pod in pods.items:
             pod_names.add(pod.metadata.name)
             phase = pod.status.phase if pod.status else "Unknown"
+            # Skip completed/failed job pods (builds, deploys)
+            if phase in ("Succeeded", "Failed"):
+                continue
             restarts = 0
             if pod.status and pod.status.container_statuses:
                 for cs in pod.status.container_statuses:

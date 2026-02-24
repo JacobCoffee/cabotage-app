@@ -53,6 +53,20 @@
            id="log-search"
            placeholder="Filter logs..."
            class="input input-bordered input-sm flex-1 min-w-[12rem]" />
+    <div id="process-filter"
+         class="flex items-center gap-1"
+         style="display:none">
+      <button class="process-chip process-chip-active"
+              data-process="all"
+              onclick="setProcessFilter('all')">All</button>
+      {% if application.latest_release and application.latest_release.processes %}
+        {% for proc in application.latest_release.processes %}
+          <button class="process-chip"
+                  data-process="{{ proc }}"
+                  onclick="setProcessFilter('{{ proc }}')">{{ proc }}</button>
+        {% endfor %}
+      {% endif %}
+    </div>
     <div id="runtime-controls" class="flex items-center gap-2">
       <button onclick="toggleAutoScroll()"
               id="toggleAutoScrollButton"
@@ -176,6 +190,7 @@
   var deploySocket = null;
   var httpSocket = null;
   var activeTab = 'runtime';
+  var processFilter = 'all';
 
   var logsPre = document.getElementById('appLogs');
   var buildLogPre = document.getElementById('build-log-content');
@@ -228,6 +243,79 @@
     return div.innerHTML;
   }
 
+  /* ===== Process Filter ===== */
+  function getLogProcess(logLine) {
+    // Runtime log lines are prefixed: "web-abc123: message" or "worker-xyz: message"
+    // The process type is everything before the first dash-hash suffix
+    var colonIdx = logLine.indexOf(':');
+    if (colonIdx === -1) return null;
+    var podName = logLine.substring(0, colonIdx);
+    // Pod names are like: web-abc123def, worker-beat-xyz789
+    // Match known process names from the beginning
+    var chips = document.querySelectorAll('#process-filter [data-process]');
+    var bestMatch = null;
+    for (var i = 0; i < chips.length; i++) {
+      var proc = chips[i].getAttribute('data-process');
+      if (proc === 'all') continue;
+      if (podName === proc || podName.indexOf(proc + '-') === 0) {
+        if (!bestMatch || proc.length > bestMatch.length) {
+          bestMatch = proc;
+        }
+      }
+    }
+    return bestMatch;
+  }
+
+  function matchesProcessFilter(logLine) {
+    if (processFilter === 'all') return true;
+    // Paused/resumed markers always show
+    if (logLine.indexOf('**** ') === 0) return true;
+    var proc = getLogProcess(logLine);
+    return proc === processFilter;
+  }
+
+  function setProcessFilter(proc) {
+    processFilter = proc;
+    // Update chip active states
+    document.querySelectorAll('#process-filter [data-process]').forEach(function(chip) {
+      if (chip.getAttribute('data-process') === proc) {
+        chip.classList.add('process-chip-active');
+      } else {
+        chip.classList.remove('process-chip-active');
+      }
+    });
+    // Update URL without reload
+    var url = new URL(window.location);
+    if (proc === 'all') {
+      url.searchParams.delete('process');
+    } else {
+      url.searchParams.set('process', proc);
+    }
+    history.replaceState(null, '', url);
+    // Re-filter existing log lines
+    applyAllFilters();
+  }
+
+  function applyAllFilters() {
+    var searchVal = document.getElementById('log-search').value.toLowerCase();
+    var lines = logsPre.querySelectorAll('.log-line');
+    lines.forEach(function(line) {
+      var text = line.textContent;
+      var matchesSearch = !searchVal || text.toLowerCase().indexOf(searchVal) !== -1;
+      var matchesProc = matchesProcessFilter(text);
+      line.style.display = (matchesSearch && matchesProc) ? '' : 'none';
+    });
+    // HTTP tab lines (search only, no process filter)
+    var httpLines = httpLogsPre.querySelectorAll('.log-line');
+    httpLines.forEach(function(line) {
+      if (!searchVal || line.textContent.toLowerCase().indexOf(searchVal) !== -1) {
+        line.style.display = '';
+      } else {
+        line.style.display = 'none';
+      }
+    });
+  }
+
   function appendLog(data) {
     if (/\bkube-probe\/\d+.\d+\b/.test(data) && filterKubeProbe) {
       return;
@@ -235,11 +323,12 @@
     var span = document.createElement('div');
     span.className = 'log-line';
     span.innerHTML = renderLogLine(data);
-    // Apply current search filter
+    // Apply current search filter and process filter
     var searchVal = document.getElementById('log-search').value.toLowerCase();
-    if (searchVal && data.toLowerCase().indexOf(searchVal) === -1) {
-      span.style.display = 'none';
-    }
+    var hidden = false;
+    if (searchVal && data.toLowerCase().indexOf(searchVal) === -1) hidden = true;
+    if (!matchesProcessFilter(data)) hidden = true;
+    if (hidden) span.style.display = 'none';
     logsPre.appendChild(span);
     while (logsPre.childElementCount > 1000) {
       logsPre.removeChild(logsPre.firstChild);
@@ -508,29 +597,11 @@
 
   /* ===== Search Filter ===== */
   function applySearchFilter() {
-    var searchVal = document.getElementById('log-search').value.toLowerCase();
-    // Runtime tab lines
-    var lines = logsPre.querySelectorAll('.log-line');
-    lines.forEach(function(line) {
-      if (!searchVal || line.textContent.toLowerCase().indexOf(searchVal) !== -1) {
-        line.style.display = '';
-      } else {
-        line.style.display = 'none';
-      }
-    });
-    // HTTP tab lines
-    var httpLines = httpLogsPre.querySelectorAll('.log-line');
-    httpLines.forEach(function(line) {
-      if (!searchVal || line.textContent.toLowerCase().indexOf(searchVal) !== -1) {
-        line.style.display = '';
-      } else {
-        line.style.display = 'none';
-      }
-    });
+    applyAllFilters();
   }
 
   document.getElementById('log-search').addEventListener('input', function() {
-    applySearchFilter();
+    applyAllFilters();
   });
 
   /* ===== Tab Lifecycle ===== */
@@ -542,6 +613,11 @@
     var controls = document.getElementById('runtime-controls');
     if (controls) {
       controls.style.display = (tabId === 'runtime' || tabId === 'http') ? '' : 'none';
+    }
+    // Show/hide process filter (runtime tab only)
+    var procFilter = document.getElementById('process-filter');
+    if (procFilter) {
+      procFilter.style.display = (tabId === 'runtime') ? '' : 'none';
     }
 
     // Reset search on tab switch
@@ -585,5 +661,18 @@
      initTabs fires on DOMContentLoaded (after this script registers listeners).
      For the default (runtime) tab, connectRuntimeWs is called via onTabSwitch.
      For deep links like #build/#deploy, the appropriate tab handler runs. */
+
+  /* ===== Read ?process= param on load ===== */
+  (function() {
+    var params = new URLSearchParams(window.location.search);
+    var proc = params.get('process');
+    if (proc) {
+      // Verify it's a valid process name
+      var chip = document.querySelector('#process-filter [data-process="' + CSS.escape(proc) + '"]');
+      if (chip) {
+        setProcessFilter(proc);
+      }
+    }
+  })();
   </script>
 {% endblock js %}

@@ -1299,6 +1299,46 @@ details[open] summary .collapse-icon {
 .process-card-idle:hover {
   opacity: 0.75;
 }
+.process-log-btn {
+  min-height: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.375rem;
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+}
+.process-card:hover .process-log-btn {
+  opacity: 0.7;
+}
+.process-log-btn:hover {
+  opacity: 1 !important;
+}
+
+/* ---------- Process Filter Chips ---------- */
+.process-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  border-radius: 1rem;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary, rgba(226, 226, 233, 0.5));
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.process-chip:hover {
+  border-color: rgba(124, 58, 237, 0.3);
+  color: var(--text-primary, rgba(226, 226, 233, 0.8));
+}
+.process-chip-active {
+  background: rgba(124, 58, 237, 0.15);
+  border-color: rgba(124, 58, 237, 0.4);
+  color: var(--accent, #7c3aed);
+}
 
 /* ---------- Process Footer (commands + meta) ---------- */
 .proc-footer {
