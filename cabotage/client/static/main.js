@@ -243,7 +243,7 @@ function initThemeToggle() {
   document.documentElement.setAttribute('data-theme-pref', pref);
 }
 
-/* ---------- Accent Color Picker ---------- */
+/* ---------- Accent Color Picker (lives inside theme dropdown) ---------- */
 function initAccentPicker() {
   function getResolvedTheme() {
     var pref = localStorage.getItem('theme-pref') || 'system';
@@ -266,38 +266,16 @@ function initAccentPicker() {
   var current = localStorage.getItem('accent-color') || 'purple';
   markActive(current);
 
-  document.querySelectorAll('.accent-picker-wrap').forEach(function(wrap) {
-    var btn = wrap.querySelector('.accent-toggle-btn, #accent-toggle');
-    var dropdown = wrap.querySelector('.accent-dropdown, #accent-dropdown');
-
-    btn.addEventListener('click', function(e) {
+  // Bind all accent swatch buttons (inside theme dropdowns)
+  document.querySelectorAll('.accent-opt').forEach(function(opt) {
+    opt.addEventListener('click', function(e) {
       e.stopPropagation();
-      var isHidden = dropdown.classList.contains('hidden');
-      // Close all accent dropdowns first
-      document.querySelectorAll('.accent-dropdown, #accent-dropdown').forEach(function(d) {
-        d.classList.add('hidden');
-      });
-      if (isHidden) dropdown.classList.remove('hidden');
-    });
-
-    dropdown.querySelectorAll('.accent-opt').forEach(function(opt) {
-      opt.addEventListener('click', function(e) {
-        e.stopPropagation();
-        var name = opt.getAttribute('data-accent');
-        localStorage.setItem('accent-color', name);
-        document.documentElement.setAttribute('data-accent', name);
-        var theme = getResolvedTheme();
-        if (window.__applyAccent) window.__applyAccent(name, theme);
-        markActive(name);
-        dropdown.classList.add('hidden');
-      });
-    });
-  });
-
-  // Close accent dropdown on outside click
-  document.addEventListener('click', function() {
-    document.querySelectorAll('.accent-dropdown, #accent-dropdown').forEach(function(d) {
-      d.classList.add('hidden');
+      var name = opt.getAttribute('data-accent');
+      localStorage.setItem('accent-color', name);
+      document.documentElement.setAttribute('data-accent', name);
+      var theme = getResolvedTheme();
+      if (window.__applyAccent) window.__applyAccent(name, theme);
+      markActive(name);
     });
   });
 }
