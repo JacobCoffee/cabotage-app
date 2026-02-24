@@ -876,7 +876,9 @@ function pollForNextStep(appId, stage) {
               var link = banner.querySelector('a');
               if (link) link.href = target;
             }
-            window.location.href = target;
+            // Replace (not push) so back button skips this page
+            // instead of bouncing back into the auto-redirect
+            window.location.replace(target);
           } else if (attempts < maxAttempts) {
             poll();
           }
