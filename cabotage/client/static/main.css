@@ -282,21 +282,22 @@ html:not([data-theme-pref]) .theme-icon-system { display: block !important; }
 .count-input .quantity:focus { outline: none; background: var(--hover-overlay); }
 
 /* ---------- Log Viewer ---------- */
+/* Always dark terminal style regardless of theme */
 .log-viewer {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 0.8125rem;
   line-height: 1.7;
-  background: var(--surface-inset);
-  color: var(--text-muted);
+  background: #0a0a0f;
+  color: rgba(226, 226, 233, 0.5);
   padding: 1rem;
   border-radius: 0.75rem;
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-all;
-  border: 1px solid var(--border-color-subtle);
+  border: 1px solid rgba(255,255,255,0.04);
 }
 .log-viewer .log-line { padding: 0 0.5rem; border-radius: 2px; }
-.log-viewer .log-line:hover { background: var(--hover-overlay-strong); }
+.log-viewer .log-line:hover { background: rgba(124, 58, 237, 0.06); }
 
 /* Full-height log viewer (for logs page) */
 .log-viewer-full {
@@ -1092,28 +1093,32 @@ a.pipeline-stage-body:hover {
 }
 
 /* ---------- Build/Deploy Log Viewer ---------- */
+/* Always dark terminal style regardless of theme */
 .build-log-viewer,
 .deploy-log-viewer {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 0.75rem;
   line-height: 1.7;
-  background: var(--surface-inset);
-  color: var(--text-muted);
+  background: #0a0a0f;
+  color: rgba(226, 226, 233, 0.5);
   padding: 1rem;
   border-radius: 0.5rem;
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-all;
-  border: 1px solid var(--border-color-subtle);
+  border: 1px solid rgba(255,255,255,0.04);
   max-height: 32rem;
   overflow-y: auto;
 }
 .build-log-viewer::-webkit-scrollbar,
-.deploy-log-viewer::-webkit-scrollbar { width: 4px; }
+.deploy-log-viewer::-webkit-scrollbar,
+.log-viewer::-webkit-scrollbar { width: 4px; }
 .build-log-viewer::-webkit-scrollbar-track,
-.deploy-log-viewer::-webkit-scrollbar-track { background: transparent; }
+.deploy-log-viewer::-webkit-scrollbar-track,
+.log-viewer::-webkit-scrollbar-track { background: transparent; }
 .build-log-viewer::-webkit-scrollbar-thumb,
-.deploy-log-viewer::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
+.deploy-log-viewer::-webkit-scrollbar-thumb,
+.log-viewer::-webkit-scrollbar-thumb { background: #27272f; border-radius: 2px; }
 
 /* Primary log viewer: fills available card height, scrolls internally */
 .build-log-viewer-primary,
