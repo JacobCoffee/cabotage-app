@@ -13,7 +13,45 @@ a, button, .btn, input, select, textarea { transition: all 0.15s ease; }
 [data-theme-pref="light"] .theme-icon-light { display: block !important; }
 [data-theme-pref="dark"] .theme-icon-dark { display: block !important; }
 [data-theme-pref="system"] .theme-icon-system { display: block !important; }
+[data-theme-pref="terminal"] .theme-icon-terminal { display: block !important; }
 html:not([data-theme-pref]) .theme-icon-system { display: block !important; }
+
+/* ---------- Terminal Theme Extras ---------- */
+[data-theme="terminal"] {
+  font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+}
+[data-theme="terminal"] * {
+  font-family: inherit !important;
+}
+[data-theme="terminal"] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.08) 0px,
+    rgba(0, 0, 0, 0.08) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+[data-theme="terminal"] .btn-primary {
+  text-shadow: 0 0 8px rgba(51, 255, 51, 0.6);
+}
+[data-theme="terminal"] h1,
+[data-theme="terminal"] h2,
+[data-theme="terminal"] h3,
+[data-theme="terminal"] h4 {
+  text-shadow: 0 0 6px rgba(51, 255, 51, 0.4);
+}
+[data-theme="terminal"] a {
+  color: #33ff33;
+}
+[data-theme="terminal"] a:hover {
+  text-shadow: 0 0 8px rgba(51, 255, 51, 0.6);
+}
 
 /* ---------- Shell Layout ---------- */
 .app-shell {

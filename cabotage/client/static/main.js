@@ -156,7 +156,7 @@ function initMobileNav() {
   }
 }
 
-/* ---------- Theme Toggle (3-state: light → dark → system) ---------- */
+/* ---------- Theme Toggle (click cycles, long-hover reveals dropdown) ---------- */
 function initThemeToggle() {
   function resolveSystem() {
     return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
@@ -169,19 +169,59 @@ function initThemeToggle() {
     localStorage.setItem('theme-pref', pref);
     var meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-      meta.content = resolved === 'light' ? '#fafafe' : '#0f0f17';
+      meta.content = resolved === 'light' ? '#fafafe' : resolved === 'terminal' ? '#0a0a0a' : '#0f0f17';
     }
   }
 
   function cyclePref() {
     var current = localStorage.getItem('theme-pref') || 'system';
+    // If on terminal, cycle back to light
     var next = current === 'light' ? 'dark' : current === 'dark' ? 'system' : 'light';
     applyPref(next);
   }
 
-  // Bind all toggle buttons
-  document.querySelectorAll('#theme-toggle, #theme-toggle-unauth').forEach(function(btn) {
-    btn.addEventListener('click', cyclePref);
+  // Long-hover dropdown logic for each theme-toggle-wrap
+  document.querySelectorAll('.theme-toggle-wrap').forEach(function(wrap) {
+    var btn = wrap.querySelector('button');
+    var dropdown = wrap.querySelector('.theme-dropdown');
+    var hoverTimer = null;
+    var dropdownOpen = false;
+
+    function showDropdown() {
+      dropdown.classList.remove('hidden');
+      dropdownOpen = true;
+    }
+
+    function hideDropdown() {
+      dropdown.classList.add('hidden');
+      dropdownOpen = false;
+    }
+
+    // Click: cycle themes (only if dropdown isn't open)
+    btn.addEventListener('click', function() {
+      if (!dropdownOpen) {
+        cyclePref();
+      }
+    });
+
+    // Long hover (800ms) reveals dropdown
+    wrap.addEventListener('mouseenter', function() {
+      hoverTimer = setTimeout(showDropdown, 800);
+    });
+
+    wrap.addEventListener('mouseleave', function() {
+      clearTimeout(hoverTimer);
+      hideDropdown();
+    });
+
+    // Dropdown option clicks
+    dropdown.querySelectorAll('.theme-opt').forEach(function(opt) {
+      opt.addEventListener('click', function(e) {
+        e.stopPropagation();
+        applyPref(opt.getAttribute('data-theme-val'));
+        hideDropdown();
+      });
+    });
   });
 
   // Listen for system theme changes (update resolved theme when in system mode)
