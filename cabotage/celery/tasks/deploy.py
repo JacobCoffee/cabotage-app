@@ -1203,6 +1203,11 @@ def deploy_release(deployment):
                 process_name,
             )
 
+        deploy_log.append("All K8s deployments created, marking complete")
+        deployment.complete = True
+        deployment.deploy_log = "\n".join(deploy_log)
+        db.session.commit()
+
         deploy_log.append("Waiting on deployment to rollout...")
         start = time.time()
         timeout = deployment.release_object.application.deployment_timeout
