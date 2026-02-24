@@ -1,5 +1,7 @@
 import collections
 import datetime
+import json
+import re
 import time
 import threading
 import queue
@@ -60,6 +62,7 @@ from cabotage.server.models.projects import (
     Deployment,
     Hook,
     Image,
+    ObservabilitySnapshot,
     Project,
     Release,
     pod_classes,
@@ -67,6 +70,7 @@ from cabotage.server.models.projects import (
 from cabotage.server.models.projects import activity_plugin
 
 from cabotage.server.user.forms import (
+    AddOrganizationMemberForm,
     ApplicationScaleForm,
     CreateApplicationForm,
     CreateConfigurationForm,
@@ -77,6 +81,7 @@ from cabotage.server.user.forms import (
     EditConfigurationForm,
     ReleaseDeployForm,
     AddOrganizationUserForm,
+    RemoveOrganizationMemberForm,
 )
 
 from cabotage.utils.docker_auth import (
@@ -107,7 +112,11 @@ user_blueprint = Blueprint(
 def organizations():
     user = current_user
     organizations = user.organizations
-    return render_template("user/organizations.html", organizations=organizations)
+    return render_template(
+        "user/organizations.html",
+        organizations=organizations,
+        org_create_form=CreateOrganizationForm(),
+    )
 
 
 @user_blueprint.route("/organizations/<org_slug>")
@@ -116,7 +125,35 @@ def organization(org_slug):
     organization = Organization.query.filter_by(slug=org_slug).first_or_404()
     if not ViewOrganizationPermission(organization.id).can():
         abort(403)
-    return render_template("user/organization.html", organization=organization)
+    project_form = CreateProjectForm()
+    project_form.organization_id.choices = [(str(organization.id), organization.name)]
+    project_form.organization_id.data = str(organization.id)
+
+    is_admin = AdministerOrganizationPermission(organization.id).can()
+
+    add_member_form = AddOrganizationMemberForm()
+    add_member_form.organization_id.data = str(organization.id)
+
+    remove_member_form = RemoveOrganizationMemberForm()
+    remove_member_form.organization_id.data = str(organization.id)
+
+    # Compute aggregate counts for stat cards
+    applications = []
+    for p in organization.projects:
+        applications.extend(p.project_applications)
+    org_app_count = len(applications)
+    org_deploy_count = sum(a.deployments.count() for a in applications)
+
+    return render_template(
+        "user/organization.html",
+        organization=organization,
+        project_create_form=project_form,
+        add_member_form=add_member_form,
+        remove_member_form=remove_member_form,
+        is_admin=is_admin,
+        org_app_count=org_app_count,
+        org_deploy_count=org_deploy_count,
+    )
 
 
 @user_blueprint.route("/organizations/create", methods=["GET", "POST"])
@@ -141,9 +178,102 @@ def organization_create():
         db.session.add(org_create)
         db.session.commit()
         return redirect(url_for("user.organization", org_slug=organization.slug))
-    return render_template(
-        "user/organization_create.html", organization_create_form=form
-    )
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(f"{getattr(form, field).label.text}: {error}", "error")
+    return redirect(url_for("user.organizations"))
+
+
+@user_blueprint.route("/organizations/<org_slug>/members/add", methods=["POST"])
+@login_required
+def organization_member_add(org_slug):
+    organization = Organization.query.filter_by(slug=org_slug).first_or_404()
+    if not AdministerOrganizationPermission(organization.id).can():
+        abort(403)
+
+    form = AddOrganizationMemberForm()
+    form.organization_id.data = str(organization.id)
+
+    if form.validate_on_submit():
+        user = User.query.filter_by(username=form.username.data).first()
+        existing = OrganizationMember.query.filter_by(
+            user_id=user.id, organization_id=organization.id
+        ).first()
+        if existing:
+            flash(
+                f"{user.username} is already a member of this organization.", "warning"
+            )
+        else:
+            organization.add_user(user, admin=form.admin.data)
+            db.session.commit()
+            flash(f"Added {user.username} to {organization.name}.", "success")
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{getattr(form, field).label.text}: {error}", "error")
+    return redirect(url_for("user.organization", org_slug=org_slug))
+
+
+@user_blueprint.route("/organizations/<org_slug>/members/remove", methods=["POST"])
+@login_required
+def organization_member_remove(org_slug):
+    organization = Organization.query.filter_by(slug=org_slug).first_or_404()
+    if not AdministerOrganizationPermission(organization.id).can():
+        abort(403)
+
+    form = RemoveOrganizationMemberForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(id=form.user_id.data).first_or_404()
+        admin_count = OrganizationMember.query.filter_by(
+            organization_id=organization.id, admin=True
+        ).count()
+        member = OrganizationMember.query.filter_by(
+            user_id=user.id, organization_id=organization.id
+        ).first()
+        if member and member.admin and admin_count <= 1:
+            flash("Cannot remove the last admin from the organization.", "error")
+        elif member:
+            organization.remove_user(user)
+            db.session.commit()
+            flash(f"Removed {user.username} from {organization.name}.", "success")
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{getattr(form, field).label.text}: {error}", "error")
+    return redirect(url_for("user.organization", org_slug=org_slug))
+
+
+@user_blueprint.route(
+    "/organizations/<org_slug>/members/toggle-admin", methods=["POST"]
+)
+@login_required
+def organization_member_toggle_admin(org_slug):
+    organization = Organization.query.filter_by(slug=org_slug).first_or_404()
+    if not AdministerOrganizationPermission(organization.id).can():
+        abort(403)
+
+    user_id = request.form.get("user_id")
+    if not user_id:
+        abort(400)
+
+    user = User.query.filter_by(id=user_id).first_or_404()
+    member = OrganizationMember.query.filter_by(
+        user_id=user.id, organization_id=organization.id
+    ).first_or_404()
+
+    if member.admin:
+        admin_count = OrganizationMember.query.filter_by(
+            organization_id=organization.id, admin=True
+        ).count()
+        if admin_count <= 1:
+            flash("Cannot demote the last admin.", "error")
+            return redirect(url_for("user.organization", org_slug=org_slug))
+
+    member.admin = not member.admin
+    db.session.commit()
+    action = "Granted admin to" if member.admin else "Removed admin from"
+    flash(f"{action} {user.username}.", "success")
+    return redirect(url_for("user.organization", org_slug=org_slug))
 
 
 @user_blueprint.route("/organizations/<org_slug>/projects")
@@ -191,17 +321,25 @@ def organization_project_create(org_slug):
                 project_slug=project.slug,
             )
         )
-    return render_template(
-        "user/organization_project_create.html",
-        organization=organization,
-        organization_project_create_form=form,
-    )
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(f"{getattr(form, field).label.text}: {error}", "error")
+    return redirect(url_for("user.organization", org_slug=org_slug))
 
 
 @user_blueprint.route("/projects")
 @login_required
 def projects():
-    return render_template("user/projects.html", projects=current_user.projects)
+    user = current_user
+    project_form = CreateProjectForm()
+    project_form.organization_id.choices = [
+        (str(o.organization_id), o.organization.name) for o in user.organizations
+    ]
+    return render_template(
+        "user/projects.html",
+        projects=user.projects,
+        project_create_form=project_form,
+    )
 
 
 @user_blueprint.route("/projects/<org_slug>/<project_slug>")
@@ -214,7 +352,20 @@ def project(org_slug, project_slug):
     if not ViewProjectPermission(project.id).can():
         abort(403)
 
-    return render_template("user/project.html", project=project)
+    app_form = CreateApplicationForm()
+    app_form.organization_id.choices = [(str(organization.id), organization.name)]
+    app_form.project_id.choices = [(str(project.id), project.name)]
+    app_form.organization_id.data = str(organization.id)
+    app_form.project_id.data = str(project.id)
+
+    proj_deploy_count = sum(a.deployments.count() for a in project.project_applications)
+
+    return render_template(
+        "user/project.html",
+        project=project,
+        app_create_form=app_form,
+        proj_deploy_count=proj_deploy_count,
+    )
 
 
 @user_blueprint.route("/projects/create", methods=["GET", "POST"])
@@ -256,7 +407,10 @@ def project_create():
                 project_slug=project.slug,
             )
         )
-    return render_template("user/project_create.html", project_create_form=form)
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(f"{getattr(form, field).label.text}: {error}", "error")
+    return redirect(url_for("user.projects"))
 
 
 @user_blueprint.route("/projects/<org_slug>/<project_slug>/applications/<app_slug>")
@@ -288,6 +442,12 @@ def project_application(org_slug, project_slug, app_slug):
     config_create_form = CreateConfigurationForm()
     config_create_form.application_id.data = str(application.id)
 
+    view_releases = (
+        version_class(Release)
+        .query.filter_by(application_id=application.id)
+        .order_by(desc(version_class(Release).version_id))
+        .limit(5)
+    )
     releases = application.releases.order_by(Release.version.desc()).limit(10).all()
     images = application.images.order_by(Image.version.desc()).limit(10).all()
     deployments = (
@@ -299,11 +459,8 @@ def project_application(org_slug, project_slug, app_slug):
         application=application,
         deploy_form=ReleaseDeployForm(),
         scale_form=scale_form,
-        view_releases=version_class(Release)
-        .query.filter_by(application_id=application.id)
-        .order_by(desc(version_class(Release).version_id))
-        .limit(5),
         config_create_form=config_create_form,
+        view_releases=view_releases,
         releases=releases,
         images=images,
         deployments=deployments,
@@ -311,6 +468,556 @@ def project_application(org_slug, project_slug, app_slug):
         pod_classes=pod_classes,
         pod_class_info=pod_class_info,
     )
+
+
+def _detect_build_step(log_text):
+    """Parse a build log to determine the current step index and step list."""
+    if not log_text:
+        return None
+    steps = ["Resolve", "Build", "Export", "Push", "Done"]
+    current = -1
+    substep = None
+    for line in log_text.splitlines():
+        if re.search(r"load build definition|resolve image config", line, re.I):
+            current = max(current, 0)
+        match = re.search(r"\[(\d+)/(\d+)\]", line)
+        if match:
+            current = max(current, 1)
+            substep = f"{match.group(1)}/{match.group(2)}"
+        if re.search(r"exporting to image", line, re.I):
+            current = max(current, 2)
+        if re.search(r"pushing manifest|pushing layers", line, re.I):
+            current = max(current, 3)
+    return {"steps": steps, "current": current, "substep": substep}
+
+
+def _detect_deploy_step(log_text):
+    """Parse a deploy log to determine the current step index and step list."""
+    if not log_text:
+        return None
+    # Condensed milestones for the overview (detail pages show the full 10-step view)
+    steps = ["Setup", "Release", "Deploy", "Rollout", "Done"]
+    patterns = [
+        (
+            r"Constructing API Clients|Fetching Namespace|Fetching ServiceAccount|Fetching CabotageEnrollment|Fetching ImagePullSecrets",
+            0,
+        ),
+        (r"Running release command", 1),
+        (r"Creating deployment for|Creating Service for", 2),
+        (r"Waiting on deployment to rollout", 3),
+        (r"Deployment .* complete", 4),
+    ]
+    current = -1
+    for line in log_text.splitlines():
+        for pattern, idx in patterns:
+            if re.search(pattern, line, re.I):
+                current = max(current, idx)
+    return {"steps": steps, "current": current, "substep": None}
+
+
+@user_blueprint.route("/applications/<application_id>/pipeline_status")
+@login_required
+def application_pipeline_status(application_id):
+    application = Application.query.filter_by(id=application_id).first_or_404()
+    if not ViewApplicationPermission(application.id).can():
+        abort(403)
+
+    def _stage_status(obj, complete_field="built"):
+        if obj is None:
+            return None
+        is_complete = getattr(obj, complete_field, False)
+        is_error = getattr(obj, "error", False)
+        if is_error:
+            status = "error"
+        elif is_complete:
+            status = "complete"
+        else:
+            status = "in_progress"
+        meta = (
+            getattr(obj, "image_metadata", None)
+            or getattr(obj, "release_metadata", None)
+            or getattr(obj, "deploy_metadata", None)
+            or {}
+        )
+        return {
+            "id": str(obj.id),
+            "version": getattr(obj, "version", None),
+            "status": status,
+            "auto_deploy": (
+                meta.get("auto_deploy", False) if isinstance(meta, dict) else False
+            ),
+            "error_detail": obj.error_detail if is_error else None,
+            "updated": obj.updated.isoformat() if obj.updated else None,
+        }
+
+    building_image = application.latest_image_building
+    build_obj = building_image if building_image else application.latest_image
+
+    building_release = application.latest_release_building
+    release_obj = building_release if building_release else application.latest_release
+
+    running_deployment = application.latest_deployment_running
+    deploy_obj = (
+        running_deployment if running_deployment else application.latest_deployment
+    )
+
+    build_info = _stage_status(build_obj, "built")
+    release_info = _stage_status(release_obj, "built")
+    deploy_info = _stage_status(deploy_obj, "complete")
+
+    # Attach sub-step progress for in-progress and completed stages
+    if build_info and build_obj:
+        if build_info["status"] == "in_progress":
+            build_info["progress"] = _detect_build_step(
+                getattr(build_obj, "image_build_log", None)
+            )
+        elif build_info["status"] == "complete":
+            steps = ["Resolve", "Build", "Export", "Push", "Done"]
+            build_info["progress"] = {
+                "steps": steps,
+                "current": len(steps) - 1,
+                "substep": None,
+            }
+    if release_info and release_obj:
+        if release_info["status"] == "in_progress":
+            release_info["progress"] = _detect_build_step(
+                getattr(release_obj, "release_build_log", None)
+            )
+        elif release_info["status"] == "complete":
+            steps = ["Resolve", "Build", "Export", "Push", "Done"]
+            release_info["progress"] = {
+                "steps": steps,
+                "current": len(steps) - 1,
+                "substep": None,
+            }
+    if deploy_info and deploy_obj:
+        if deploy_info["status"] == "in_progress":
+            deploy_info["progress"] = _detect_deploy_step(
+                getattr(deploy_obj, "deploy_log", None)
+            )
+        elif deploy_info["status"] == "complete":
+            steps = ["Setup", "Release", "Deploy", "Rollout", "Done"]
+            deploy_info["progress"] = {
+                "steps": steps,
+                "current": len(steps) - 1,
+                "substep": None,
+            }
+
+    any_in_progress = any(
+        s and s["status"] == "in_progress"
+        for s in [build_info, release_info, deploy_info]
+    )
+    auto_chain_pending = False
+    if build_info and build_info["auto_deploy"]:
+        if build_info["status"] == "complete" and (
+            not release_info or release_info["status"] == "in_progress"
+        ):
+            auto_chain_pending = True
+        if (
+            release_info
+            and release_info["auto_deploy"]
+            and release_info["status"] == "complete"
+            and (not deploy_info or deploy_info["status"] == "in_progress")
+        ):
+            auto_chain_pending = True
+
+    deployed_commit = None
+    commit_info = {}
+    completed_deploy = application.latest_deployment_completed
+    if completed_deploy:
+        rel = completed_deploy.release_object
+        if rel:
+            sha = rel.commit_sha
+            if sha and sha != "null":
+                deployed_commit = sha
+            img = rel.image_object
+            commit_info["deploy_time"] = (
+                completed_deploy.created.isoformat() if completed_deploy.created else ""
+            )
+            commit_info["release_version"] = str(rel.version) if rel.version else ""
+            commit_info["image_version"] = (
+                str(img.version) if img and img.version else ""
+            )
+            meta = rel.release_metadata or {}
+            img_meta = img.image_metadata if img else {} or {}
+            commit_info["ref"] = meta.get("ref", img_meta.get("ref", ""))
+            commit_info["author"] = (
+                (img_meta.get("creator") or {}).get("login", "") if img_meta else ""
+            )
+
+    return jsonify(
+        {
+            "pipeline_active": any_in_progress or auto_chain_pending,
+            "build": build_info,
+            "release": release_info,
+            "deploy": deploy_info,
+            "commit_sha": deployed_commit,
+            "commit_info": commit_info,
+            "github_repository": application.github_repository,
+        }
+    )
+
+
+@user_blueprint.route("/applications/<application_id>/pipeline-metrics")
+@login_required
+def application_pipeline_metrics(application_id):
+    application = Application.query.filter_by(id=application_id).first_or_404()
+    if not ViewApplicationPermission(application.id).can():
+        abort(403)
+
+    range_count = min(int(request.args.get("range", 50)), 200)
+
+    images = application.images.order_by(desc(Image.created)).limit(range_count).all()
+    releases = (
+        application.releases.order_by(desc(Release.created)).limit(range_count).all()
+    )
+    deployments = (
+        application.deployments.order_by(desc(Deployment.created))
+        .limit(range_count)
+        .all()
+    )
+
+    def _duration_secs(obj):
+        if not obj.created or not obj.updated:
+            return None
+        secs = int((obj.updated - obj.created).total_seconds())
+        return secs if secs >= 0 else None
+
+    def _stage_stats(items, is_done, is_err):
+        total = len(items)
+        successes = [x for x in items if is_done(x) and not is_err(x)]
+        errors = [x for x in items if is_err(x)]
+        durations = sorted(filter(None, [_duration_secs(x) for x in successes]))
+        return {
+            "total": total,
+            "success": len(successes),
+            "error": len(errors),
+            "success_rate": round(len(successes) / total * 100, 1) if total else None,
+            "avg_secs": round(sum(durations) / len(durations)) if durations else None,
+            "p50_secs": durations[len(durations) // 2] if durations else None,
+            "p95_secs": durations[int(len(durations) * 0.95)] if durations else None,
+            "history": list(
+                reversed(
+                    [
+                        {
+                            "id": str(x.id),
+                            "version": getattr(
+                                x, "version", getattr(x, "version_id", None)
+                            ),
+                            "ok": is_done(x) and not is_err(x),
+                            "error": is_err(x),
+                            "secs": (
+                                _duration_secs(x) if (is_done(x) or is_err(x)) else None
+                            ),
+                            "created": (
+                                x.created.isoformat() + "Z" if x.created else None
+                            ),
+                        }
+                        for x in items
+                    ]
+                )
+            ),
+        }
+
+    return jsonify(
+        {
+            "range": range_count,
+            "images": _stage_stats(
+                images,
+                lambda x: x.built,
+                lambda x: x.error,
+            ),
+            "releases": _stage_stats(
+                releases,
+                lambda x: x.built,
+                lambda x: x.error,
+            ),
+            "deployments": _stage_stats(
+                deployments,
+                lambda x: x.complete,
+                lambda x: x.error,
+            ),
+        }
+    )
+
+
+@user_blueprint.route("/applications/<application_id>/observability")
+@login_required
+def application_observability(application_id):
+    application = Application.query.filter_by(id=application_id).first_or_404()
+    if not ViewApplicationPermission(application.id).can():
+        abort(403)
+
+    # Return empty shell on any unrecoverable error so the UI degrades gracefully
+    empty_response = {
+        "current": {
+            "cpu_usage_m": None,
+            "memory_usage_bytes": None,
+            "pod_count": 0,
+            "restart_count": 0,
+        },
+        "limits": {
+            "total_cpu_limit_m": 0,
+            "total_memory_limit_bytes": 0,
+            "per_process": {},
+        },
+        "pods": [],
+        "events": [],
+        "history": [],
+    }
+
+    range_param = request.args.get("range", "1h")
+    range_map = {
+        "1h": datetime.timedelta(hours=1),
+        "6h": datetime.timedelta(hours=6),
+        "24h": datetime.timedelta(hours=24),
+        "7d": datetime.timedelta(days=7),
+        "30d": datetime.timedelta(days=30),
+    }
+    delta = range_map.get(range_param, datetime.timedelta(hours=1))
+    since = datetime.datetime.utcnow() - delta
+
+    try:
+        return _build_observability_response(application, since, empty_response)
+    except Exception:
+        current_app.logger.exception("Observability endpoint failed")
+        return jsonify(empty_response)
+
+
+def _build_observability_response(application, since, empty_response):
+    namespace = application.project.organization.slug
+    label_selector = (
+        f"organization={application.project.organization.slug},"
+        f"project={application.project.slug},"
+        f"application={application.slug}"
+    )
+
+    # Compute resource limits from process_counts × pod_classes
+    total_cpu_limit_m = 0
+    total_memory_limit_bytes = 0
+    per_process = {}
+    for proc_name, count in (application.process_counts or {}).items():
+        if count <= 0:
+            continue
+        pod_class = (application.process_pod_classes or {}).get(
+            proc_name, DEFAULT_POD_CLASS
+        )
+        spec = pod_classes.get(pod_class, pod_classes[DEFAULT_POD_CLASS])
+        cpu_limit_str = spec["cpu"]["limits"]
+        mem_limit_str = spec["memory"]["limits"]
+        cpu_m = int(cpu_limit_str.replace("m", ""))
+        mem_bytes = _parse_k8s_memory(mem_limit_str)
+        per_process[proc_name] = {
+            "cpu_limit_m": cpu_m * count,
+            "memory_limit_bytes": mem_bytes * count,
+            "pod_class": pod_class,
+            "count": count,
+        }
+        total_cpu_limit_m += cpu_m * count
+        total_memory_limit_bytes += mem_bytes * count
+
+    # Live data from K8s
+    current_cpu = None
+    current_memory = None
+    current_pod_count = 0
+    current_restart_count = 0
+    pods_list = []
+    events_list = []
+
+    try:
+        api_client = kubernetes_ext.kubernetes_client
+        core_api = kubernetes.client.CoreV1Api(api_client)
+        custom_api = kubernetes.client.CustomObjectsApi(api_client)
+
+        # Pod list
+        pods = core_api.list_namespaced_pod(
+            namespace, label_selector=label_selector, _request_timeout=10
+        )
+        pod_names = set()
+        for pod in pods.items:
+            pod_names.add(pod.metadata.name)
+            phase = pod.status.phase if pod.status else "Unknown"
+            # Skip completed/failed job pods (builds, deploys)
+            if phase in ("Succeeded", "Failed"):
+                continue
+            restarts = 0
+            if pod.status and pod.status.container_statuses:
+                for cs in pod.status.container_statuses:
+                    restarts += cs.restart_count or 0
+            current_pod_count += 1
+            current_restart_count += restarts
+            pods_list.append(
+                {
+                    "name": pod.metadata.name,
+                    "process": pod.metadata.labels.get("process", ""),
+                    "phase": phase,
+                    "cpu_m": 0,
+                    "memory_bytes": 0,
+                    "restart_count": restarts,
+                    "cpu_display": "—",
+                    "mem_display": "—",
+                }
+            )
+
+        # Metrics per pod
+        try:
+            metrics = custom_api.list_namespaced_custom_object(
+                "metrics.k8s.io",
+                "v1beta1",
+                namespace,
+                "pods",
+                label_selector=label_selector,
+                _request_timeout=10,
+            )
+            pod_metrics = {}
+            for pm in metrics.get("items", []):
+                name = pm.get("metadata", {}).get("name", "")
+                cpu_total = 0
+                mem_total = 0
+                for c in pm.get("containers", []):
+                    usage = c.get("usage", {})
+                    cpu_total += _parse_k8s_cpu(usage.get("cpu", "0"))
+                    mem_total += _parse_k8s_memory(usage.get("memory", "0"))
+                pod_metrics[name] = {"cpu_m": cpu_total, "memory_bytes": mem_total}
+
+            current_cpu = 0
+            current_memory = 0
+            for p in pods_list:
+                m = pod_metrics.get(p["name"])
+                if m:
+                    p["cpu_m"] = round(m["cpu_m"], 1)
+                    p["memory_bytes"] = m["memory_bytes"]
+                    p["cpu_display"] = f"{round(m['cpu_m'])}m"
+                    p["mem_display"] = _format_bytes(m["memory_bytes"])
+                    current_cpu += m["cpu_m"]
+                    current_memory += m["memory_bytes"]
+        except kubernetes.client.exceptions.ApiException as exc:
+            if exc.status != 404:
+                current_app.logger.warning("Metrics API error: %s", exc.status)
+        except Exception:
+            current_app.logger.warning("Metrics API unavailable", exc_info=True)
+
+        # Events
+        try:
+            events = core_api.list_namespaced_event(
+                namespace, limit=50, _request_timeout=10
+            )
+            now = datetime.datetime.now(datetime.timezone.utc)
+            for ev in events.items:
+                obj_name = ev.involved_object.name if ev.involved_object else ""
+                # Match events for our pods
+                if not any(obj_name.startswith(pn) for pn in pod_names):
+                    continue
+                ev_time = ev.last_timestamp or ev.event_time
+                time_ago = ""
+                if ev_time:
+                    if ev_time.tzinfo is None:
+                        ev_time = ev_time.replace(tzinfo=datetime.timezone.utc)
+                    diff = now - ev_time
+                    mins = int(diff.total_seconds() / 60)
+                    if mins < 60:
+                        time_ago = f"{mins}m ago"
+                    elif mins < 1440:
+                        time_ago = f"{mins // 60}h ago"
+                    else:
+                        time_ago = f"{mins // 1440}d ago"
+                events_list.append(
+                    {
+                        "reason": ev.reason or "",
+                        "message": ev.message or "",
+                        "type": ev.type or "Normal",
+                        "time_ago": time_ago,
+                        "timestamp": (ev_time.isoformat() if ev_time else ""),
+                    }
+                )
+            events_list = events_list[:50]
+        except Exception:
+            current_app.logger.warning("Events query failed", exc_info=True)
+
+    except Exception:
+        current_app.logger.exception("Observability K8s query failed")
+
+    # Historical data from DB
+    history = []
+    try:
+        history_query = (
+            ObservabilitySnapshot.query.filter(
+                ObservabilitySnapshot.application_id == application.id,
+                ObservabilitySnapshot.timestamp >= since,
+            )
+            .order_by(ObservabilitySnapshot.timestamp.asc())
+            .all()
+        )
+
+        # Downsample to max 200 points
+        step = max(1, len(history_query) // 200)
+        for i in range(0, len(history_query), step):
+            s = history_query[i]
+            history.append(
+                {
+                    "timestamp": s.timestamp.isoformat(),
+                    "cpu_usage_m": s.cpu_usage_m,
+                    "memory_usage_bytes": s.memory_usage_bytes,
+                }
+            )
+    except Exception:
+        current_app.logger.exception("Observability history query failed")
+
+    return jsonify(
+        {
+            "current": {
+                "cpu_usage_m": (
+                    round(current_cpu, 1) if current_cpu is not None else None
+                ),
+                "memory_usage_bytes": current_memory,
+                "pod_count": current_pod_count,
+                "restart_count": current_restart_count,
+            },
+            "limits": {
+                "total_cpu_limit_m": total_cpu_limit_m,
+                "total_memory_limit_bytes": total_memory_limit_bytes,
+                "per_process": per_process,
+            },
+            "pods": pods_list,
+            "events": events_list,
+            "history": history,
+        }
+    )
+
+
+def _parse_k8s_cpu(value):
+    """Parse K8s CPU value to millicores."""
+    if not value:
+        return 0
+    value = str(value)
+    if value.endswith("n"):
+        return int(value[:-1]) / 1_000_000
+    if value.endswith("m"):
+        return int(value[:-1])
+    return float(value) * 1000
+
+
+def _parse_k8s_memory(value):
+    """Parse K8s memory value to bytes."""
+    if not value:
+        return 0
+    value = str(value)
+    suffixes = {"Ki": 1024, "Mi": 1024**2, "Gi": 1024**3, "Ti": 1024**4}
+    for suffix, multiplier in suffixes.items():
+        if value.endswith(suffix):
+            return int(value[: -len(suffix)]) * multiplier
+    return int(value)
+
+
+def _format_bytes(b):
+    """Format bytes as human-readable."""
+    if b < 1024:
+        return f"{b}B"
+    if b < 1024**2:
+        return f"{b // 1024}Ki"
+    if b < 1024**3:
+        return f"{round(b / 1024**2)}Mi"
+    return f"{round(b / 1024**3, 1)}Gi"
 
 
 @user_blueprint.route(
@@ -328,12 +1035,81 @@ def project_application_logs(org_slug, project_slug, app_slug):
     if not ViewApplicationPermission(application.id).can():
         abort(403)
 
+    images = application.images.order_by(Image.version.desc()).limit(5).all()
+    releases = application.releases.order_by(Release.version.desc()).limit(5).all()
+    deployments = (
+        application.deployments.order_by(Deployment.created.desc()).limit(5).all()
+    )
+
     return render_template(
         "user/project_application_logs.html",
         application=application,
         org_slug=org_slug,
         project_slug=project_slug,
         app_slug=app_slug,
+        images=images,
+        releases=releases,
+        deployments=deployments,
+    )
+
+
+@user_blueprint.route("/api/image/<image_id>/log")
+@login_required
+def api_image_log(image_id):
+    image = Image.query.filter_by(id=image_id).first_or_404()
+    if not ViewApplicationPermission(image.application.id).can():
+        abort(403)
+    status = "error" if image.error else ("built" if image.built else "building")
+    return jsonify(
+        {
+            "status": status,
+            "version": image.version,
+            "log_text": image.image_build_log or "",
+            "error": image.error,
+            "error_detail": image.error_detail,
+        }
+    )
+
+
+@user_blueprint.route("/api/release/<release_id>/log")
+@login_required
+def api_release_log(release_id):
+    release = Release.query.filter_by(id=release_id).first_or_404()
+    if not ViewApplicationPermission(release.application.id).can():
+        abort(403)
+    status = "error" if release.error else ("built" if release.built else "building")
+    return jsonify(
+        {
+            "status": status,
+            "version": release.version,
+            "log_text": release.release_build_log or "",
+            "error": release.error,
+            "error_detail": release.error_detail,
+        }
+    )
+
+
+@user_blueprint.route("/api/deployment/<deployment_id>/log")
+@login_required
+def api_deployment_log(deployment_id):
+    deployment = Deployment.query.filter_by(id=deployment_id).first_or_404()
+    if not ViewApplicationPermission(deployment.application.id).can():
+        abort(403)
+    status = (
+        "error"
+        if deployment.error
+        else ("complete" if deployment.complete else "deploying")
+    )
+    release_obj = deployment.release_object
+    version = release_obj.version if release_obj else None
+    return jsonify(
+        {
+            "status": status,
+            "version": version,
+            "log_text": deployment.deploy_log or "",
+            "error": deployment.error,
+            "error_detail": deployment.error_detail,
+        }
     )
 
 
@@ -427,6 +1203,111 @@ def project_application_livelogs(ws, org_slug, project_slug, app_slug):
         ws.send(q.get())
 
 
+@sock.route(
+    "/projects/<org_slug>/<project_slug>/applications/<app_slug>/logs/http",
+    bp=user_blueprint,
+)
+@login_required
+def project_application_httplogs(ws, org_slug, project_slug, app_slug):
+    organization = Organization.query.filter_by(slug=org_slug).first_or_404()
+    project = Project.query.filter_by(
+        organization_id=organization.id, slug=project_slug
+    ).first_or_404()
+    application = Application.query.filter_by(
+        project_id=project.id, slug=app_slug
+    ).first_or_404()
+    if not ViewApplicationPermission(application.id).can():
+        abort(403)
+
+    api_client = kubernetes_ext.kubernetes_client
+    core_api_instance = kubernetes.client.CoreV1Api(api_client)
+
+    nginx_namespace = current_app.config.get("INGRESS_NGINX_NAMESPACE", "ingress-nginx")
+    nginx_label_selector = current_app.config.get(
+        "INGRESS_NGINX_LABEL_SELECTOR",
+        "app.kubernetes.io/name=ingress-nginx,app.kubernetes.io/component=controller",
+    )
+    nginx_container = current_app.config.get("INGRESS_NGINX_CONTAINER", "controller")
+
+    # nginx upstream names follow: {namespace}-{service}-{port}
+    # e.g. "cabotage-cabotage-app-web-8000"
+    upstream_pattern = f"{organization.slug}-{project.slug}-{application.slug}-"
+
+    q = queue.Queue()
+    # Regex to extract the upstream name from nginx combined log format
+    # The upstream appears in square brackets after user-agent and request_length + duration
+    _upstream_re = re.compile(r"\[([^\]]*)\]")
+
+    def _filter_nginx_log(raw):
+        """Filter nginx access log line by upstream name.
+
+        Returns the raw line if it matches the app's upstream pattern,
+        None otherwise.
+        """
+        brackets = _upstream_re.findall(raw)
+        for b in brackets:
+            if upstream_pattern in b:
+                return raw
+        return None
+
+    def worker(pod_name, stream_handler):
+        for line in stream_handler:
+            filtered = _filter_nginx_log(line)
+            if filtered:
+                q.put(filtered)
+
+    def update_pods():
+        worker_threads = {}
+        pod_watch = kubernetes.watch.Watch()
+        for response in pod_watch.stream(
+            core_api_instance.list_namespaced_pod,
+            namespace=nginx_namespace,
+            label_selector=nginx_label_selector,
+        ):
+            pod = response["object"]
+            create = (
+                response["type"] == "ADDED" and pod.status.phase == "Running"
+            ) or (
+                response["type"] == "MODIFIED"
+                and pod.status.phase == "Running"
+                and pod.metadata.name not in worker_threads.keys()
+            )
+            if create:
+                w = kubernetes.watch.Watch()
+                stream_handler = w.stream(
+                    core_api_instance.read_namespaced_pod_log,
+                    name=pod.metadata.name,
+                    namespace=pod.metadata.namespace,
+                    container=nginx_container,
+                    follow=True,
+                    _preload_content=False,
+                    pretty="true",
+                    tail_lines=50,
+                )
+                thread = threading.Thread(
+                    target=worker,
+                    args=(pod.metadata.name, stream_handler),
+                    daemon=True,
+                )
+                worker_threads[pod.metadata.name] = thread
+                q.put(f"started following ingress pod {pod.metadata.name}...")
+                thread.start()
+            if response["type"] == "DELETED":
+                if (
+                    pod.metadata.name in worker_threads.keys()
+                    and not worker_threads[pod.metadata.name].is_alive()
+                ):
+                    worker_threads[pod.metadata.name].join()
+                    q.put(f"ingress pod {pod.metadata.name} terminated...")
+                    del worker_threads[pod.metadata.name]
+
+    update_thread = threading.Thread(target=update_pods, daemon=True)
+    update_thread.start()
+
+    while True:
+        ws.send(q.get())
+
+
 @user_blueprint.route(
     "/projects/<org_slug>/<project_slug>/applications/<app_slug>/shell"
 )
@@ -458,6 +1339,7 @@ def project_application_shell(org_slug, project_slug, app_slug):
 
     return render_template(
         "user/project_application_shell.html",
+        application=application,
         org_slug=org_slug,
         project_slug=project_slug,
         app_slug=app_slug,
@@ -590,7 +1472,16 @@ def project_application_create(org_slug, project_slug):
                 configuration,
             )
         except Exception:
-            raise  # No, we should def not do this
+            current_app.logger.exception(
+                "Failed to write configuration for new application"
+            )
+            db.session.rollback()
+            flash(
+                "Failed to write application configuration to backend storage", "error"
+            )
+            return redirect(
+                url_for("user.project", org_slug=org_slug, project_slug=project_slug)
+            )
         configuration.key_slug = key_slugs["config_key_slug"]
         configuration.build_key_slug = key_slugs["build_key_slug"]
         db.session.add(configuration)
@@ -613,11 +1504,11 @@ def project_application_create(org_slug, project_slug):
                 app_slug=application.slug,
             )
         )
-    return render_template(
-        "user/project_application_create.html",
-        project_application_create_form=form,
-        org_slug=org_slug,
-        project_slug=project_slug,
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(f"{getattr(form, field).label.text}: {error}", "error")
+    return redirect(
+        url_for("user.project", org_slug=org_slug, project_slug=project_slug)
     )
 
 
@@ -673,9 +1564,6 @@ def project_application_configuration_create(org_slug, project_slug, app_slug):
         abort(403)
 
     form = CreateConfigurationForm()
-    form.application_id.choices = [
-        (str(application.id), f"{organization.slug}/{project.slug}: {application.slug}")
-    ]
     form.application_id.data = str(application.id)
 
     if form.validate_on_submit():
@@ -694,7 +1582,18 @@ def project_application_configuration_create(org_slug, project_slug, app_slug):
                 configuration,
             )
         except Exception:
-            raise  # No, we should def not do this
+            current_app.logger.exception("Failed to write configuration")
+            db.session.rollback()
+            flash("Failed to write configuration to backend storage", "error")
+            return redirect(
+                url_for(
+                    "user.project_application",
+                    org_slug=org_slug,
+                    project_slug=project_slug,
+                    app_slug=app_slug,
+                )
+                + "#config"
+            )
         configuration.key_slug = key_slugs["config_key_slug"]
         configuration.build_key_slug = key_slugs["build_key_slug"]
         if configuration.secret:
@@ -718,6 +1617,7 @@ def project_application_configuration_create(org_slug, project_slug, app_slug):
                 project_slug=project.slug,
                 app_slug=application.slug,
             )
+            + "#config"
         )
     return render_template(
         "user/project_application_configuration_create.html",
@@ -725,6 +1625,186 @@ def project_application_configuration_create(org_slug, project_slug, app_slug):
         org_slug=organization.slug,
         project_slug=project.slug,
         app_slug=application.slug,
+    )
+
+
+@user_blueprint.route(
+    "/projects/<org_slug>/<project_slug>/applications/<app_slug>/config/bulk",
+    methods=["POST"],
+)
+@login_required
+def project_application_configuration_bulk(org_slug, project_slug, app_slug):
+    organization = Organization.query.filter_by(slug=org_slug).first_or_404()
+    project = Project.query.filter_by(
+        organization_id=organization.id, slug=project_slug
+    ).first_or_404()
+    application = Application.query.filter_by(
+        project_id=project.id, slug=app_slug
+    ).first_or_404()
+    if not AdministerApplicationPermission(application.id).can():
+        abort(403)
+
+    raw_text = request.form.get("raw_text", "").strip()
+    fmt = request.form.get("format", "env")
+    name_re = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+    # Parse input into {name: value} dict
+    parsed = {}
+    errors = []
+    if fmt == "json":
+        try:
+            parsed = json.loads(raw_text)
+            if not isinstance(parsed, dict):
+                errors.append("JSON must be an object with string keys and values.")
+                parsed = {}
+            else:
+                parsed = {str(k): str(v) for k, v in parsed.items()}
+        except (json.JSONDecodeError, ValueError) as e:
+            errors.append(f"Invalid JSON: {e}")
+    else:
+        for line in raw_text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            name, _, value = line.partition("=")
+            name = name.strip()
+            value = value.strip()
+            if name:
+                parsed[name] = value
+
+    if errors:
+        for err in errors:
+            flash(err, "error")
+        return redirect(
+            url_for(
+                "user.project_application",
+                org_slug=org_slug,
+                project_slug=project_slug,
+                app_slug=app_slug,
+            )
+            + "#config"
+        )
+
+    # Build lookup of existing configs (case-insensitive via CIText)
+    existing = {c.name: c for c in application.configurations}
+
+    created = 0
+    updated = 0
+    skipped = 0
+    validation_errors = []
+
+    for name, value in parsed.items():
+        if not name_re.match(name):
+            validation_errors.append(f"Invalid name: {name}")
+            continue
+        if len(value) > 2048:
+            validation_errors.append(f"{name}: value too long (max 2048 chars)")
+            continue
+
+        existing_config = existing.get(name)
+        if existing_config:
+            if existing_config.secret:
+                skipped += 1
+                continue
+            existing_config.value = value
+            try:
+                key_slugs = config_writer.write_configuration(
+                    org_slug, project_slug, app_slug, existing_config
+                )
+            except Exception:
+                current_app.logger.exception("Failed to write configuration")
+                db.session.rollback()
+                flash("Failed to write configuration to backend storage", "error")
+                return redirect(
+                    url_for(
+                        "user.project_application",
+                        org_slug=org_slug,
+                        project_slug=project_slug,
+                        app_slug=app_slug,
+                    )
+                    + "#config"
+                )
+            existing_config.key_slug = key_slugs["config_key_slug"]
+            existing_config.build_key_slug = key_slugs["build_key_slug"]
+            db.session.flush()
+            activity = Activity(
+                verb="edit",
+                object=existing_config,
+                data={
+                    "user_id": str(current_user.id),
+                    "timestamp": datetime.datetime.utcnow().isoformat(),
+                },
+            )
+            db.session.add(activity)
+            updated += 1
+        else:
+            configuration = Configuration(
+                application_id=application.id,
+                name=name,
+                value=value,
+                secret=False,
+                buildtime=False,
+            )
+            try:
+                key_slugs = config_writer.write_configuration(
+                    org_slug, project_slug, app_slug, configuration
+                )
+            except Exception:
+                current_app.logger.exception("Failed to write configuration")
+                db.session.rollback()
+                flash("Failed to write configuration to backend storage", "error")
+                return redirect(
+                    url_for(
+                        "user.project_application",
+                        org_slug=org_slug,
+                        project_slug=project_slug,
+                        app_slug=app_slug,
+                    )
+                    + "#config"
+                )
+            configuration.key_slug = key_slugs["config_key_slug"]
+            configuration.build_key_slug = key_slugs["build_key_slug"]
+            db.session.add(configuration)
+            db.session.flush()
+            activity = Activity(
+                verb="create",
+                object=configuration,
+                data={
+                    "user_id": str(current_user.id),
+                    "timestamp": datetime.datetime.utcnow().isoformat(),
+                },
+            )
+            db.session.add(activity)
+            created += 1
+
+    db.session.commit()
+
+    parts = []
+    if created:
+        parts.append(f"Created {created}")
+    if updated:
+        parts.append(f"updated {updated}")
+    if skipped:
+        parts.append(f"skipped {skipped} secret{'s' if skipped != 1 else ''}")
+    if validation_errors:
+        parts.append(
+            f"{len(validation_errors)} validation error{'s' if len(validation_errors) != 1 else ''}"
+        )
+    if parts:
+        flash(", ".join(parts) + ".", "success" if not validation_errors else "warning")
+    for err in validation_errors:
+        flash(err, "error")
+
+    return redirect(
+        url_for(
+            "user.project_application",
+            org_slug=org_slug,
+            project_slug=project_slug,
+            app_slug=app_slug,
+        )
+        + "#config"
     )
 
 
@@ -748,12 +1828,6 @@ def project_application_configuration_edit(org_slug, project_slug, app_slug, con
         abort(403)
 
     form = EditConfigurationForm(obj=configuration)
-    form.application_id.choices = [
-        (
-            str(configuration.application.id),
-            f"{organization.slug}/{project.slug}: {application.slug}",
-        )
-    ]
     form.application_id.data = str(configuration.application.id)
     form.name.data = str(configuration.name)
     form.secure.data = configuration.secret
@@ -768,7 +1842,18 @@ def project_application_configuration_edit(org_slug, project_slug, app_slug, con
                 configuration,
             )
         except Exception:
-            raise  # No, we should def not do this
+            current_app.logger.exception("Failed to write configuration")
+            db.session.rollback()
+            flash("Failed to write configuration to backend storage", "error")
+            return redirect(
+                url_for(
+                    "user.project_application",
+                    org_slug=org_slug,
+                    project_slug=project_slug,
+                    app_slug=app_slug,
+                )
+                + "#config"
+            )
         configuration.key_slug = key_slugs["config_key_slug"]
         configuration.build_key_slug = key_slugs["build_key_slug"]
         if configuration.secret:
@@ -791,6 +1876,7 @@ def project_application_configuration_edit(org_slug, project_slug, app_slug, con
                 project_slug=project.slug,
                 app_slug=application.slug,
             )
+            + "#config"
         )
 
     if configuration.secret:
@@ -816,18 +1902,27 @@ def project_application_settings(application_id):
         abort(403)
 
     form = EditApplicationSettingsForm(obj=application)
-    form.application_id.choices = [
-        (
-            str(application.id),
-            (
-                f"{application.project.organization.slug}/{application.project.slug}: "
-                f"{application.slug}"
-            ),
-        )
-    ]
     form.application_id.data = str(application.id)
 
     if form.validate_on_submit():
+        if (
+            form.github_repository_is_private.data
+            and not form.github_app_installation_id.data
+        ):
+            flash(
+                "Private repository requires a GitHub App Installation ID.",
+                "error",
+            )
+            return render_template(
+                "user/project_application_settings.html",
+                form=form,
+                application=application,
+                app_url=current_app.config.get("GITHUB_APP_URL", "https://github.com"),
+            )
+        health_changed = (
+            form.health_check_path.data != application.health_check_path
+            or form.health_check_host.data != application.health_check_host
+        )
         form.populate_obj(application)
         db.session.flush()
         activity = Activity(
@@ -840,6 +1935,21 @@ def project_application_settings(application_id):
         )
         db.session.add(activity)
         db.session.commit()
+        if health_changed:
+            deploy_url = url_for(
+                "user.application_full_deploy",
+                application_id=str(application.id),
+            )
+            flash(
+                "Health check settings updated — build a new package for changes to take effect. "
+                f'<form action="{deploy_url}" method="post" class="inline ml-2">'
+                '<button type="submit" class="btn btn-warning btn-xs gap-1">'
+                '<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>'
+                " Build &amp; Deploy</button></form>",
+                "warning",
+            )
+        else:
+            flash("Settings saved.", "success")
         return redirect(
             url_for(
                 "user.project_application",
@@ -851,8 +1961,8 @@ def project_application_settings(application_id):
 
     return render_template(
         "user/project_application_settings.html",
-        application=application,
         form=form,
+        application=application,
         app_url=current_app.config.get("GITHUB_APP_URL", "https://github.com"),
     )
 
@@ -879,6 +1989,10 @@ def project_application_configuration_delete(
         abort(403)
 
     if len(application.configurations) <= 1:
+        abort(400)
+
+    SYSTEM_VARS = {"CABOTAGE_SENTINEL"}
+    if configuration.name in SYSTEM_VARS:
         abort(400)
 
     if request.method == "GET":
@@ -957,10 +2071,20 @@ def image_detail(image_id):
         image.image_build_log = f"{image.image_build_log}\n**Error!**"
     secret = current_app.config["REGISTRY_AUTH_SECRET"]
     docker_pull_credentials = image.docker_pull_credentials(secret)
+
+    # If auto-deploy and built, find the release that was created for this image
+    next_step_url = None
+    if image.built and image.image_metadata and image.image_metadata.get("auto_deploy"):
+        app = image.application
+        latest_release = app.latest_release
+        if latest_release:
+            next_step_url = url_for("user.release_detail", release_id=latest_release.id)
+
     return render_template(
         "user/image_detail.html",
         image=image,
         docker_pull_credentials=docker_pull_credentials,
+        next_step_url=next_step_url,
     )
 
 
@@ -977,6 +2101,7 @@ def image_build_livelogs(ws, image_id):
         for line in image.image_build_log.split("\n"):
             ws.send(f"  {line}")
         ws.send("=================END OF LOGS=================")
+        return
 
     api_client = kubernetes_ext.kubernetes_client
     core_api_instance = kubernetes.client.CoreV1Api(api_client)
@@ -1058,6 +2183,25 @@ def application_releases(application_id):
     )
 
 
+@user_blueprint.route("/applications/<application_id>/deployments")
+@login_required
+def application_deployments(application_id):
+    application = Application.query.filter_by(id=application_id).first_or_404()
+    if not ViewApplicationPermission(application.id).can():
+        abort(403)
+    page = request.args.get("page", 1, type=int)
+    deployments = application.deployments.order_by(Deployment.created.desc()).paginate(
+        page, 20, False
+    )
+    return render_template(
+        "user/application_deployments.html",
+        page=page,
+        application=application,
+        deployments=deployments.items,
+        deploy_form=ReleaseDeployForm(),
+    )
+
+
 @user_blueprint.route("/release/<release_id>")
 @login_required
 def release_detail(release_id):
@@ -1073,11 +2217,28 @@ def release_detail(release_id):
             current_app.config["REGISTRY_BUILD"],
         ],
     )
+    # If auto-deploy and built, find the deployment that was created for this release
+    next_step_url = None
+    if (
+        release.built
+        and not release.deposed
+        and release.release_metadata
+        and release.release_metadata.get("auto_deploy")
+    ):
+        app = release.application
+        latest_deployment = app.latest_deployment
+        if latest_deployment:
+            next_step_url = url_for(
+                "user.deployment_detail", deployment_id=latest_deployment.id
+            )
+
     return render_template(
         "user/release_detail.html",
         release=release,
+        deploy_form=ReleaseDeployForm(),
         docker_pull_credentials=docker_pull_credentials,
         image_pull_secrets=image_pull_secrets,
+        next_step_url=next_step_url,
     )
 
 
@@ -1094,6 +2255,7 @@ def release_build_livelogs(ws, release_id):
         for line in release.release_build_log.split("\n"):
             ws.send(f"  {line}")
         ws.send("=================END OF LOGS=================")
+        return
 
     api_client = kubernetes_ext.kubernetes_client
     core_api_instance = kubernetes.client.CoreV1Api(api_client)
@@ -1169,6 +2331,7 @@ def deployment_livelogs(ws, deployment_id):
         for line in deployment.deploy_log.split("\n"):
             ws.send(f"  {line}")
         ws.send("=================END OF LOGS=================")
+        return
 
     api_client = kubernetes_ext.kubernetes_client
     core_api_instance = kubernetes.client.CoreV1Api(api_client)
@@ -1288,7 +2451,11 @@ def guide():
 @user_blueprint.route("/docker/auth")
 def docker_auth():
     secret = current_app.config["REGISTRY_AUTH_SECRET"]
-    password = request.authorization.password
+    authorization = request.authorization
+    if authorization is None or not authorization.password:
+        return jsonify({"error": "unauthorized"}), 401
+
+    password = authorization.password
     scope = request.args.get("scope", "registry:catalog:*")
     requested_access = parse_docker_scope(scope)
     max_age = None
@@ -1319,6 +2486,20 @@ def application_images_build_fromsource(application_id):
     application_slug = application.slug
     repository_name = f"cabotage/{organization_slug}/{project_slug}/{application_slug}"
 
+    if not application.auto_deploy_branch:
+        flash(
+            "Cannot build from source: no deploy branch configured for this application.",
+            "error",
+        )
+        return redirect(
+            url_for(
+                "user.project_application",
+                org_slug=organization_slug,
+                project_slug=project_slug,
+                app_slug=application_slug,
+            )
+        )
+
     image = Image(
         application_id=application.id,
         repository_name=repository_name,
@@ -1328,6 +2509,56 @@ def application_images_build_fromsource(application_id):
     db.session.flush()
     activity = Activity(
         verb="fromsource",
+        object=image,
+        data={
+            "user_id": str(current_user.id),
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+        },
+    )
+    db.session.add(activity)
+    db.session.commit()
+    run_image_build.delay(image_id=image.id, buildkit=True)
+    return redirect(url_for("user.image_detail", image_id=image.id))
+
+
+@user_blueprint.route("/applications/<application_id>/full_deploy", methods=["POST"])
+@login_required
+def application_full_deploy(application_id):
+    application = Application.query.filter_by(id=application_id).first_or_404()
+    if not AdministerApplicationPermission(application.id).can():
+        abort(403)
+    project = application.project
+    organization = application.project.organization
+
+    organization_slug = organization.slug
+    project_slug = project.slug
+    application_slug = application.slug
+    repository_name = f"cabotage/{organization_slug}/{project_slug}/{application_slug}"
+
+    if not application.auto_deploy_branch:
+        flash(
+            "Cannot run full cycle: no deploy branch configured for this application.",
+            "error",
+        )
+        return redirect(
+            url_for(
+                "user.project_application",
+                org_slug=organization_slug,
+                project_slug=project_slug,
+                app_slug=application_slug,
+            )
+        )
+
+    image = Image(
+        application_id=application.id,
+        repository_name=repository_name,
+        build_ref=application.auto_deploy_branch,
+        image_metadata={"auto_deploy": True, "description": "Full cycle deploy"},
+    )
+    db.session.add(image)
+    db.session.flush()
+    activity = Activity(
+        verb="full_deploy",
         object=image,
         data={
             "user_id": str(current_user.id),
@@ -1355,157 +2586,167 @@ def application_clear_cache(application_id):
     application_slug = application.slug
     repository_name = f"cabotage/{organization_slug}/{project_slug}/{application_slug}"
 
-    api_client = kubernetes_ext.kubernetes_client
-    core_api_instance = kubernetes.client.CoreV1Api(api_client)
-    batch_api_instance = kubernetes.client.BatchV1Api(api_client)
-    image = application.images.first()
-    if image is not None and current_app.config["KUBERNETES_ENABLED"]:
-        from cabotage.celery.tasks.deploy import run_job
-        from cabotage.celery.tasks.build import fetch_image_build_cache_volume_claim
+    try:
+        api_client = kubernetes_ext.kubernetes_client
+        core_api_instance = kubernetes.client.CoreV1Api(api_client)
+        batch_api_instance = kubernetes.client.BatchV1Api(api_client)
+        image = application.images.first()
+        if image is not None and current_app.config["KUBERNETES_ENABLED"]:
+            from cabotage.celery.tasks.deploy import run_job
+            from cabotage.celery.tasks.build import fetch_image_build_cache_volume_claim
 
-        buildkit_image = current_app.config["BUILDKIT_IMAGE"]
+            buildkit_image = current_app.config["BUILDKIT_IMAGE"]
 
-        volume_claim = fetch_image_build_cache_volume_claim(core_api_instance, image)
-        job_object = kubernetes.client.V1Job(
-            metadata=kubernetes.client.V1ObjectMeta(
-                name=f"clear-cache-{volume_claim.metadata.name}"[:63],
-                labels={
-                    "organization": image.application.project.organization.slug,
-                    "project": image.application.project.slug,
-                    "application": image.application.slug,
-                    "process": "clear-cache",
-                    "resident-job.cabotage.io": "true",
-                },
-            ),
-            spec=kubernetes.client.V1JobSpec(
-                active_deadline_seconds=1800,
-                backoff_limit=0,
-                parallelism=1,
-                completions=1,
-                template=kubernetes.client.V1PodTemplateSpec(
-                    metadata=kubernetes.client.V1ObjectMeta(
-                        labels={
-                            "organization": image.application.project.organization.slug,  # noqa: E501
-                            "project": image.application.project.slug,
-                            "application": image.application.slug,
-                            "process": "clear-cache",
-                            "ca-admission.cabotage.io": "true",
-                            "resident-pod.cabotage.io": "true",
-                        },
-                        annotations={
-                            "container.apparmor.security.beta.kubernetes.io/clear-cache": "unconfined",  # noqa: E501
-                        },
-                    ),
-                    spec=kubernetes.client.V1PodSpec(
-                        restart_policy="Never",
-                        security_context=kubernetes.client.V1PodSecurityContext(
-                            fs_group=1000,
-                            fs_group_change_policy="OnRootMismatch",
+            volume_claim = fetch_image_build_cache_volume_claim(
+                core_api_instance, image
+            )
+            job_object = kubernetes.client.V1Job(
+                metadata=kubernetes.client.V1ObjectMeta(
+                    name=f"clear-cache-{volume_claim.metadata.name}"[:63],
+                    labels={
+                        "organization": image.application.project.organization.slug,
+                        "project": image.application.project.slug,
+                        "application": image.application.slug,
+                        "process": "clear-cache",
+                        "resident-job.cabotage.io": "true",
+                    },
+                ),
+                spec=kubernetes.client.V1JobSpec(
+                    active_deadline_seconds=1800,
+                    backoff_limit=0,
+                    parallelism=1,
+                    completions=1,
+                    template=kubernetes.client.V1PodTemplateSpec(
+                        metadata=kubernetes.client.V1ObjectMeta(
+                            labels={
+                                "organization": image.application.project.organization.slug,  # noqa: E501
+                                "project": image.application.project.slug,
+                                "application": image.application.slug,
+                                "process": "clear-cache",
+                                "ca-admission.cabotage.io": "true",
+                                "resident-pod.cabotage.io": "true",
+                            },
+                            annotations={
+                                "container.apparmor.security.beta.kubernetes.io/clear-cache": "unconfined",  # noqa: E501
+                            },
                         ),
-                        containers=[
-                            kubernetes.client.V1Container(
-                                name="clear-cache",
-                                image=buildkit_image,
-                                command=["buildctl-daemonless.sh"],
-                                args=["prune", "--all"],
-                                env=[
-                                    kubernetes.client.V1EnvVar(
-                                        name="BUILDKITD_FLAGS",
-                                        value="--oci-worker-no-process-sandbox",  # noqa: E501
-                                    ),
-                                ],
-                                security_context=kubernetes.client.V1SecurityContext(
-                                    seccomp_profile=kubernetes.client.V1SeccompProfile(
-                                        type="Unconfined",
-                                    ),
-                                    run_as_user=1000,
-                                    run_as_group=1000,
-                                ),
-                                volume_mounts=[
-                                    kubernetes.client.V1VolumeMount(
-                                        mount_path="/home/user/.local/share/buildkit",
-                                        name="build-cache",
-                                    ),
-                                ],
+                        spec=kubernetes.client.V1PodSpec(
+                            restart_policy="Never",
+                            security_context=kubernetes.client.V1PodSecurityContext(
+                                fs_group=1000,
+                                fs_group_change_policy="OnRootMismatch",
                             ),
-                        ],
-                        volumes=[
-                            kubernetes.client.V1Volume(
-                                name="build-cache",
-                                persistent_volume_claim=kubernetes.client.V1PersistentVolumeClaimVolumeSource(
-                                    claim_name=volume_claim.metadata.name
+                            containers=[
+                                kubernetes.client.V1Container(
+                                    name="clear-cache",
+                                    image=buildkit_image,
+                                    command=["buildctl-daemonless.sh"],
+                                    args=["prune", "--all"],
+                                    env=[
+                                        kubernetes.client.V1EnvVar(
+                                            name="BUILDKITD_FLAGS",
+                                            value="--oci-worker-no-process-sandbox",  # noqa: E501
+                                        ),
+                                    ],
+                                    security_context=kubernetes.client.V1SecurityContext(
+                                        seccomp_profile=kubernetes.client.V1SeccompProfile(
+                                            type="Unconfined",
+                                        ),
+                                        run_as_user=1000,
+                                        run_as_group=1000,
+                                    ),
+                                    volume_mounts=[
+                                        kubernetes.client.V1VolumeMount(
+                                            mount_path="/home/user/.local/share/buildkit",
+                                            name="build-cache",
+                                        ),
+                                    ],
                                 ),
-                            ),
-                        ],
+                            ],
+                            volumes=[
+                                kubernetes.client.V1Volume(
+                                    name="build-cache",
+                                    persistent_volume_claim=kubernetes.client.V1PersistentVolumeClaimVolumeSource(
+                                        claim_name=volume_claim.metadata.name
+                                    ),
+                                ),
+                            ],
+                        ),
                     ),
                 ),
-            ),
+            )
+
+            job_complete, job_logs = run_job(
+                core_api_instance, batch_api_instance, "default", job_object
+            )
+
+        def auth(dxf, response):
+            dxf.token = generate_docker_registry_jwt(
+                access=[
+                    {"type": "repository", "name": repository_name, "actions": ["*"]}
+                ]
+            )
+
+        registry = current_app.config["REGISTRY_BUILD"]
+        registry_secure = current_app.config["REGISTRY_SECURE"]
+        _tlsverify = False
+        if registry_secure:
+            _tlsverify = current_app.config["REGISTRY_VERIFY"]
+            if _tlsverify == "True":
+                _tlsverify = True
+        client = DXF(
+            host=registry,
+            repo=repository_name,
+            auth=auth,
+            insecure=(not registry_secure),
+            tlsverify=_tlsverify,
         )
 
-        job_complete, job_logs = run_job(
-            core_api_instance, batch_api_instance, "default", job_object
-        )
-
-    def auth(dxf, response):
-        dxf.token = generate_docker_registry_jwt(
-            access=[{"type": "repository", "name": repository_name, "actions": ["*"]}]
-        )
-
-    registry = current_app.config["REGISTRY_BUILD"]
-    registry_secure = current_app.config["REGISTRY_SECURE"]
-    _tlsverify = False
-    if registry_secure:
-        _tlsverify = current_app.config["REGISTRY_VERIFY"]
-        if _tlsverify == "True":
-            _tlsverify = True
-    client = DXF(
-        host=registry,
-        repo=repository_name,
-        auth=auth,
-        insecure=(not registry_secure),
-        tlsverify=_tlsverify,
-    )
-
-    try:
-        client.get_alias("image-buildcache")
         try:
-            client.del_alias("image-buildcache")
+            client.get_alias("image-buildcache")
+            try:
+                client.del_alias("image-buildcache")
+            except (
+                HTTPError
+            ) as e:  # Exception based error handling vs returning a None :upsidedownsmile:
+                if e.response.status_code == 404:
+                    pass  # Suppose there could be a race that the get_alias didn't find
+                elif e.response.status_code == 405:
+                    pass  # The registry may not be configured to allow deletes
+                else:
+                    raise
         except (
             HTTPError
-        ) as e:  # Exception based error handling vs returning a None :upsidedownsmile:
+        ) as e:  # Exception based error handling vs just returning a None :upsidedownsmile:
             if e.response.status_code == 404:
-                pass  # Suppose there could be a race that the get_alias didn't find
-            elif e.response.status_code == 405:
-                pass  # The registry may not be configured to allow deletes
+                pass
             else:
                 raise
-    except (
-        HTTPError
-    ) as e:  # Exception based error handling vs just returning a None :upsidedownsmile:
-        if e.response.status_code == 404:
-            pass
-        else:
-            raise
-    try:
-        client.get_alias("release-buildcache")
         try:
-            client.del_alias("release-buildcache")
+            client.get_alias("release-buildcache")
+            try:
+                client.del_alias("release-buildcache")
+            except (
+                HTTPError
+            ) as e:  # Exception based error handling vs returning a None :upsidedownsmile:
+                if e.response.status_code == 404:
+                    pass  # Suppose there could be a race that the get_alias didn't find
+                elif e.response.status_code == 405:
+                    pass  # The registry may not be configured to allow deletes
+                else:
+                    raise
         except (
             HTTPError
-        ) as e:  # Exception based error handling vs returning a None :upsidedownsmile:
+        ) as e:  # Exception based error handling vs just returning a None :upsidedownsmile:
             if e.response.status_code == 404:
-                pass  # Suppose there could be a race that the get_alias didn't find
-            elif e.response.status_code == 405:
-                pass  # The registry may not be configured to allow deletes
+                pass
             else:
                 raise
-    except (
-        HTTPError
-    ) as e:  # Exception based error handling vs just returning a None :upsidedownsmile:
-        if e.response.status_code == 404:
-            pass
-        else:
-            raise
+
+        flash("Build cache cleared successfully!", "success")
+    except Exception:
+        current_app.logger.exception("Failed to clear build cache")
+        flash("Failed to clear build cache!", "danger")
 
     return redirect(
         url_for(

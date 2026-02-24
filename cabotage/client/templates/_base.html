@@ -11,11 +11,16 @@
       var resolved = pref;
       if (pref === 'system') {
         resolved = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-      } else if (pref === 'terminal') {
-        resolved = 'terminal';
+      } else if (pref === 'terminal' || pref === 'contrast-light' || pref === 'contrast-dark' || pref === 'cb-protanopia' || pref === 'cb-deuteranopia' || pref === 'cb-tritanopia') {
+        resolved = pref;
       }
       document.documentElement.setAttribute('data-theme', resolved);
       document.documentElement.setAttribute('data-theme-pref', pref);
+
+      // Reduce motion — apply before paint
+      if (localStorage.getItem('reduce-motion') === 'true') {
+        document.documentElement.classList.add('reduce-motion');
+      }
 
       // Accent color presets — applied before paint
       var ACCENT_PRESETS = {
@@ -57,7 +62,7 @@
       window.__ACCENT_PRESETS = ACCENT_PRESETS;
 
       function applyAccent(name, theme) {
-        var mode = theme === 'terminal' ? 'terminal' : theme === 'light' ? 'light' : 'dark';
+        var mode = theme === 'terminal' ? 'terminal' : (theme === 'light' || theme === 'contrast-light') ? 'light' : 'dark';
         var preset = ACCENT_PRESETS[name];
         var p = preset && (preset[mode] || preset[mode === 'terminal' ? 'dark' : mode]);
         if (!p) return;
@@ -222,13 +227,13 @@
       --color-warning: #ffcc00;
       --color-info: #33ccff;
       --topbar-bg: rgba(10, 10, 10, 0.95);
-      --border-color: rgba(51, 255, 51, 0.15);
-      --border-color-subtle: rgba(51, 255, 51, 0.08);
-      --text-muted: rgba(51, 255, 51, 0.6);
-      --text-faint: rgba(51, 255, 51, 0.45);
-      --text-faintest: rgba(51, 255, 51, 0.3);
-      --text-ghost: rgba(51, 255, 51, 0.15);
-      --text-dim: rgba(51, 255, 51, 0.1);
+      --border-color: rgba(51, 255, 51, 0.2);
+      --border-color-subtle: rgba(51, 255, 51, 0.12);
+      --text-muted: rgba(51, 255, 51, 0.65);
+      --text-faint: rgba(51, 255, 51, 0.5);
+      --text-faintest: rgba(51, 255, 51, 0.4);
+      --text-ghost: rgba(51, 255, 51, 0.25);
+      --text-dim: rgba(51, 255, 51, 0.15);
       --text-bright: #33ff33;
       --hover-overlay: rgba(51, 255, 51, 0.04);
       --hover-overlay-strong: rgba(51, 255, 51, 0.08);
@@ -241,6 +246,202 @@
       --shadow-card: rgba(0, 0, 0, 0.5);
       --shadow-primary-glow: rgba(51, 255, 51, 0.2);
       --accent-text: #33ff33;
+    }
+    [data-theme="contrast-dark"] {
+      color-scheme: dark;
+      --color-base-100: #010409;
+      --color-base-200: #0d1117;
+      --color-base-300: #161b22;
+      --color-base-content: #f0f6fc;
+      --color-primary: #409eff;
+      --color-primary-content: #010409;
+      --color-secondary: #58a6ff;
+      --color-secondary-content: #010409;
+      --color-accent: #79c0ff;
+      --color-accent-content: #010409;
+      --color-neutral: #21262d;
+      --color-neutral-content: #f0f6fc;
+      --color-success: #3fb950;
+      --color-error: #f85149;
+      --color-warning: #d29922;
+      --color-info: #58a6ff;
+      --topbar-bg: #010409;
+      --border-color: #30363d;
+      --border-color-subtle: #21262d;
+      --text-muted: #c9d1d9;
+      --text-faint: #8b949e;
+      --text-faintest: #6e7681;
+      --text-ghost: #484f58;
+      --text-dim: #30363d;
+      --text-bright: #f0f6fc;
+      --hover-overlay: rgba(64, 158, 255, 0.06);
+      --hover-overlay-strong: rgba(64, 158, 255, 0.12);
+      --surface-card: #0d1117;
+      --surface-inset: #010409;
+      --surface-input: #010409;
+      --surface-neutral: #21262d;
+      --scrollbar-thumb: #30363d;
+      --scrollbar-thumb-hover: #484f58;
+      --shadow-card: rgba(0,0,0,0.6);
+      --shadow-primary-glow: rgba(64, 158, 255, 0.3);
+      --accent-text: #79c0ff;
+    }
+    [data-theme="contrast-light"] {
+      color-scheme: light;
+      --color-base-100: #ffffff;
+      --color-base-200: #f6f8fa;
+      --color-base-300: #d0d7de;
+      --color-base-content: #1f2328;
+      --color-primary: #0349b4;
+      --color-primary-content: #ffffff;
+      --color-secondary: #0550ae;
+      --color-secondary-content: #ffffff;
+      --color-accent: #0969da;
+      --color-accent-content: #ffffff;
+      --color-neutral: #d0d7de;
+      --color-neutral-content: #1f2328;
+      --color-success: #1a7f37;
+      --color-error: #cf222e;
+      --color-warning: #9a6700;
+      --color-info: #0550ae;
+      --topbar-bg: #ffffff;
+      --border-color: #1f2328;
+      --border-color-subtle: #59636e;
+      --text-muted: #32383f;
+      --text-faint: #59636e;
+      --text-faintest: #818b98;
+      --text-ghost: #afb8c1;
+      --text-dim: #d0d7de;
+      --text-bright: #1f2328;
+      --hover-overlay: rgba(3, 73, 180, 0.06);
+      --hover-overlay-strong: rgba(3, 73, 180, 0.12);
+      --surface-card: #ffffff;
+      --surface-inset: #f6f8fa;
+      --surface-input: #ffffff;
+      --surface-neutral: #d0d7de;
+      --scrollbar-thumb: #8c959f;
+      --scrollbar-thumb-hover: #59636e;
+      --shadow-card: rgba(0,0,0,0.12);
+      --shadow-primary-glow: rgba(3, 73, 180, 0.25);
+      --accent-text: #0349b4;
+    }
+    /* --- Colorblind Accessible Themes --- */
+    [data-theme="cb-protanopia"] {
+      color-scheme: dark;
+      --color-base-100: oklch(0.13 0.012 245);
+      --color-base-200: oklch(0.16 0.012 245);
+      --color-base-300: oklch(0.19 0.012 245);
+      --color-base-content: oklch(0.9 0.01 245);
+      --color-primary: oklch(0.55 0.22 250);
+      --color-primary-content: oklch(1 0 0);
+      --color-secondary: oklch(0.62 0.16 270);
+      --color-secondary-content: oklch(1 0 0);
+      --color-accent: oklch(0.72 0.14 250);
+      --color-accent-content: oklch(0.13 0.012 245);
+      --color-neutral: oklch(0.22 0.01 245);
+      --color-neutral-content: oklch(0.9 0.01 245);
+      --color-success: oklch(0.62 0.18 248);
+      --color-error: oklch(0.68 0.19 62);
+      --color-warning: oklch(0.78 0.17 95);
+      --color-info: oklch(0.72 0.14 230);
+      --topbar-bg: rgba(13, 14, 22, 0.85);
+      --border-color: rgba(255,255,255,0.06);
+      --border-color-subtle: rgba(255,255,255,0.04);
+      --text-muted: rgba(220, 222, 235, 0.5);
+      --text-faint: rgba(220, 222, 235, 0.4);
+      --text-faintest: rgba(220, 222, 235, 0.3);
+      --text-ghost: rgba(220, 222, 235, 0.2);
+      --text-dim: rgba(220, 222, 235, 0.15);
+      --text-bright: #dcdeed;
+      --hover-overlay: rgba(37, 99, 235, 0.03);
+      --hover-overlay-strong: rgba(37, 99, 235, 0.06);
+      --surface-card: #14151f;
+      --surface-inset: #090a11;
+      --surface-input: #0d0e19;
+      --surface-neutral: #252636;
+      --scrollbar-thumb: #252636;
+      --scrollbar-thumb-hover: #363748;
+      --shadow-card: rgba(0,0,0,0.3);
+      --shadow-primary-glow: rgba(37, 99, 235, 0.25);
+      --accent-text: #93b4fc;
+    }
+    [data-theme="cb-deuteranopia"] {
+      color-scheme: dark;
+      --color-base-100: oklch(0.13 0.012 65);
+      --color-base-200: oklch(0.16 0.012 65);
+      --color-base-300: oklch(0.19 0.012 65);
+      --color-base-content: oklch(0.91 0.008 65);
+      --color-primary: oklch(0.62 0.17 65);
+      --color-primary-content: oklch(0.1 0.01 65);
+      --color-secondary: oklch(0.58 0.14 245);
+      --color-secondary-content: oklch(1 0 0);
+      --color-accent: oklch(0.72 0.12 65);
+      --color-accent-content: oklch(0.13 0.012 65);
+      --color-neutral: oklch(0.22 0.01 65);
+      --color-neutral-content: oklch(0.91 0.008 65);
+      --color-success: oklch(0.55 0.2 250);
+      --color-error: oklch(0.72 0.22 52);
+      --color-warning: oklch(0.82 0.18 92);
+      --color-info: oklch(0.6 0.18 262);
+      --topbar-bg: rgba(20, 15, 10, 0.85);
+      --border-color: rgba(255, 245, 230, 0.06);
+      --border-color-subtle: rgba(255, 245, 230, 0.04);
+      --text-muted: rgba(233, 226, 214, 0.5);
+      --text-faint: rgba(233, 226, 214, 0.4);
+      --text-faintest: rgba(233, 226, 214, 0.3);
+      --text-ghost: rgba(233, 226, 214, 0.2);
+      --text-dim: rgba(233, 226, 214, 0.15);
+      --text-bright: #e9e2d6;
+      --hover-overlay: rgba(200, 120, 30, 0.04);
+      --hover-overlay-strong: rgba(200, 120, 30, 0.08);
+      --surface-card: #1e1810;
+      --surface-inset: #100d08;
+      --surface-input: #181309;
+      --surface-neutral: #2e271c;
+      --scrollbar-thumb: #2e271c;
+      --scrollbar-thumb-hover: #42382a;
+      --shadow-card: rgba(0, 0, 0, 0.35);
+      --shadow-primary-glow: rgba(200, 120, 30, 0.28);
+      --accent-text: #d4924a;
+    }
+    [data-theme="cb-tritanopia"] {
+      color-scheme: dark;
+      --color-base-100: oklch(0.13 0.012 20);
+      --color-base-200: oklch(0.16 0.012 20);
+      --color-base-300: oklch(0.19 0.012 20);
+      --color-base-content: oklch(0.9 0.008 20);
+      --color-primary: oklch(0.58 0.22 5);
+      --color-primary-content: oklch(1 0 0);
+      --color-secondary: oklch(0.62 0.18 345);
+      --color-secondary-content: oklch(1 0 0);
+      --color-accent: oklch(0.72 0.14 350);
+      --color-accent-content: oklch(0.13 0.012 20);
+      --color-neutral: oklch(0.22 0.01 20);
+      --color-neutral-content: oklch(0.9 0.008 20);
+      --color-success: oklch(0.68 0.18 190);
+      --color-error: oklch(0.6 0.24 10);
+      --color-warning: oklch(0.72 0.2 345);
+      --color-info: oklch(0.62 0.15 197);
+      --topbar-bg: rgba(23, 15, 15, 0.85);
+      --border-color: rgba(255,255,255,0.06);
+      --border-color-subtle: rgba(255,255,255,0.04);
+      --text-muted: rgba(233, 226, 226, 0.5);
+      --text-faint: rgba(233, 226, 226, 0.4);
+      --text-faintest: rgba(233, 226, 226, 0.3);
+      --text-ghost: rgba(233, 226, 226, 0.2);
+      --text-dim: rgba(233, 226, 226, 0.15);
+      --text-bright: #e9e2e2;
+      --hover-overlay: rgba(210, 60, 60, 0.03);
+      --hover-overlay-strong: rgba(210, 60, 60, 0.06);
+      --surface-card: #1f1515;
+      --surface-inset: #0f0a0a;
+      --surface-input: #170f0f;
+      --surface-neutral: #2f2525;
+      --scrollbar-thumb: #2f2525;
+      --scrollbar-thumb-hover: #443535;
+      --shadow-card: rgba(0,0,0,0.3);
+      --shadow-primary-glow: rgba(210, 60, 60, 0.25);
+      --accent-text: #f09090;
     }
     </style>
 
@@ -290,7 +491,7 @@
           {# Right: Nav + user #}
           <div class="flex items-center gap-1 flex-shrink-0">
             {% if current_user.is_authenticated %}
-              <nav class="hidden md:flex items-center gap-1">
+              <nav class="hidden lg:flex items-center gap-1">
                 <a href="{{ url_for('user.organizations') }}"
                    class="btn btn-ghost btn-sm text-base-content/60 hover:text-base-content text-xs font-medium">Orgs</a>
                 <a href="{{ url_for('user.projects') }}"
@@ -338,6 +539,36 @@
                        stroke-linecap="round"
                        stroke-linejoin="round">
                     <polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" />
+                  </svg>
+                  <svg class="w-4 h-4 theme-icon-contrast-dark hidden"
+                       viewBox="0 0 24 24"
+                       fill="none"
+                       stroke="currentColor"
+                       stroke-width="2"
+                       stroke-linecap="round"
+                       stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor" />
+                  </svg>
+                  <svg class="w-4 h-4 theme-icon-contrast-light hidden"
+                       viewBox="0 0 24 24"
+                       fill="none"
+                       stroke="currentColor"
+                       stroke-width="2"
+                       stroke-linecap="round"
+                       stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 2a10 10 0 0 0 0 20z" fill="currentColor" />
+                  </svg>
+                  <svg class="w-4 h-4 theme-icon-cb hidden"
+                       viewBox="0 0 24 24"
+                       fill="none"
+                       stroke="currentColor"
+                       stroke-width="2"
+                       stroke-linecap="round"
+                       stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
                   </svg>
                 </button>
                 <div class="theme-dropdown hidden absolute right-0 top-full mt-1 z-[60] bg-base-300 rounded-lg border border-base-content/10 shadow-xl p-1 min-w-[140px]">
@@ -395,6 +626,80 @@
                     Terminal
                   </button>
                   <div class="border-t border-base-content/10 my-1"></div>
+                  <span class="px-3 py-1 text-[10px] uppercase tracking-wider text-base-content/40 font-medium">High Contrast</span>
+                  <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
+                          data-theme-val="contrast-light">
+                    <svg class="w-3.5 h-3.5 shrink-0"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 2a10 10 0 0 0 0 20z" fill="currentColor" />
+                    </svg>
+                    Light
+                  </button>
+                  <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
+                          data-theme-val="contrast-dark">
+                    <svg class="w-3.5 h-3.5 shrink-0"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor" />
+                    </svg>
+                    Dark
+                  </button>
+                  <div class="border-t border-base-content/10 my-1"></div>
+                  <span class="px-3 py-1 text-[10px] uppercase tracking-wider text-base-content/40 font-medium">Colorblind</span>
+                  <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
+                          data-theme-val="cb-protanopia">
+                    <svg class="w-3.5 h-3.5 shrink-0"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Protanopia
+                  </button>
+                  <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
+                          data-theme-val="cb-deuteranopia">
+                    <svg class="w-3.5 h-3.5 shrink-0"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Deuteranopia
+                  </button>
+                  <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
+                          data-theme-val="cb-tritanopia">
+                    <svg class="w-3.5 h-3.5 shrink-0"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Tritanopia
+                  </button>
+                  <div class="border-t border-base-content/10 my-1"></div>
                   <div class="px-3 py-1.5">
                     <span class="text-[10px] uppercase tracking-wider text-base-content/40 font-medium">Accent</span>
                     <div class="flex gap-1.5 mt-1.5">
@@ -434,11 +739,26 @@
                   </div>
                   <div class="border-t border-base-content/10 my-1"></div>
                   <div class="px-3 py-1.5">
-                    <span class="text-[10px] uppercase tracking-wider text-base-content/40 font-medium">Layout</span>
+                    <span class="text-[10px] uppercase tracking-wider text-base-content/40 font-medium">Preferences</span>
                     <label class="flex items-center gap-2 mt-1.5 cursor-pointer">
                       <input type="checkbox"
                              class="toggle toggle-xs toggle-primary compact-mode-toggle" />
                       <span class="text-xs text-base-content/60">Compact header</span>
+                    </label>
+                    <label class="flex items-center gap-2 mt-1 cursor-pointer">
+                      <input type="checkbox"
+                             class="toggle toggle-xs toggle-primary reduce-motion-toggle" />
+                      <span class="text-xs text-base-content/60">Reduce motion</span>
+                    </label>
+                    <label class="flex items-center gap-2 mt-1 cursor-pointer">
+                      <input type="checkbox"
+                             class="toggle toggle-xs toggle-primary pipeline-toasts-toggle" />
+                      <span class="text-xs text-base-content/60">Pipeline popups</span>
+                    </label>
+                    <label class="flex items-center gap-2 mt-1 cursor-pointer">
+                      <input type="checkbox"
+                             class="toggle toggle-xs toggle-primary low-data-toggle" />
+                      <span class="text-xs text-base-content/60">Low data mode</span>
                     </label>
                   </div>
                 </div>
@@ -471,7 +791,7 @@
 
               {# Mobile hamburger #}
               <button id="mobile-nav-toggle"
-                      class="btn btn-ghost btn-sm btn-circle md:hidden"
+                      class="btn btn-ghost btn-sm btn-circle lg:hidden"
                       aria-label="Menu">
                 <svg class="w-4 h-4"
                      viewBox="0 0 24 24"
@@ -523,6 +843,36 @@
                        stroke-linejoin="round">
                     <polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" />
                   </svg>
+                  <svg class="w-4 h-4 theme-icon-contrast-dark hidden"
+                       viewBox="0 0 24 24"
+                       fill="none"
+                       stroke="currentColor"
+                       stroke-width="2"
+                       stroke-linecap="round"
+                       stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor" />
+                  </svg>
+                  <svg class="w-4 h-4 theme-icon-contrast-light hidden"
+                       viewBox="0 0 24 24"
+                       fill="none"
+                       stroke="currentColor"
+                       stroke-width="2"
+                       stroke-linecap="round"
+                       stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 2a10 10 0 0 0 0 20z" fill="currentColor" />
+                  </svg>
+                  <svg class="w-4 h-4 theme-icon-cb hidden"
+                       viewBox="0 0 24 24"
+                       fill="none"
+                       stroke="currentColor"
+                       stroke-width="2"
+                       stroke-linecap="round"
+                       stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
                 </button>
                 <div class="theme-dropdown hidden absolute right-0 top-full mt-1 z-[60] bg-base-300 rounded-lg border border-base-content/10 shadow-xl p-1 min-w-[140px]">
                   <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
@@ -579,6 +929,80 @@
                     Terminal
                   </button>
                   <div class="border-t border-base-content/10 my-1"></div>
+                  <span class="px-3 py-1 text-[10px] uppercase tracking-wider text-base-content/40 font-medium">High Contrast</span>
+                  <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
+                          data-theme-val="contrast-light">
+                    <svg class="w-3.5 h-3.5 shrink-0"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 2a10 10 0 0 0 0 20z" fill="currentColor" />
+                    </svg>
+                    Light
+                  </button>
+                  <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
+                          data-theme-val="contrast-dark">
+                    <svg class="w-3.5 h-3.5 shrink-0"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor" />
+                    </svg>
+                    Dark
+                  </button>
+                  <div class="border-t border-base-content/10 my-1"></div>
+                  <span class="px-3 py-1 text-[10px] uppercase tracking-wider text-base-content/40 font-medium">Colorblind</span>
+                  <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
+                          data-theme-val="cb-protanopia">
+                    <svg class="w-3.5 h-3.5 shrink-0"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Protanopia
+                  </button>
+                  <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
+                          data-theme-val="cb-deuteranopia">
+                    <svg class="w-3.5 h-3.5 shrink-0"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Deuteranopia
+                  </button>
+                  <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
+                          data-theme-val="cb-tritanopia">
+                    <svg class="w-3.5 h-3.5 shrink-0"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Tritanopia
+                  </button>
+                  <div class="border-t border-base-content/10 my-1"></div>
                   <div class="px-3 py-1.5">
                     <span class="text-[10px] uppercase tracking-wider text-base-content/40 font-medium">Accent</span>
                     <div class="flex gap-1.5 mt-1.5">
@@ -618,11 +1042,26 @@
                   </div>
                   <div class="border-t border-base-content/10 my-1"></div>
                   <div class="px-3 py-1.5">
-                    <span class="text-[10px] uppercase tracking-wider text-base-content/40 font-medium">Layout</span>
+                    <span class="text-[10px] uppercase tracking-wider text-base-content/40 font-medium">Preferences</span>
                     <label class="flex items-center gap-2 mt-1.5 cursor-pointer">
                       <input type="checkbox"
                              class="toggle toggle-xs toggle-primary compact-mode-toggle" />
                       <span class="text-xs text-base-content/60">Compact header</span>
+                    </label>
+                    <label class="flex items-center gap-2 mt-1 cursor-pointer">
+                      <input type="checkbox"
+                             class="toggle toggle-xs toggle-primary reduce-motion-toggle" />
+                      <span class="text-xs text-base-content/60">Reduce motion</span>
+                    </label>
+                    <label class="flex items-center gap-2 mt-1 cursor-pointer">
+                      <input type="checkbox"
+                             class="toggle toggle-xs toggle-primary pipeline-toasts-toggle" />
+                      <span class="text-xs text-base-content/60">Pipeline popups</span>
+                    </label>
+                    <label class="flex items-center gap-2 mt-1 cursor-pointer">
+                      <input type="checkbox"
+                             class="toggle toggle-xs toggle-primary low-data-toggle" />
+                      <span class="text-xs text-base-content/60">Low data mode</span>
                     </label>
                   </div>
                 </div>
@@ -638,7 +1077,11 @@
         {# Mobile nav drawer #}
         {% if current_user.is_authenticated %}
           <nav id="mobile-nav-menu"
-               class="hidden md:hidden border-t border-base-content/5 px-4 py-3 flex flex-col gap-1">
+               class="hidden lg:hidden border-t border-base-content/5 px-4 py-3 flex flex-col gap-1">
+            {# Page tabs (cloned from tab bar by JS) #}
+            <div id="mobile-nav-tabs" class="flex flex-col gap-1"></div>
+            <div id="mobile-nav-divider"
+                 class="hidden border-t border-base-content/5 my-1"></div>
             <a href="{{ url_for('user.organizations') }}"
                class="btn btn-ghost btn-sm justify-start text-sm">Organizations</a>
             <a href="{{ url_for('user.projects') }}"
@@ -661,17 +1104,51 @@
           <div class="app-content-padded !py-3">
             <div class="flex flex-col gap-2">
               {% for category, message in messages %}
-                {% set alert_class = "alert-info" %}
                 {% if category == 'error' or category == 'danger' %}
-                  {% set alert_class = "alert-error" %}
+                  <div role="alert" class="alert alert-error alert-soft text-sm py-2">
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                         class="size-5 shrink-0"
+                         fill="none"
+                         viewBox="0 0 24 24"
+                         stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    </svg>
+                    <span>{{ message }}</span>
+                  </div>
                 {% elif category == 'success' %}
-                  {% set alert_class = "alert-success" %}
+                  <div role="alert" class="alert alert-success alert-soft text-sm py-2">
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                         class="size-5 shrink-0"
+                         fill="none"
+                         viewBox="0 0 24 24"
+                         stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{{ message }}</span>
+                  </div>
                 {% elif category == 'warning' %}
-                  {% set alert_class = "alert-warning" %}
+                  <div role="alert" class="alert alert-warning alert-soft text-sm py-2">
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                         class="size-5 shrink-0"
+                         fill="none"
+                         viewBox="0 0 24 24"
+                         stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    </svg>
+                    <span>{{ message|safe }}</span>
+                  </div>
+                {% else %}
+                  <div role="alert" class="alert alert-info alert-soft text-sm py-2">
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                         class="size-5 shrink-0"
+                         fill="none"
+                         viewBox="0 0 24 24"
+                         stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{{ message }}</span>
+                  </div>
                 {% endif %}
-                <div role="alert" class="alert {{ alert_class }} text-sm py-2">
-                  <span>{{ message }}</span>
-                </div>
               {% endfor %}
             </div>
           </div>
