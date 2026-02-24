@@ -413,35 +413,68 @@
     var stepsEl = document.getElementById('deploySteps');
     var elapsedEl = document.getElementById('deployElapsed');
     var tracker = (barFill) ? new BuildProgressTracker(barFill, phaseLabel, 'deploy', stepsEl, elapsedEl) : null;
-    var logsFinished = false;
-    var protocol = (window.location.protocol === 'https:') ? 'wss://' : 'ws://';
-    var socket = new WebSocket(protocol + window.location.host + window.location.pathname + '/livelogs');
     var progressBanner = document.querySelector('.deploy-progress-banner');
-    socket.addEventListener('message', function(ev) {
-      if (ev.data === '=================END OF LOGS=================') {
-        logsFinished = true;
-        if (tracker) {
-          tracker.complete();
-          if (tracker.errored && progressBanner) {
-            progressBanner.classList.add('deploy-progress-banner-error');
+    var logsFinished = false;
+    var reconnectAttempts = 0;
+    var maxReconnectAttempts = 30;
+    var protocol = (window.location.protocol === 'https:') ? 'wss://' : 'ws://';
+    var wsUrl = protocol + window.location.host + window.location.pathname + '/livelogs';
+
+    function connectWebSocket() {
+      var socket = new WebSocket(wsUrl);
+      socket.addEventListener('message', function(ev) {
+        if (ev.data === '=================END OF LOGS=================') {
+          logsFinished = true;
+          reconnectAttempts = 0;
+          if (tracker) {
+            tracker.complete();
+            if (tracker.errored && progressBanner) {
+              progressBanner.classList.add('deploy-progress-banner-error');
+            }
           }
+          socket.close();
+          /* Fetch final state and update DOM in-place */
+          fetchDeploymentStatus();
+          return;
         }
-        socket.close();
-        return;
-      }
-      logsPre.textContent += ev.data + '\n';
-      logsPre.scrollTop = logsPre.scrollHeight;
-      if (tracker) tracker.processLine(ev.data);
-    });
-    socket.addEventListener('close', function() {
-      if (logsFinished) {
-        setTimeout(function() { window.location.reload(); }, 5000);
-      } else {
-        /* Socket closed before END OF LOGS — deploy still in progress, poll for reconnect */
-        if (tracker) tracker.setPhase('Waiting for deploy logs\u2026');
-        setTimeout(function() { window.location.reload(); }, 10000);
-      }
-    });
+        reconnectAttempts = 0;
+        logsPre.textContent += ev.data + '\n';
+        logsPre.scrollTop = logsPre.scrollHeight;
+        if (tracker) tracker.processLine(ev.data);
+      });
+      socket.addEventListener('close', function() {
+        if (logsFinished) return;
+        reconnectAttempts++;
+        if (reconnectAttempts >= maxReconnectAttempts) {
+          if (tracker) tracker.setPhase('Connection lost. Refresh to retry.');
+          return;
+        }
+        if (tracker) tracker.setPhase('Reconnecting\u2026');
+        var delay = Math.min(2000, 500 * reconnectAttempts);
+        setTimeout(connectWebSocket, delay);
+      });
+    }
+
+    function fetchDeploymentStatus() {
+      fetch(window.location.pathname, { headers: { 'Accept': 'text/html' } })
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+          var parser = new DOMParser();
+          var doc = parser.parseFromString(html, 'text/html');
+          /* Replace the status orb + header */
+          var newOrb = doc.querySelector('.deploy-status-orb');
+          var curOrb = document.querySelector('.deploy-status-orb');
+          if (newOrb && curOrb) curOrb.parentElement.innerHTML = newOrb.parentElement.innerHTML;
+          /* Replace deployment info card */
+          var newInfo = doc.querySelector('[data-log-left]');
+          var curInfo = document.querySelector('[data-log-left]');
+          if (newInfo && curInfo) curInfo.innerHTML = newInfo.innerHTML;
+          /* Hide the progress banner */
+          if (progressBanner) progressBanner.style.display = 'none';
+        });
+    }
+
+    connectWebSocket();
   }
 
   /* Copy deploy log */
