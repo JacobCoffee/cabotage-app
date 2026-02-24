@@ -1925,21 +1925,27 @@ ObservabilityPanel.prototype.updatePodsGrid = function (pods) {
   pods.forEach(function (pod) {
     var phase = (pod.phase || 'Unknown').toLowerCase();
     var dotClass =
-      phase === 'running' ? 'obs-pod-dot-ok' : phase === 'pending' ? 'obs-pod-dot-warn' : 'obs-pod-dot-err';
+      phase === 'running'
+        ? 'obs-pod-dot-running'
+        : phase === 'pending'
+          ? 'obs-pod-dot-pending'
+          : phase === 'failed'
+            ? 'obs-pod-dot-failed'
+            : 'obs-pod-dot-unknown';
     var name = (pod.name || '').replace(/[<>&"]/g, '');
     html +=
       '<div class="obs-pod-card">' +
-      '<div class="obs-pod-header"><span class="obs-pod-dot ' +
+      '<span class="obs-pod-dot ' +
       dotClass +
       '"></span>' +
       '<span class="obs-pod-name">' +
       name +
-      '</span></div>' +
+      '</span>' +
       '<div class="obs-pod-metrics">' +
-      '<span class="obs-pod-metric">' +
+      '<span class="obs-pod-metric"><span class="obs-pod-metric-label">CPU</span> ' +
       (pod.cpu_display || '—') +
       '</span>' +
-      '<span class="obs-pod-metric">' +
+      '<span class="obs-pod-metric"><span class="obs-pod-metric-label">MEM</span> ' +
       (pod.mem_display || '—') +
       '</span>' +
       (pod.restart_count > 0
