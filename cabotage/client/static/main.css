@@ -3636,3 +3636,10 @@ a.pipeline-stage-body:hover {
   height: 120px;
   display: block;
 }
+.pm-bar-chart svg a {
+  cursor: pointer;
+}
+.pm-bar-chart svg a:hover .pm-bar {
+  opacity: 1 !important;
+  filter: brightness(1.2);
+}

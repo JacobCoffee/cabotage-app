@@ -617,6 +617,7 @@ def application_pipeline_metrics(application_id):
                 reversed(
                     [
                         {
+                            "id": str(x.id),
                             "version": getattr(
                                 x, "version", getattr(x, "version_id", None)
                             ),

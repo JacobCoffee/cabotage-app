@@ -2055,12 +2055,12 @@ PipelineMetricsPanel.prototype.render = function (data) {
   }
 
   // Stage sections
-  this.renderStage(this.buildChips, this.buildChart, data.images);
-  this.renderStage(this.releaseChips, this.releaseChart, data.releases);
-  this.renderStage(this.deployChips, this.deployChart, data.deployments);
+  this.renderStage(this.buildChips, this.buildChart, data.images, '/image/');
+  this.renderStage(this.releaseChips, this.releaseChart, data.releases, '/release/');
+  this.renderStage(this.deployChips, this.deployChart, data.deployments, '/deployment/');
 };
 
-PipelineMetricsPanel.prototype.renderStage = function (chipsEl, svgEl, stage) {
+PipelineMetricsPanel.prototype.renderStage = function (chipsEl, svgEl, stage, urlPrefix) {
   // Stat chips
   if (chipsEl) {
     var chips = '';
@@ -2079,10 +2079,10 @@ PipelineMetricsPanel.prototype.renderStage = function (chipsEl, svgEl, stage) {
   }
 
   // Bar chart
-  this.renderBarChart(svgEl, stage.history, stage.avg_secs);
+  this.renderBarChart(svgEl, stage.history, stage.avg_secs, urlPrefix);
 };
 
-PipelineMetricsPanel.prototype.renderBarChart = function (svgEl, history, avgSecs) {
+PipelineMetricsPanel.prototype.renderBarChart = function (svgEl, history, avgSecs, urlPrefix) {
   if (!svgEl) return;
   if (!history || !history.length) {
     svgEl.innerHTML =
@@ -2092,10 +2092,12 @@ PipelineMetricsPanel.prototype.renderBarChart = function (svgEl, history, avgSec
 
   var w = 600,
     h = 120,
-    pad = 4;
+    padL = 4,
+    padR = 30, // room for avg label
+    padTB = 4;
   var n = history.length;
   var gap = 2;
-  var barW = Math.max(1, (w - 2 * pad - (n - 1) * gap) / n);
+  var barW = Math.max(1, (w - padL - padR - (n - 1) * gap) / n);
 
   // Compute ceiling from durations
   var maxSecs = 1;
@@ -2108,37 +2110,40 @@ PipelineMetricsPanel.prototype.renderBarChart = function (svgEl, history, avgSec
 
   // Avg line
   if (avgSecs != null && avgSecs > 0) {
-    var avgY = h - pad - (avgSecs / ceiling) * (h - 2 * pad);
+    var avgY = h - padTB - (avgSecs / ceiling) * (h - 2 * padTB);
     svg +=
-      '<line x1="' + pad + '" y1="' + avgY + '" x2="' + (w - pad) + '" y2="' + avgY + '" ' +
+      '<line x1="' + padL + '" y1="' + avgY + '" x2="' + (w - 4) + '" y2="' + avgY + '" ' +
       'stroke="var(--text-faintest)" stroke-width="1" stroke-dasharray="4 3" />';
     svg +=
-      '<text x="' + (w - pad) + '" y="' + (avgY - 3) + '" text-anchor="end" ' +
-      'fill="var(--text-faintest)" font-size="9">avg</text>';
+      '<text x="' + (w - 2) + '" y="' + (avgY - 4) + '" text-anchor="end" ' +
+      'fill="var(--text-faintest)" font-size="10">avg</text>';
   }
 
   // Bars
   var self = this;
   history.forEach(function (item, i) {
-    var x = pad + i * (barW + gap);
+    var x = padL + i * (barW + gap);
     var secs = item.secs;
+    var href = item.id && urlPrefix ? urlPrefix + item.id : null;
     if (secs == null || secs <= 0) {
       // In-progress or no duration — show minimal gray bar
-      svg +=
-        '<rect x="' + x + '" y="' + (h - pad - 3) + '" width="' + barW + '" height="3" ' +
-        'rx="1" fill="var(--text-faintest)" opacity="0.3">' +
+      var stub =
+        '<rect x="' + x + '" y="' + (h - padTB - 3) + '" width="' + barW + '" height="3" ' +
+        'rx="1" fill="var(--text-faintest)" opacity="0.3" class="pm-bar">' +
         '<title>#' + (item.version || '?') + ' — in progress</title></rect>';
+      svg += href ? '<a href="' + href + '">' + stub + '</a>' : stub;
       return;
     }
-    var barH = Math.max(2, (secs / ceiling) * (h - 2 * pad));
-    var barY = h - pad - barH;
+    var barH = Math.max(2, (secs / ceiling) * (h - 2 * padTB));
+    var barY = h - padTB - barH;
     var color = item.error ? '#ef4444' : item.ok ? '#22c55e' : 'var(--text-faintest)';
     var tooltip =
       '#' + (item.version || '?') + ' — ' + self.formatDuration(secs) + (item.error ? ' (error)' : '');
-    svg +=
+    var bar =
       '<rect x="' + x + '" y="' + barY + '" width="' + barW + '" height="' + barH + '" ' +
-      'rx="1" fill="' + color + '" opacity="0.85">' +
+      'rx="1" fill="' + color + '" opacity="0.85" class="pm-bar">' +
       '<title>' + tooltip + '</title></rect>';
+    svg += href ? '<a href="' + href + '">' + bar + '</a>' : bar;
   });
 
   svgEl.innerHTML = svg;
