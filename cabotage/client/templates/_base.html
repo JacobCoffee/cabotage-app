@@ -42,14 +42,24 @@
         emerald: {
           dark:  { primary: 'oklch(0.6 0.19 155)', accent: 'oklch(0.72 0.14 155)', accentText: '#34d399', hoverRgb: '5, 150, 105', glowRgb: '5, 150, 105' },
           light: { primary: '#059669', accent: '#047857', accentText: '#059669', hoverRgb: '5, 150, 105', glowRgb: '5, 150, 105' }
+        },
+        white: {
+          dark:  { primary: '#e8e8e8', accent: '#d4d4d4', accentText: '#e8e8e8', hoverRgb: '232, 232, 232', glowRgb: '232, 232, 232' },
+          light: { primary: '#6b7280', accent: '#4b5563', accentText: '#4b5563', hoverRgb: '107, 114, 128', glowRgb: '107, 114, 128' },
+          terminal: { primary: '#e8e8e8', accent: '#d4d4d4', accentText: '#e8e8e8', hoverRgb: '232, 232, 232', glowRgb: '232, 232, 232' }
+        },
+        dark: {
+          dark:  { primary: '#555555', accent: '#444444', accentText: '#888888', hoverRgb: '85, 85, 85', glowRgb: '85, 85, 85' },
+          light: { primary: '#1f2937', accent: '#111827', accentText: '#1f2937', hoverRgb: '31, 41, 55', glowRgb: '31, 41, 55' },
+          terminal: { primary: '#555555', accent: '#444444', accentText: '#888888', hoverRgb: '85, 85, 85', glowRgb: '85, 85, 85' }
         }
       };
       window.__ACCENT_PRESETS = ACCENT_PRESETS;
 
       function applyAccent(name, theme) {
-        if (theme === 'terminal') return;
-        var mode = theme === 'light' ? 'light' : 'dark';
-        var p = ACCENT_PRESETS[name] && ACCENT_PRESETS[name][mode];
+        var mode = theme === 'terminal' ? 'terminal' : theme === 'light' ? 'light' : 'dark';
+        var preset = ACCENT_PRESETS[name];
+        var p = preset && (preset[mode] || preset[mode === 'terminal' ? 'dark' : mode]);
         if (!p) return;
         var s = document.documentElement.style;
         s.setProperty('--color-primary', p.primary);
@@ -401,6 +411,14 @@
                               data-accent="emerald"
                               style="background: #34d399"
                               title="Emerald"></button>
+                      <button class="accent-opt w-5 h-5 rounded-full border-2 border-transparent hover:scale-110 transition-transform"
+                              data-accent="white"
+                              style="background: #e8e8e8"
+                              title="White"></button>
+                      <button class="accent-opt w-5 h-5 rounded-full border-2 border-transparent hover:scale-110 transition-transform"
+                              data-accent="dark"
+                              style="background: #333333"
+                              title="Dark"></button>
                     </div>
                   </div>
                 </div>
@@ -568,6 +586,14 @@
                               data-accent="emerald"
                               style="background: #34d399"
                               title="Emerald"></button>
+                      <button class="accent-opt w-5 h-5 rounded-full border-2 border-transparent hover:scale-110 transition-transform"
+                              data-accent="white"
+                              style="background: #e8e8e8"
+                              title="White"></button>
+                      <button class="accent-opt w-5 h-5 rounded-full border-2 border-transparent hover:scale-110 transition-transform"
+                              data-accent="dark"
+                              style="background: #333333"
+                              title="Dark"></button>
                     </div>
                   </div>
                 </div>

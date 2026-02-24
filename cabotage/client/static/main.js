@@ -171,8 +171,17 @@ function initThemeToggle() {
     if (meta) {
       meta.content = resolved === 'light' ? '#fafafe' : resolved === 'terminal' ? '#0a0a0a' : '#0f0f17';
     }
-    // Re-apply accent for the new theme
+    // When entering terminal, auto-switch accent to white
     var accent = localStorage.getItem('accent-color') || 'purple';
+    if (resolved === 'terminal' && accent !== 'white' && accent !== 'dark') {
+      accent = 'white';
+      localStorage.setItem('accent-color', accent);
+      document.documentElement.setAttribute('data-accent', accent);
+      // Update swatch highlight if accent picker is initialized
+      document.querySelectorAll('.accent-opt').forEach(function(b) {
+        b.style.borderColor = b.getAttribute('data-accent') === accent ? 'var(--color-base-content)' : 'transparent';
+      });
+    }
     if (window.__applyAccent) window.__applyAccent(accent, resolved);
   }
 
