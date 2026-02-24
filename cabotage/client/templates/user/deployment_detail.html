@@ -416,10 +416,16 @@
     var logsFinished = false;
     var protocol = (window.location.protocol === 'https:') ? 'wss://' : 'ws://';
     var socket = new WebSocket(protocol + window.location.host + window.location.pathname + '/livelogs');
+    var progressBanner = document.querySelector('.deploy-progress-banner');
     socket.addEventListener('message', function(ev) {
       if (ev.data === '=================END OF LOGS=================') {
         logsFinished = true;
-        if (tracker) tracker.complete();
+        if (tracker) {
+          tracker.complete();
+          if (tracker.errored && progressBanner) {
+            progressBanner.classList.add('deploy-progress-banner-error');
+          }
+        }
         socket.close();
         return;
       }

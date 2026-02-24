@@ -529,6 +529,8 @@ function BuildProgressTracker(barFill, phaseLabel, type, stepsContainer, elapsed
   this.currentStepIdx = -1;
   this.startTime = Date.now();
   this.timerInterval = null;
+  this.errored = false;
+  this.errorStepIdx = -1;
 
   // Define step pipelines
   if (this.type === 'deploy') {
@@ -636,6 +638,13 @@ BuildProgressTracker.prototype.processLine = function(line) {
 };
 
 BuildProgressTracker.prototype.processBuildLine = function(line) {
+  // Detect error/failure patterns in build logs
+  if (/error|failed|failure|exception|traceback/i.test(line) &&
+      !/no error/i.test(line) && !/warning/i.test(line)) {
+    this.errored = true;
+    if (this.errorStepIdx < 0) this.errorStepIdx = Math.max(this.currentStepIdx, 0);
+  }
+
   var stepMatch = line.match(/\[(\d+)\/(\d+)\]/);
   if (stepMatch) {
     this.activate();
@@ -678,6 +687,13 @@ BuildProgressTracker.prototype.processBuildLine = function(line) {
 };
 
 BuildProgressTracker.prototype.processDeployLine = function(line) {
+  // Detect error/failure patterns in deploy logs
+  if (/error|failed|failure|exception|traceback|timed?\s*out/i.test(line) &&
+      !/no error/i.test(line)) {
+    this.errored = true;
+    if (this.errorStepIdx < 0) this.errorStepIdx = Math.max(this.currentStepIdx, 0);
+  }
+
   for (var i = 0; i < this.steps.length; i++) {
     var step = this.steps[i];
     for (var j = 0; j < step.patterns.length; j++) {
@@ -700,6 +716,28 @@ BuildProgressTracker.prototype.processDeployLine = function(line) {
 
 BuildProgressTracker.prototype.complete = function() {
   this.activate();
+  this.stopTimer();
+
+  if (this.errored) {
+    // Show error state — don't advance progress to 100%
+    var failedAt = this.errorStepIdx >= 0 ? this.errorStepIdx : this.currentStepIdx;
+    this.setPhase('Failed');
+    if (this.barFill) this.barFill.classList.add('deploy-progress-bar-error');
+    if (this.stepEls) {
+      for (var i = 0; i < this.stepEls.length; i++) {
+        this.stepEls[i].classList.remove('step-active');
+        if (i < failedAt) {
+          this.stepEls[i].classList.add('step-done');
+        } else if (i === failedAt) {
+          this.stepEls[i].classList.add('step-error');
+        }
+        // Steps after failedAt remain in default (pending) state
+      }
+    }
+    return;
+  }
+
+  // Success path
   this.setProgress(100);
   this.setPhase('Complete');
   this.setStep(this.steps.length - 1);
@@ -709,7 +747,6 @@ BuildProgressTracker.prototype.complete = function() {
       this.stepEls[i].classList.add('step-done');
     }
   }
-  this.stopTimer();
 };
 
 /* ---------- Auto-deploy next-step polling ---------- */
