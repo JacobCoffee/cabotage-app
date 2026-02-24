@@ -2269,15 +2269,15 @@ ObservabilityMini.prototype.renderSparkline = function (container, history, key,
   if (!svg) return;
   if (!history || !history.length) {
     // Show flat baseline when no data
-    svg.innerHTML = '<line x1="0" y1="35" x2="160" y2="35" stroke="' + color + '" stroke-opacity="0.15" stroke-width="1"/>';
+    svg.innerHTML = '<line x1="0" y1="27" x2="120" y2="27" stroke="' + color + '" stroke-opacity="0.15" stroke-width="1"/>';
     container.classList.add('ls-loaded');
     return;
   }
 
   var values = history.map(function (h) { return h[key] || 0; });
   var max = limit || Math.max.apply(null, values) || 1;
-  var w = 160;
-  var h = 36;
+  var w = 120;
+  var h = 28;
   var pad = 2;
 
   var points = [];

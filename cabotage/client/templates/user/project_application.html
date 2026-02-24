@@ -587,9 +587,8 @@
           </div>
         </form>
 
-        {# Compact footer: package commands + config summary #}
-        <div class="proc-footer">
-          {% if application.latest_release.release_commands %}
+        {% if application.latest_release.release_commands %}
+          <div class="proc-footer">
             <div class="proc-footer-cmds">
               {% for process_name, proc in application.latest_release.release_commands.items() %}
                 <div class="proc-cmd-chip" title="{{ proc['cmd'] }}">
@@ -599,78 +598,10 @@
                 </div>
               {% endfor %}
             </div>
-          {% endif %}
-          <div class="proc-footer-meta">
-            <span class="proc-footer-vars">
-              {{ icon('key', 'w-2.5 h-2.5') }}
-              {{ user_configs|length }} var{{ 's' if user_configs|length != 1 }}
-              {% if system_configs|length > 0 %}+ {{ system_configs|length }} system{% endif %}
-            </span>
-            <button class="proc-footer-edit" data-switch-tab="config">{{ icon('settings', 'w-2.5 h-2.5') }} Edit</button>
           </div>
-        </div>
+        {% endif %}
       </div>
     {% endif %}
-
-    {# ── SECTION 2.5: CONFIGURATION AT A GLANCE ── #}
-
-    <details class="mb-4">
-      <summary class="cursor-pointer select-none inline-flex items-center gap-1.5 text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3 hover:text-base-content/60 transition-colors">
-        <span class="collapse-icon">{{ icon('chevron-right', 'w-3 h-3') }}</span>
-        Configuration
-      </summary>
-      <div class="card bg-base-200 border border-base-300">
-        <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-base-content/5">
-          <div class="p-4">
-            <div class="flex items-center gap-1.5 mb-2">
-              {{ icon('image', 'w-3 h-3 text-base-content/30') }}
-              <span class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Build</span>
-            </div>
-            <div class="flex flex-col gap-2">
-              <div class="deploy-meta-row">
-                <span class="deploy-meta-label">Builder</span>
-                <span class="deploy-meta-value text-base-content/50">Dockerfile</span>
-              </div>
-              {% if application.github_repository %}
-                <div class="deploy-meta-row">
-                  <span class="deploy-meta-label">Repository</span>
-                  <a href="https://github.com/{{ application.github_repository }}"
-                     target="_blank"
-                     rel="noopener"
-                     class="deploy-meta-value text-accent hover:text-accent/80 transition-colors">{{ application.github_repository }}</a>
-                </div>
-              {% endif %}
-              {% if application.auto_deploy_branch %}
-                <div class="deploy-meta-row">
-                  <span class="deploy-meta-label">Auto-deploy</span>
-                  <span class="deploy-meta-value text-base-content/50">{{ application.auto_deploy_branch }}</span>
-                </div>
-              {% endif %}
-            </div>
-          </div>
-          <div class="p-4">
-            <div class="flex items-center gap-1.5 mb-2">
-              {{ icon('deploy', 'w-3 h-3 text-base-content/30') }}
-              <span class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Deploy</span>
-            </div>
-            <div class="flex flex-col gap-2">
-              {% if application.health_check_path %}
-                <div class="deploy-meta-row">
-                  <span class="deploy-meta-label">Healthcheck</span>
-                  <code class="deploy-meta-value text-base-content/50 text-xs">{{ application.health_check_path }}</code>
-                </div>
-              {% endif %}
-              {% if application.deployment_timeout %}
-                <div class="deploy-meta-row">
-                  <span class="deploy-meta-label">Timeout</span>
-                  <span class="deploy-meta-value text-base-content/50">{{ application.deployment_timeout }}s</span>
-                </div>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-      </div>
-    </details>
 
     {# ── SECTION 3: RECENT ACTIVITY + LIVE STATUS ── #}
 
@@ -678,7 +609,20 @@
     {% set has_live_status = application.releases.count() > 0 and application.latest_release.built %}
 
     <div class="mb-4">
-      <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Recent Activity</h2>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Recent Activity</h2>
+        {% if application.releases.count() > 0 and application.latest_release.built %}
+          <div class="flex items-center gap-2 text-xs text-base-content/30">
+            <span class="inline-flex items-center gap-1">
+              {{ icon('key', 'w-2.5 h-2.5') }}
+              {{ user_configs|length }} var{{ 's' if user_configs|length != 1 }}
+              {% if system_configs|length > 0 %}+ {{ system_configs|length }} system{% endif %}
+            </span>
+            <button class="hover:text-accent transition-colors inline-flex items-center gap-1"
+                    data-switch-tab="config">{{ icon('settings', 'w-2.5 h-2.5') }} Edit</button>
+          </div>
+        {% endif %}
+      </div>
       <div class="ls-bento{% if not has_live_status %} ls-bento-solo{% endif %}">
 
         {# Live Status tile #}
@@ -741,7 +685,7 @@
                   </div>
                   {% for img in images[:3] %}
                     <a href="{{ url_for('user.image_detail', image_id=img.id) }}"
-                       class="flex items-center gap-1.5 py-1 hover:text-accent transition-colors">
+                       class="flex items-center gap-1.5 py-1 px-1.5 -mx-1.5 rounded hover:bg-base-content/5 hover:text-accent transition-colors">
                       {% if img.built %}
                         <span class="status-dot status-dot-success flex-shrink-0"
                               style="width:5px;
@@ -1011,6 +955,66 @@
 
   </div>
 </div>
+
+{# ── CONFIGURATION AT A GLANCE ── #}
+
+<details class="mb-4">
+  <summary class="cursor-pointer select-none inline-flex items-center gap-1.5 text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3 hover:text-base-content/60 transition-colors">
+    <span class="collapse-icon">{{ icon('chevron-right', 'w-3 h-3') }}</span>
+    Configuration
+  </summary>
+  <div class="card bg-base-200 border border-base-300">
+    <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-base-content/5">
+      <div class="p-4">
+        <div class="flex items-center gap-1.5 mb-2">
+          {{ icon('image', 'w-3 h-3 text-base-content/30') }}
+          <span class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Build</span>
+        </div>
+        <div class="flex flex-col gap-2">
+          <div class="deploy-meta-row">
+            <span class="deploy-meta-label">Builder</span>
+            <span class="deploy-meta-value text-base-content/50">Dockerfile</span>
+          </div>
+          {% if application.github_repository %}
+            <div class="deploy-meta-row">
+              <span class="deploy-meta-label">Repository</span>
+              <a href="https://github.com/{{ application.github_repository }}"
+                 target="_blank"
+                 rel="noopener"
+                 class="deploy-meta-value text-accent hover:text-accent/80 transition-colors">{{ application.github_repository }}</a>
+            </div>
+          {% endif %}
+          {% if application.auto_deploy_branch %}
+            <div class="deploy-meta-row">
+              <span class="deploy-meta-label">Auto-deploy</span>
+              <span class="deploy-meta-value text-base-content/50">{{ application.auto_deploy_branch }}</span>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+      <div class="p-4">
+        <div class="flex items-center gap-1.5 mb-2">
+          {{ icon('deploy', 'w-3 h-3 text-base-content/30') }}
+          <span class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Deploy</span>
+        </div>
+        <div class="flex flex-col gap-2">
+          {% if application.health_check_path %}
+            <div class="deploy-meta-row">
+              <span class="deploy-meta-label">Healthcheck</span>
+              <code class="deploy-meta-value text-base-content/50 text-xs">{{ application.health_check_path }}</code>
+            </div>
+          {% endif %}
+          {% if application.deployment_timeout %}
+            <div class="deploy-meta-row">
+              <span class="deploy-meta-label">Timeout</span>
+              <span class="deploy-meta-value text-base-content/50">{{ application.deployment_timeout }}s</span>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</details>
 
 {# ── GUIDE LINK ── #}
 <div class="py-2">

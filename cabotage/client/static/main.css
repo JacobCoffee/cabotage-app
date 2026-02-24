@@ -3033,13 +3033,16 @@ a.pipeline-stage-body:hover {
   display: grid;
   grid-template-columns: 200px 1fr;
   gap: 0.75rem;
-  align-items: start;
+  align-items: stretch;
 }
 .ls-bento-solo {
   grid-template-columns: 1fr;
 }
 .ls-bento-activity {
   min-width: 0;
+}
+.ls-bento-activity > .card {
+  height: 100%;
 }
 @media (max-width: 639px) {
   .ls-bento {
@@ -3053,6 +3056,8 @@ a.pipeline-stage-body:hover {
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .ls-header {
   display: flex;
@@ -3099,6 +3104,7 @@ a.pipeline-stage-body:hover {
   border-bottom: 1px solid var(--border-color-subtle);
   gap: 0.5rem;
   min-height: 2rem;
+  flex: 1;
 }
 .ls-row-last {
   border-bottom: none;
