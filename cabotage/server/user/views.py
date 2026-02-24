@@ -621,10 +621,9 @@ def application_observability(application_id):
 def _build_observability_response(application, since, empty_response):
     namespace = application.project.organization.slug
     label_selector = (
-        f"organization={application.project.organization.slug},"
-        f"project={application.project.slug},"
-        f"application={application.slug},"
-        f"resident-pod.cabotage.io=true"
+        f"cabotage.io/organization={application.project.organization.slug},"
+        f"cabotage.io/project={application.project.slug},"
+        f"cabotage.io/application={application.slug}"
     )
 
     # Compute resource limits from process_counts × pod_classes

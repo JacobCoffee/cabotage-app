@@ -1454,10 +1454,59 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+/* ---------- Live Timestamp Ticker ---------- */
+/* Keeps all <time data-timestamp="..."> elements up-to-date every second */
+
+function timeago(date) {
+  var now = Date.now();
+  var diff = Math.max(0, Math.floor((now - date.getTime()) / 1000));
+  if (diff < 2) return 'just now';
+  if (diff < 60) return diff + ' seconds ago';
+  var m = Math.floor(diff / 60);
+  if (m === 1) return 'a minute ago';
+  if (m < 60) return m + ' minutes ago';
+  var h = Math.floor(m / 60);
+  if (h === 1) return 'an hour ago';
+  if (h < 24) return h + ' hours ago';
+  var d = Math.floor(h / 24);
+  if (d === 1) return 'a day ago';
+  return d + ' days ago';
+}
+
+var _timestampTickerInterval = null;
+
+function tickTimestamps() {
+  var els = document.querySelectorAll('time[data-timestamp]');
+  for (var i = 0; i < els.length; i++) {
+    var iso = els[i].getAttribute('data-timestamp');
+    if (!iso) continue;
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) continue;
+    els[i].textContent = timeago(d);
+  }
+}
+
+function startTimestampTicker() {
+  if (_timestampTickerInterval) return;
+  tickTimestamps(); // immediate tick
+  _timestampTickerInterval = setInterval(tickTimestamps, 1000);
+}
+
+function stopTimestampTicker() {
+  if (_timestampTickerInterval) {
+    clearInterval(_timestampTickerInterval);
+    _timestampTickerInterval = null;
+  }
+}
+
 function initPipelineTracker() {
   var container = document.querySelector('[data-pipeline-tracker]');
   if (container) {
     window.pipelineTracker = new PipelineTracker(container);
+  }
+  // Always start the timestamp ticker on pages with timestamps
+  if (document.querySelector('time[data-timestamp]')) {
+    startTimestampTicker();
   }
 
   // Auto-deploy form: show spinner, let browser submit normally so
@@ -1598,9 +1647,9 @@ function ObservabilityPanel(container) {
   this.memValue = container.querySelector('[data-obs-mem-value]');
   this.memLimit = container.querySelector('[data-obs-mem-limit]');
   this.memGauge = container.querySelector('[data-obs-mem-gauge]');
-  this.podValue = container.querySelector('[data-obs-pod-value]');
-  this.podLabel = container.querySelector('[data-obs-pod-label]');
-  this.restartValue = container.querySelector('[data-obs-restart-value]');
+  this.podValue = container.querySelector('[data-obs-pod-count]');
+  this.podLabel = container.querySelector('[data-obs-pod-status]');
+  this.restartValue = container.querySelector('[data-obs-restart-count]');
   this.cpuChart = container.querySelector('[data-obs-cpu-chart]');
   this.memChart = container.querySelector('[data-obs-mem-chart]');
   this.podsGrid = container.querySelector('[data-obs-pods-grid]');
