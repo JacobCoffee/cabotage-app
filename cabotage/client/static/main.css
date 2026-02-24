@@ -302,6 +302,31 @@ html:not([data-theme-pref]) .theme-icon-system {
   border-bottom-color: var(--color-primary);
 }
 
+/* Responsive tab hiding — middle tabs collapse first */
+@media (max-width: 639px) {
+  /* Hide Images and Packages (middle tabs) on small screens */
+  .tab-item:nth-child(4),
+  .tab-item:nth-child(5) {
+    display: none;
+  }
+}
+@media (max-width: 479px) {
+  /* On very small screens, also hide Observe and Config */
+  .tab-item:nth-child(2),
+  .tab-item:nth-child(3) {
+    display: none;
+  }
+  .tab-item {
+    padding: 0.5rem 0.625rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Active tab always visible regardless of breakpoint */
+.tab-item.tab-active {
+  display: inline-flex !important;
+}
+
 /* Tab panels */
 .tab-panel {
   display: none;
