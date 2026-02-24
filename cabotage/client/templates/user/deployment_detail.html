@@ -418,7 +418,7 @@
     var phaseLabel = document.getElementById('deployPhase');
     var stepsEl = document.getElementById('deploySteps');
     var elapsedEl = document.getElementById('deployElapsed');
-    var tracker = (barFill) ? new BuildProgressTracker(barFill, phaseLabel, 'deploy', stepsEl, elapsedEl) : null;
+    var tracker = (barFill) ? new BuildProgressTracker(barFill, phaseLabel, 'deploy', stepsEl, elapsedEl, '{{ deployment.created.isoformat() }}Z') : null;
     var progressBanner = document.querySelector('.deploy-progress-banner');
     var logsFinished = false;
     var linesReceived = 0;

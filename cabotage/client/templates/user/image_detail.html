@@ -483,7 +483,7 @@
     var phaseLabel = document.getElementById('buildPhase');
     var stepsEl = document.getElementById('buildSteps');
     var elapsedEl = document.getElementById('buildElapsed');
-    var tracker = (barFill) ? new BuildProgressTracker(barFill, phaseLabel, 'build', stepsEl, elapsedEl) : null;
+    var tracker = (barFill) ? new BuildProgressTracker(barFill, phaseLabel, 'build', stepsEl, elapsedEl, '{{ image.created.isoformat() }}Z') : null;
     var logsFinished = false;
     var linesReceived = 0;
     var emptyEndAttempts = 0;
