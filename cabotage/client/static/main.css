@@ -2703,6 +2703,11 @@ a.pipeline-stage-body:hover {
   border-radius: 0.5rem;
   padding: 0.75rem;
 }
+.code-block:has(.procfile-line) {
+  display: flex;
+  flex-direction: column;
+  white-space: normal;
+}
 .procfile-line {
   display: grid;
   grid-template-columns: max-content max-content minmax(0, 1fr);
