@@ -1209,6 +1209,47 @@ def deploy_release(deployment):
         deployment.deploy_log = "\n".join(deploy_log)
         db.session.commit()
 
+        # Detect self-deploy: if this worker IS the application being
+        # deployed, the rollout will kill us before we can observe
+        # completion.  Mark complete now and let K8s finish the rollout
+        # independently — recover_stuck_pipelines handles the rare case
+        # where the rollout actually fails.
+        app_release = deployment.release_object
+        deploy_prefix = (
+            f"{app_release.application.project.slug}"
+            f"-{app_release.application.slug}-"
+        )
+        hostname = os.environ.get("HOSTNAME", "")
+        is_self_deploy = hostname.startswith(deploy_prefix)
+        if is_self_deploy:
+            deploy_log.append(
+                f"Self-deploy detected (hostname={hostname} matches "
+                f"{deploy_prefix}*). Marking complete early — K8s will "
+                f"finish the rollout independently."
+            )
+            deployment.complete = True
+            deployment.deploy_log = "\n".join(deploy_log)
+            db.session.commit()
+            if (
+                deployment.deploy_metadata
+                and "installation_id" in deployment.deploy_metadata
+                and "statuses_url" in deployment.deploy_metadata
+            ):
+                access_token = github_app.fetch_installation_access_token(
+                    deployment.deploy_metadata["installation_id"]
+                )
+                post_deployment_status_update(
+                    access_token,
+                    deployment.deploy_metadata["statuses_url"],
+                    "success",
+                    "Deployment complete (self-deploy)!",
+                )
+            logger.info(
+                "Self-deploy %s: marked complete early, skipping rollout wait",
+                deployment.id,
+            )
+            return
+
         deploy_log.append("Waiting on deployment to rollout...")
         start = time.time()
         timeout = deployment.release_object.application.deployment_timeout
