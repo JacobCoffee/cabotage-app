@@ -493,13 +493,13 @@
 
 {% block js %}
   <script>
-  /* Auto-deploy: redirect to app page to follow the auto-created deployment */
-  {% if release.built and not release.deposed and release.release_metadata and release.release_metadata.get('auto_deploy') %}
-    (function() {
-      var appUrl = '{{ url_for("user.project_application", org_slug=org_slug, project_slug=project_slug, app_slug=app_slug) }}';
-      window.location.href = appUrl;
-    })();
-  {% endif %}
+  /* Auto-deploy: show next-step banner instead of hard redirect */
+  var nextStepUrl = {{ next_step_url | tojson }};
+  var nextStepBanner = document.getElementById('nextStepBanner');
+  if (nextStepUrl && nextStepBanner) {
+    nextStepBanner.querySelector('a').href = nextStepUrl;
+    nextStepBanner.hidden = false;
+  }
 
   /* Live log streaming for in-progress package builds */
   var logsPre = document.getElementById('buildLog');
@@ -511,6 +511,7 @@
     var stepsEl = document.getElementById('buildSteps');
     var elapsedEl = document.getElementById('buildElapsed');
     var tracker = (barFill) ? new BuildProgressTracker(barFill, phaseLabel, 'build', stepsEl, elapsedEl) : null;
+    var isAutoDeploy = {{ (release.release_metadata or {}).get('auto_deploy', false) | tojson }};
     var protocol = (window.location.protocol === 'https:') ? 'wss://' : 'ws://';
     var socket = new WebSocket(protocol + window.location.host + window.location.pathname + '/livelogs');
     socket.addEventListener('message', function(ev) {
@@ -525,7 +526,12 @@
     });
     socket.addEventListener('close', function() {
       if (tracker) tracker.complete();
-      setTimeout(function() { window.location.reload(); }, 5000);
+      if (isAutoDeploy) {
+        /* Poll for the auto-created deployment, then redirect to it */
+        pollForNextStep(window.location.href);
+      } else {
+        setTimeout(function() { window.location.reload(); }, 5000);
+      }
     });
   }
 

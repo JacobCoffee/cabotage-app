@@ -622,6 +622,30 @@ BuildProgressTracker.prototype.complete = function() {
   this.stopTimer();
 };
 
+/* ---------- Auto-deploy next-step polling ---------- */
+/* Reload the current page after a short delay; the server will render
+   with next_step_url populated once Celery creates the next object.
+   On reload, the banner JS picks up next_step_url and shows the link. */
+function pollForNextStep(currentUrl) {
+  var attempts = 0;
+  var maxAttempts = 12; // ~30s total
+  (function poll() {
+    attempts++;
+    setTimeout(function() {
+      /* Reload the page; if next_step_url is set, the banner will appear.
+         We use a fetch to check without navigating, then redirect. */
+      fetch(currentUrl, { headers: { 'Accept': 'text/html' } })
+        .then(function() {
+          window.location.reload();
+        })
+        .catch(function() {
+          if (attempts < maxAttempts) poll();
+          else window.location.reload();
+        });
+    }, 2500);
+  })();
+}
+
 /* ---------- Pipeline Tracker (Overview Page) ---------- */
 function PipelineTracker(container) {
   this.container = container;
