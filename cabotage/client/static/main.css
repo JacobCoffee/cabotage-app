@@ -505,7 +505,7 @@ html:not([data-theme-pref]) .theme-icon-system {
   letter-spacing: 0.02em;
 }
 a.live-commit-sha:hover {
-  color: var(--text-bright, oklch(0.9 0 0));
+  color: var(--color-base-content, oklch(0.9 0 0));
   text-decoration: underline;
 }
 @keyframes commit-flash {
@@ -536,9 +536,8 @@ a.live-commit-sha:hover {
   border: 1px solid var(--color-base-300, oklch(0.3 0 0));
   border-radius: 0.625rem;
   box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.15),
-    0 12px 28px -4px rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 12px 28px -4px rgba(0, 0, 0, 0.15);
   padding: 0;
   font-size: 0.75rem;
   line-height: 1.4;
@@ -575,19 +574,21 @@ a.live-commit-sha:hover {
   align-items: center;
   gap: 0.375rem;
   padding: 0.5rem 0.75rem;
-  background: oklch(0.18 0 0 / 0.5);
-  border-bottom: 1px solid oklch(0.5 0 0 / 0.08);
+  background: var(--color-base-300, oklch(0.18 0 0 / 0.5));
+  border-bottom: 1px solid color-mix(in oklch, var(--color-base-content) 8%, transparent);
 }
 .commit-popup-github-icon {
   width: 0.75rem;
   height: 0.75rem;
-  color: oklch(0.55 0 0);
+  color: var(--color-base-content, oklch(0.55 0 0));
+  opacity: 0.5;
   flex-shrink: 0;
 }
 .commit-popup-header-text {
   font-size: 0.625rem;
   font-weight: 600;
-  color: oklch(0.55 0 0);
+  color: var(--color-base-content, oklch(0.55 0 0));
+  opacity: 0.5;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -595,13 +596,14 @@ a.live-commit-sha:hover {
 /* Commit message section */
 .commit-popup-message {
   padding: 0.625rem 0.75rem;
-  border-bottom: 1px solid oklch(0.5 0 0 / 0.08);
+  border-bottom: 1px solid color-mix(in oklch, var(--color-base-content) 8%, transparent);
   word-break: break-word;
   max-height: 10rem;
   overflow-y: auto;
 }
 .commit-popup-message.commit-popup-loading {
-  color: oklch(0.5 0 0);
+  color: var(--color-base-content, oklch(0.5 0 0));
+  opacity: 0.5;
   font-style: italic;
   padding: 0.75rem;
 }
@@ -616,16 +618,18 @@ a.live-commit-sha:hover {
   height: 1.125rem;
   border-radius: 50%;
   flex-shrink: 0;
-  border: 1px solid oklch(0.5 0 0 / 0.15);
+  border: 1px solid color-mix(in oklch, var(--color-base-content) 15%, transparent);
 }
 .commit-popup-author-name {
   font-size: 0.6875rem;
   font-weight: 500;
-  color: oklch(0.7 0 0);
+  color: var(--color-base-content, oklch(0.7 0 0));
+  opacity: 0.7;
 }
 .commit-popup-author-date {
   font-size: 0.625rem;
-  color: oklch(0.45 0 0);
+  color: var(--color-base-content, oklch(0.45 0 0));
+  opacity: 0.45;
   margin-left: auto;
 }
 .commit-popup-first-line {
@@ -637,7 +641,8 @@ a.live-commit-sha:hover {
 .commit-popup-body {
   font-size: 0.6875rem;
   font-weight: 400;
-  color: oklch(0.55 0 0);
+  color: var(--color-base-content, oklch(0.55 0 0));
+  opacity: 0.55;
   margin-top: 0.25rem;
   white-space: pre-wrap;
   max-height: 3rem;
@@ -658,14 +663,15 @@ a.live-commit-sha:hover {
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.3125rem 0.75rem;
-  border-bottom: 1px solid oklch(0.5 0 0 / 0.05);
+  border-bottom: 1px solid color-mix(in oklch, var(--color-base-content) 5%, transparent);
   font-size: 0.6875rem;
 }
 .commit-popup-row:last-child {
   border-bottom: none;
 }
 .commit-popup-label {
-  color: oklch(0.5 0 0);
+  color: var(--color-base-content, oklch(0.5 0 0));
+  opacity: 0.5;
   flex-shrink: 0;
 }
 .commit-popup-label code {
@@ -676,7 +682,8 @@ a.live-commit-sha:hover {
 }
 .commit-popup-value {
   text-align: right;
-  color: oklch(0.7 0 0);
+  color: var(--color-base-content, oklch(0.7 0 0));
+  opacity: 0.7;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -692,13 +699,14 @@ a.live-commit-sha:hover {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  background: oklch(0.5 0 0 / 0.08);
+  background: color-mix(in oklch, var(--color-base-content) 8%, transparent);
   padding: 0.0625rem 0.375rem;
   border-radius: 0.25rem;
   font-size: 0.625rem;
 }
 .commit-popup-ref svg {
-  color: oklch(0.5 0 0);
+  color: var(--color-base-content, oklch(0.5 0 0));
+  opacity: 0.5;
 }
 
 /* SHA footer */
@@ -707,13 +715,14 @@ a.live-commit-sha:hover {
   align-items: center;
   gap: 0.375rem;
   padding: 0.375rem 0.75rem;
-  background: oklch(0.15 0 0 / 0.3);
-  border-top: 1px solid oklch(0.5 0 0 / 0.08);
+  background: var(--color-base-300, oklch(0.15 0 0 / 0.3));
+  border-top: 1px solid color-mix(in oklch, var(--color-base-content) 8%, transparent);
 }
 .commit-popup-sha code {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 0.5625rem;
-  color: oklch(0.5 0 0);
+  color: var(--color-base-content, oklch(0.5 0 0));
+  opacity: 0.5;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -723,16 +732,18 @@ a.live-commit-sha:hover {
   flex-shrink: 0;
   background: none;
   border: none;
-  color: oklch(0.45 0 0);
+  color: var(--color-base-content, oklch(0.45 0 0));
+  opacity: 0.45;
   cursor: pointer;
   padding: 0.125rem;
   border-radius: 0.25rem;
-  transition: color 0.15s;
+  transition: color 0.15s, opacity 0.15s;
   display: flex;
   align-items: center;
 }
 .commit-popup-copy:hover {
-  color: oklch(0.75 0 0);
+  color: var(--color-base-content, oklch(0.75 0 0));
+  opacity: 0.75;
 }
 
 /* Links footer */
@@ -740,8 +751,8 @@ a.live-commit-sha:hover {
   display: flex;
   gap: 0.5rem;
   padding: 0.375rem 0.75rem;
-  background: oklch(0.15 0 0 / 0.3);
-  border-top: 1px solid oklch(0.5 0 0 / 0.05);
+  background: var(--color-base-300, oklch(0.15 0 0 / 0.3));
+  border-top: 1px solid color-mix(in oklch, var(--color-base-content) 5%, transparent);
 }
 .commit-popup-links a {
   font-size: 0.6875rem;
