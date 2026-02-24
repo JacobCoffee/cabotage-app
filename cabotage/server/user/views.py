@@ -757,11 +757,12 @@ def project_application_httplogs(ws, org_slug, project_slug, app_slug):
     router_pattern = f"{organization.slug}-"
 
     q = queue.Queue()
+    _ansi_re = re.compile(r"\x1b\[[0-9;]*m")
 
     def worker(pod_name, stream_handler):
         for line in stream_handler:
             if router_pattern in line:
-                q.put(line)
+                q.put(_ansi_re.sub("", line))
 
     def update_pods():
         worker_threads = {}
@@ -1487,10 +1488,20 @@ def image_detail(image_id):
         image.image_build_log = f"{image.image_build_log}\n**Error!**"
     secret = current_app.config["REGISTRY_AUTH_SECRET"]
     docker_pull_credentials = image.docker_pull_credentials(secret)
+
+    # If auto-deploy and built, find the release that was created for this image
+    next_step_url = None
+    if image.built and image.image_metadata and image.image_metadata.get("auto_deploy"):
+        app = image.application
+        latest_release = app.latest_release
+        if latest_release:
+            next_step_url = url_for("user.release_detail", release_id=latest_release.id)
+
     return render_template(
         "user/image_detail.html",
         image=image,
         docker_pull_credentials=docker_pull_credentials,
+        next_step_url=next_step_url,
     )
 
 
@@ -1621,12 +1632,28 @@ def release_detail(release_id):
             current_app.config["REGISTRY_BUILD"],
         ],
     )
+    # If auto-deploy and built, find the deployment that was created for this release
+    next_step_url = None
+    if (
+        release.built
+        and not release.deposed
+        and release.release_metadata
+        and release.release_metadata.get("auto_deploy")
+    ):
+        app = release.application
+        latest_deployment = app.latest_deployment
+        if latest_deployment:
+            next_step_url = url_for(
+                "user.deployment_detail", deployment_id=latest_deployment.id
+            )
+
     return render_template(
         "user/release_detail.html",
         release=release,
         deploy_form=ReleaseDeployForm(),
         docker_pull_credentials=docker_pull_credentials,
         image_pull_secrets=image_pull_secrets,
+        next_step_url=next_step_url,
     )
 
 
