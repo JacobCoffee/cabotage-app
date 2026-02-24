@@ -197,7 +197,8 @@ function initThemeToggle() {
     if (meta) {
       var metaColors = {
         light: '#fafafe', terminal: '#0a0a0a',
-        'contrast-dark': '#010409', 'contrast-light': '#ffffff'
+        'contrast-dark': '#010409', 'contrast-light': '#ffffff',
+        'cb-protanopia': '#0d0e16', 'cb-deuteranopia': '#140f0a', 'cb-tritanopia': '#170f0f'
       };
       meta.content = metaColors[resolved] || '#0f0f17';
     }
@@ -1549,9 +1550,28 @@ function stopTimestampTicker() {
   }
 }
 
+function isLowDataMode() {
+  return localStorage.getItem('low-data-mode') === 'true';
+}
+
+function stopAllPollers() {
+  if (window.pipelineTracker && window.pipelineTracker.pollInterval) {
+    clearInterval(window.pipelineTracker.pollInterval);
+  }
+  if (window.observabilityPanel && window.observabilityPanel.timer) {
+    clearInterval(window.observabilityPanel.timer);
+  }
+  if (window.pipelineMetricsPanel && window.pipelineMetricsPanel.timer) {
+    clearInterval(window.pipelineMetricsPanel.timer);
+  }
+  if (window.dashboardPoller && window.dashboardPoller.pollInterval) {
+    clearInterval(window.dashboardPoller.pollInterval);
+  }
+}
+
 function initPipelineTracker() {
   var container = document.querySelector('[data-pipeline-tracker]');
-  if (container) {
+  if (container && !isLowDataMode()) {
     window.pipelineTracker = new PipelineTracker(container);
   }
   // Always start the timestamp ticker on pages with timestamps
@@ -1576,6 +1596,7 @@ function initPipelineTracker() {
 /* ---------- Pipeline Toast Notifications ---------- */
 
 function showPipelineToast(pipeline) {
+  if (localStorage.getItem('pipeline-toasts') === 'false') return;
   var container = document.getElementById('pipeline-toasts');
   if (!container) return;
 
@@ -1671,6 +1692,7 @@ DashboardPipelinePoller.prototype.update = function (pipelines) {
 };
 
 function initDashboardPoller() {
+  if (isLowDataMode()) return;
   // Run on any authenticated page that has the toast container
   var toastContainer = document.getElementById('pipeline-toasts');
   if (!toastContainer) return;
@@ -1686,6 +1708,7 @@ function initDashboardPoller() {
 function ObservabilityPanel(container) {
   this.container = container;
   this.appId = container.getAttribute('data-application-id');
+  this.logsUrl = container.getAttribute('data-logs-url') || '';
   this.active = false;
   this.timer = null;
   this.range = '1h';
@@ -1959,6 +1982,7 @@ ObservabilityPanel.prototype.updatePodsGrid = function (pods) {
     this.podsGrid.innerHTML = '<div class="obs-empty-state">No pods running</div>';
     return;
   }
+  var self = this;
   var html = '';
   pods.forEach(function (pod) {
     var phase = (pod.phase || 'Unknown').toLowerCase();
@@ -1971,14 +1995,15 @@ ObservabilityPanel.prototype.updatePodsGrid = function (pods) {
             ? 'obs-pod-dot-failed'
             : 'obs-pod-dot-unknown';
     var name = (pod.name || '').replace(/[<>&"]/g, '');
+    var podLogUrl = self.logsUrl ? self.logsUrl + '?pod=' + encodeURIComponent(name) : '';
     html +=
-      '<div class="obs-pod-card">' +
+      '<div class="obs-pod-card" data-pod-name="' + name + '">' +
       '<span class="obs-pod-dot ' +
       dotClass +
       '"></span>' +
-      '<span class="obs-pod-name">' +
-      name +
-      '</span>' +
+      (podLogUrl
+        ? '<a href="' + podLogUrl + '" class="obs-pod-name obs-pod-link" data-pod-link>' + name + '</a>'
+        : '<span class="obs-pod-name">' + name + '</span>') +
       '<div class="obs-pod-metrics">' +
       '<span class="obs-pod-metric"><span class="obs-pod-metric-label">CPU</span> ' +
       (pod.cpu_display || '—') +
@@ -1996,6 +2021,54 @@ ObservabilityPanel.prototype.updatePodsGrid = function (pods) {
       '</div></div>';
   });
   this.podsGrid.innerHTML = html;
+
+  // Set up multi-select listener once (delegated, so safe across re-renders)
+  if (self.logsUrl && !this._podClickBound) {
+    this._podClickBound = true;
+    this.podsGrid.addEventListener('click', function (e) {
+      var link = e.target.closest('[data-pod-link]');
+      if (!link) return;
+      if (e.ctrlKey || e.metaKey || e.shiftKey) {
+        e.preventDefault();
+        var card = link.closest('.obs-pod-card');
+        card.classList.toggle('obs-pod-selected');
+        self.updateMultiPodLink();
+      }
+      // Normal click: default <a> navigation (single pod)
+    });
+  }
+};
+
+ObservabilityPanel.prototype.updateMultiPodLink = function () {
+  var selected = this.podsGrid.querySelectorAll('.obs-pod-selected');
+  var allCards = this.podsGrid.querySelectorAll('.obs-pod-card');
+
+  if (selected.length > 1) {
+    // Build multi-pod URL and update all selected links
+    var params = new URLSearchParams();
+    selected.forEach(function (card) {
+      params.append('pod', card.getAttribute('data-pod-name'));
+    });
+    var multiUrl = this.logsUrl + '?' + params.toString();
+    // Show a "View logs for N pods" action
+    var existing = this.podsGrid.querySelector('.obs-pod-multi-action');
+    if (!existing) {
+      existing = document.createElement('a');
+      existing.className = 'obs-pod-multi-action';
+      this.podsGrid.appendChild(existing);
+    }
+    existing.href = multiUrl;
+    existing.textContent = 'View logs for ' + selected.length + ' pods →';
+    existing.style.display = '';
+  } else {
+    // Remove multi-action if only 0-1 selected
+    var existing = this.podsGrid.querySelector('.obs-pod-multi-action');
+    if (existing) existing.style.display = 'none';
+    // Clear selection if 0
+    if (selected.length === 0) {
+      allCards.forEach(function (c) { c.classList.remove('obs-pod-selected'); });
+    }
+  }
 };
 
 ObservabilityPanel.prototype.updateEvents = function (events) {
@@ -2032,6 +2105,7 @@ ObservabilityPanel.prototype.updateEvents = function (events) {
 };
 
 function initObservabilityPanel() {
+  if (isLowDataMode()) return;
   var container = document.querySelector('[data-observability-panel]');
   if (!container) return;
   window.observabilityPanel = new ObservabilityPanel(container);
@@ -2238,6 +2312,7 @@ PipelineMetricsPanel.prototype.renderBarChart = function (svgEl, history, avgSec
 };
 
 function initPipelineMetricsPanel() {
+  if (isLowDataMode()) return;
   var container = document.querySelector('[data-pipeline-metrics-panel]');
   if (!container) return;
   window.pipelineMetricsPanel = new PipelineMetricsPanel(container);
@@ -2411,6 +2486,7 @@ ObservabilityMini.prototype.renderSparkline = function (container, history, key,
 };
 
 function initLiveStatus() {
+  if (isLowDataMode()) return;
   var container = document.querySelector('[data-live-status]');
   if (!container) return;
   var mini = new ObservabilityMini(container);
@@ -2529,6 +2605,52 @@ function initCompactTopbar() {
   });
 }
 
+/* ---------- Preference Toggles (reduce motion, pipeline toasts, low data) ---------- */
+function initPreferenceToggles() {
+  // Reduce motion
+  var motionToggles = document.querySelectorAll('.reduce-motion-toggle');
+  var motionPref = localStorage.getItem('reduce-motion') === 'true';
+  motionToggles.forEach(function (toggle) {
+    toggle.checked = motionPref;
+    toggle.addEventListener('change', function () {
+      motionPref = toggle.checked;
+      localStorage.setItem('reduce-motion', motionPref);
+      document.documentElement.classList.toggle('reduce-motion', motionPref);
+      motionToggles.forEach(function (t) { t.checked = motionPref; });
+    });
+  });
+
+  // Pipeline toasts (default on)
+  var toastToggles = document.querySelectorAll('.pipeline-toasts-toggle');
+  var toastPref = localStorage.getItem('pipeline-toasts') !== 'false';
+  toastToggles.forEach(function (toggle) {
+    toggle.checked = toastPref;
+    toggle.addEventListener('change', function () {
+      toastPref = toggle.checked;
+      localStorage.setItem('pipeline-toasts', toastPref);
+      toastToggles.forEach(function (t) { t.checked = toastPref; });
+    });
+  });
+
+  // Low data mode (disables WebSocket polling)
+  var dataToggles = document.querySelectorAll('.low-data-toggle');
+  var dataPref = localStorage.getItem('low-data-mode') === 'true';
+  dataToggles.forEach(function (toggle) {
+    toggle.checked = dataPref;
+    toggle.addEventListener('change', function () {
+      dataPref = toggle.checked;
+      localStorage.setItem('low-data-mode', dataPref);
+      dataToggles.forEach(function (t) { t.checked = dataPref; });
+      // Stop or restart pollers on toggle
+      if (dataPref) {
+        stopAllPollers();
+      } else {
+        window.location.reload();
+      }
+    });
+  });
+}
+
 /* Delegated handler: [data-href] spans open links in new tabs (avoids nested <a>) */
 document.addEventListener('click', function (e) {
   var el = e.target.closest('[data-href]');
@@ -2551,6 +2673,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initAddVarModal();
   initExpandModal();
   initAccentPicker();
+  initPreferenceToggles();
   initCommitPopup();
   initPipelineTracker();
   initDashboardPoller();

@@ -11,11 +11,16 @@
       var resolved = pref;
       if (pref === 'system') {
         resolved = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-      } else if (pref === 'terminal' || pref === 'contrast-light' || pref === 'contrast-dark') {
+      } else if (pref === 'terminal' || pref === 'contrast-light' || pref === 'contrast-dark' || pref === 'cb-protanopia' || pref === 'cb-deuteranopia' || pref === 'cb-tritanopia') {
         resolved = pref;
       }
       document.documentElement.setAttribute('data-theme', resolved);
       document.documentElement.setAttribute('data-theme-pref', pref);
+
+      // Reduce motion — apply before paint
+      if (localStorage.getItem('reduce-motion') === 'true') {
+        document.documentElement.classList.add('reduce-motion');
+      }
 
       // Accent color presets — applied before paint
       var ACCENT_PRESETS = {
@@ -320,6 +325,124 @@
       --shadow-primary-glow: rgba(3, 73, 180, 0.25);
       --accent-text: #0349b4;
     }
+    /* --- Colorblind Accessible Themes --- */
+    [data-theme="cb-protanopia"] {
+      color-scheme: dark;
+      --color-base-100: oklch(0.13 0.012 245);
+      --color-base-200: oklch(0.16 0.012 245);
+      --color-base-300: oklch(0.19 0.012 245);
+      --color-base-content: oklch(0.9 0.01 245);
+      --color-primary: oklch(0.55 0.22 250);
+      --color-primary-content: oklch(1 0 0);
+      --color-secondary: oklch(0.62 0.16 270);
+      --color-secondary-content: oklch(1 0 0);
+      --color-accent: oklch(0.72 0.14 250);
+      --color-accent-content: oklch(0.13 0.012 245);
+      --color-neutral: oklch(0.22 0.01 245);
+      --color-neutral-content: oklch(0.9 0.01 245);
+      --color-success: oklch(0.62 0.18 248);
+      --color-error: oklch(0.68 0.19 62);
+      --color-warning: oklch(0.78 0.17 95);
+      --color-info: oklch(0.72 0.14 230);
+      --topbar-bg: rgba(13, 14, 22, 0.85);
+      --border-color: rgba(255,255,255,0.06);
+      --border-color-subtle: rgba(255,255,255,0.04);
+      --text-muted: rgba(220, 222, 235, 0.5);
+      --text-faint: rgba(220, 222, 235, 0.4);
+      --text-faintest: rgba(220, 222, 235, 0.3);
+      --text-ghost: rgba(220, 222, 235, 0.2);
+      --text-dim: rgba(220, 222, 235, 0.15);
+      --text-bright: #dcdeed;
+      --hover-overlay: rgba(37, 99, 235, 0.03);
+      --hover-overlay-strong: rgba(37, 99, 235, 0.06);
+      --surface-card: #14151f;
+      --surface-inset: #090a11;
+      --surface-input: #0d0e19;
+      --surface-neutral: #252636;
+      --scrollbar-thumb: #252636;
+      --scrollbar-thumb-hover: #363748;
+      --shadow-card: rgba(0,0,0,0.3);
+      --shadow-primary-glow: rgba(37, 99, 235, 0.25);
+      --accent-text: #93b4fc;
+    }
+    [data-theme="cb-deuteranopia"] {
+      color-scheme: dark;
+      --color-base-100: oklch(0.13 0.012 65);
+      --color-base-200: oklch(0.16 0.012 65);
+      --color-base-300: oklch(0.19 0.012 65);
+      --color-base-content: oklch(0.91 0.008 65);
+      --color-primary: oklch(0.62 0.17 65);
+      --color-primary-content: oklch(0.1 0.01 65);
+      --color-secondary: oklch(0.58 0.14 245);
+      --color-secondary-content: oklch(1 0 0);
+      --color-accent: oklch(0.72 0.12 65);
+      --color-accent-content: oklch(0.13 0.012 65);
+      --color-neutral: oklch(0.22 0.01 65);
+      --color-neutral-content: oklch(0.91 0.008 65);
+      --color-success: oklch(0.55 0.2 250);
+      --color-error: oklch(0.72 0.22 52);
+      --color-warning: oklch(0.82 0.18 92);
+      --color-info: oklch(0.6 0.18 262);
+      --topbar-bg: rgba(20, 15, 10, 0.85);
+      --border-color: rgba(255, 245, 230, 0.06);
+      --border-color-subtle: rgba(255, 245, 230, 0.04);
+      --text-muted: rgba(233, 226, 214, 0.5);
+      --text-faint: rgba(233, 226, 214, 0.4);
+      --text-faintest: rgba(233, 226, 214, 0.3);
+      --text-ghost: rgba(233, 226, 214, 0.2);
+      --text-dim: rgba(233, 226, 214, 0.15);
+      --text-bright: #e9e2d6;
+      --hover-overlay: rgba(200, 120, 30, 0.04);
+      --hover-overlay-strong: rgba(200, 120, 30, 0.08);
+      --surface-card: #1e1810;
+      --surface-inset: #100d08;
+      --surface-input: #181309;
+      --surface-neutral: #2e271c;
+      --scrollbar-thumb: #2e271c;
+      --scrollbar-thumb-hover: #42382a;
+      --shadow-card: rgba(0, 0, 0, 0.35);
+      --shadow-primary-glow: rgba(200, 120, 30, 0.28);
+      --accent-text: #d4924a;
+    }
+    [data-theme="cb-tritanopia"] {
+      color-scheme: dark;
+      --color-base-100: oklch(0.13 0.012 20);
+      --color-base-200: oklch(0.16 0.012 20);
+      --color-base-300: oklch(0.19 0.012 20);
+      --color-base-content: oklch(0.9 0.008 20);
+      --color-primary: oklch(0.58 0.22 5);
+      --color-primary-content: oklch(1 0 0);
+      --color-secondary: oklch(0.62 0.18 345);
+      --color-secondary-content: oklch(1 0 0);
+      --color-accent: oklch(0.72 0.14 350);
+      --color-accent-content: oklch(0.13 0.012 20);
+      --color-neutral: oklch(0.22 0.01 20);
+      --color-neutral-content: oklch(0.9 0.008 20);
+      --color-success: oklch(0.68 0.18 190);
+      --color-error: oklch(0.6 0.24 10);
+      --color-warning: oklch(0.72 0.2 345);
+      --color-info: oklch(0.62 0.15 197);
+      --topbar-bg: rgba(23, 15, 15, 0.85);
+      --border-color: rgba(255,255,255,0.06);
+      --border-color-subtle: rgba(255,255,255,0.04);
+      --text-muted: rgba(233, 226, 226, 0.5);
+      --text-faint: rgba(233, 226, 226, 0.4);
+      --text-faintest: rgba(233, 226, 226, 0.3);
+      --text-ghost: rgba(233, 226, 226, 0.2);
+      --text-dim: rgba(233, 226, 226, 0.15);
+      --text-bright: #e9e2e2;
+      --hover-overlay: rgba(210, 60, 60, 0.03);
+      --hover-overlay-strong: rgba(210, 60, 60, 0.06);
+      --surface-card: #1f1515;
+      --surface-inset: #0f0a0a;
+      --surface-input: #170f0f;
+      --surface-neutral: #2f2525;
+      --scrollbar-thumb: #2f2525;
+      --scrollbar-thumb-hover: #443535;
+      --shadow-card: rgba(0,0,0,0.3);
+      --shadow-primary-glow: rgba(210, 60, 60, 0.25);
+      --accent-text: #f09090;
+    }
     </style>
 
     {% if not config.DEBUG %}
@@ -437,6 +560,16 @@
                     <circle cx="12" cy="12" r="10" />
                     <path d="M12 2a10 10 0 0 0 0 20z" fill="currentColor" />
                   </svg>
+                  <svg class="w-4 h-4 theme-icon-cb hidden"
+                       viewBox="0 0 24 24"
+                       fill="none"
+                       stroke="currentColor"
+                       stroke-width="2"
+                       stroke-linecap="round"
+                       stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
                 </button>
                 <div class="theme-dropdown hidden absolute right-0 top-full mt-1 z-[60] bg-base-300 rounded-lg border border-base-content/10 shadow-xl p-1 min-w-[140px]">
                   <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
@@ -523,6 +656,50 @@
                     Dark
                   </button>
                   <div class="border-t border-base-content/10 my-1"></div>
+                  <span class="px-3 py-1 text-[10px] uppercase tracking-wider text-base-content/40 font-medium">Colorblind</span>
+                  <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
+                          data-theme-val="cb-protanopia">
+                    <svg class="w-3.5 h-3.5 shrink-0"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Protanopia
+                  </button>
+                  <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
+                          data-theme-val="cb-deuteranopia">
+                    <svg class="w-3.5 h-3.5 shrink-0"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Deuteranopia
+                  </button>
+                  <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
+                          data-theme-val="cb-tritanopia">
+                    <svg class="w-3.5 h-3.5 shrink-0"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Tritanopia
+                  </button>
+                  <div class="border-t border-base-content/10 my-1"></div>
                   <div class="px-3 py-1.5">
                     <span class="text-[10px] uppercase tracking-wider text-base-content/40 font-medium">Accent</span>
                     <div class="flex gap-1.5 mt-1.5">
@@ -562,11 +739,26 @@
                   </div>
                   <div class="border-t border-base-content/10 my-1"></div>
                   <div class="px-3 py-1.5">
-                    <span class="text-[10px] uppercase tracking-wider text-base-content/40 font-medium">Layout</span>
+                    <span class="text-[10px] uppercase tracking-wider text-base-content/40 font-medium">Preferences</span>
                     <label class="flex items-center gap-2 mt-1.5 cursor-pointer">
                       <input type="checkbox"
                              class="toggle toggle-xs toggle-primary compact-mode-toggle" />
                       <span class="text-xs text-base-content/60">Compact header</span>
+                    </label>
+                    <label class="flex items-center gap-2 mt-1 cursor-pointer">
+                      <input type="checkbox"
+                             class="toggle toggle-xs toggle-primary reduce-motion-toggle" />
+                      <span class="text-xs text-base-content/60">Reduce motion</span>
+                    </label>
+                    <label class="flex items-center gap-2 mt-1 cursor-pointer">
+                      <input type="checkbox"
+                             class="toggle toggle-xs toggle-primary pipeline-toasts-toggle" />
+                      <span class="text-xs text-base-content/60">Pipeline popups</span>
+                    </label>
+                    <label class="flex items-center gap-2 mt-1 cursor-pointer">
+                      <input type="checkbox"
+                             class="toggle toggle-xs toggle-primary low-data-toggle" />
+                      <span class="text-xs text-base-content/60">Low data mode</span>
                     </label>
                   </div>
                 </div>
@@ -671,6 +863,16 @@
                     <circle cx="12" cy="12" r="10" />
                     <path d="M12 2a10 10 0 0 0 0 20z" fill="currentColor" />
                   </svg>
+                  <svg class="w-4 h-4 theme-icon-cb hidden"
+                       viewBox="0 0 24 24"
+                       fill="none"
+                       stroke="currentColor"
+                       stroke-width="2"
+                       stroke-linecap="round"
+                       stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
                 </button>
                 <div class="theme-dropdown hidden absolute right-0 top-full mt-1 z-[60] bg-base-300 rounded-lg border border-base-content/10 shadow-xl p-1 min-w-[140px]">
                   <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
@@ -757,6 +959,50 @@
                     Dark
                   </button>
                   <div class="border-t border-base-content/10 my-1"></div>
+                  <span class="px-3 py-1 text-[10px] uppercase tracking-wider text-base-content/40 font-medium">Colorblind</span>
+                  <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
+                          data-theme-val="cb-protanopia">
+                    <svg class="w-3.5 h-3.5 shrink-0"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Protanopia
+                  </button>
+                  <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
+                          data-theme-val="cb-deuteranopia">
+                    <svg class="w-3.5 h-3.5 shrink-0"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Deuteranopia
+                  </button>
+                  <button class="theme-opt flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs rounded-md hover:bg-base-content/5 transition-colors"
+                          data-theme-val="cb-tritanopia">
+                    <svg class="w-3.5 h-3.5 shrink-0"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Tritanopia
+                  </button>
+                  <div class="border-t border-base-content/10 my-1"></div>
                   <div class="px-3 py-1.5">
                     <span class="text-[10px] uppercase tracking-wider text-base-content/40 font-medium">Accent</span>
                     <div class="flex gap-1.5 mt-1.5">
@@ -796,11 +1042,26 @@
                   </div>
                   <div class="border-t border-base-content/10 my-1"></div>
                   <div class="px-3 py-1.5">
-                    <span class="text-[10px] uppercase tracking-wider text-base-content/40 font-medium">Layout</span>
+                    <span class="text-[10px] uppercase tracking-wider text-base-content/40 font-medium">Preferences</span>
                     <label class="flex items-center gap-2 mt-1.5 cursor-pointer">
                       <input type="checkbox"
                              class="toggle toggle-xs toggle-primary compact-mode-toggle" />
                       <span class="text-xs text-base-content/60">Compact header</span>
+                    </label>
+                    <label class="flex items-center gap-2 mt-1 cursor-pointer">
+                      <input type="checkbox"
+                             class="toggle toggle-xs toggle-primary reduce-motion-toggle" />
+                      <span class="text-xs text-base-content/60">Reduce motion</span>
+                    </label>
+                    <label class="flex items-center gap-2 mt-1 cursor-pointer">
+                      <input type="checkbox"
+                             class="toggle toggle-xs toggle-primary pipeline-toasts-toggle" />
+                      <span class="text-xs text-base-content/60">Pipeline popups</span>
+                    </label>
+                    <label class="flex items-center gap-2 mt-1 cursor-pointer">
+                      <input type="checkbox"
+                             class="toggle toggle-xs toggle-primary low-data-toggle" />
+                      <span class="text-xs text-base-content/60">Low data mode</span>
                     </label>
                   </div>
                 </div>
