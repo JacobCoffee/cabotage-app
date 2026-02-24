@@ -850,8 +850,13 @@ PipelineTracker.prototype.updateSegment = function(name, info) {
     return;
   }
 
-  var versionText = name === 'build' ? '#' + info.version : 'v' + info.version;
-  if (version) version.textContent = versionText;
+  if (version) {
+    if (info.version != null) {
+      version.textContent = name === 'build' ? '#' + info.version : 'v' + info.version;
+    } else {
+      version.textContent = '';
+    }
+  }
 
   if (info.status === 'complete') {
     seg.className = 'pipe-segment pipe-seg-complete';
