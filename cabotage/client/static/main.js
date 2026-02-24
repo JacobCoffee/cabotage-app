@@ -195,7 +195,11 @@ function initThemeToggle() {
     localStorage.setItem('theme-pref', pref);
     var meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-      meta.content = resolved === 'light' ? '#fafafe' : resolved === 'terminal' ? '#0a0a0a' : '#0f0f17';
+      var metaColors = {
+        light: '#fafafe', terminal: '#0a0a0a',
+        'contrast-dark': '#010409', 'contrast-light': '#ffffff'
+      };
+      meta.content = metaColors[resolved] || '#0f0f17';
     }
     // When entering terminal, auto-switch accent to white
     var accent = localStorage.getItem('accent-color') || 'purple';
@@ -203,7 +207,6 @@ function initThemeToggle() {
       accent = 'white';
       localStorage.setItem('accent-color', accent);
       document.documentElement.setAttribute('data-accent', accent);
-      // Update swatch highlight if accent picker is initialized
       document.querySelectorAll('.accent-opt').forEach(function (b) {
         b.style.borderColor = b.getAttribute('data-accent') === accent ? 'var(--color-base-content)' : 'transparent';
       });

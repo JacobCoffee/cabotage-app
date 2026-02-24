@@ -39,6 +39,12 @@ textarea {
 [data-theme-pref='terminal'] .theme-icon-terminal {
   display: block !important;
 }
+[data-theme-pref='contrast-dark'] .theme-icon-contrast-dark {
+  display: block !important;
+}
+[data-theme-pref='contrast-light'] .theme-icon-contrast-light {
+  display: block !important;
+}
 html:not([data-theme-pref]) .theme-icon-system {
   display: block !important;
 }
@@ -79,6 +85,26 @@ html:not([data-theme-pref]) .theme-icon-system {
 }
 [data-theme='terminal'] a:hover {
   text-shadow: none;
+}
+
+/* ---------- High Contrast Theme Extras ---------- */
+[data-theme='contrast-dark'],
+[data-theme='contrast-light'] {
+  --radius-field: 0;
+  --radius-box: 0;
+  --radius-selector: 0;
+  --radius-btn: 0;
+  --radius-badge: 0;
+}
+[data-theme='contrast-dark'] *,
+[data-theme='contrast-light'] * {
+  border-radius: 0 !important;
+}
+[data-theme='contrast-dark'] .border,
+[data-theme='contrast-dark'] [class*='border-'],
+[data-theme='contrast-light'] .border,
+[data-theme='contrast-light'] [class*='border-'] {
+  border-style: solid;
 }
 
 /* ---------- Shell Layout ---------- */
