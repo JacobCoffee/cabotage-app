@@ -185,56 +185,37 @@ function initThemeToggle() {
     if (window.__applyAccent) window.__applyAccent(accent, resolved);
   }
 
-  function cyclePref() {
-    var current = localStorage.getItem('theme-pref') || 'system';
-    // If on terminal, cycle back to light
-    var next = current === 'light' ? 'dark' : current === 'dark' ? 'system' : 'light';
-    applyPref(next);
-  }
-
-  // Long-hover dropdown logic for each theme-toggle-wrap
+  // Click-to-toggle dropdown for each theme-toggle-wrap
   document.querySelectorAll('.theme-toggle-wrap').forEach(function(wrap) {
     var btn = wrap.querySelector('button');
     var dropdown = wrap.querySelector('.theme-dropdown');
-    var hoverTimer = null;
-    var optClicked = false;
 
-    function showDropdown() {
-      dropdown.classList.remove('hidden');
+    function toggle() {
+      dropdown.classList.toggle('hidden');
     }
 
-    function hideDropdown() {
+    function hide() {
       dropdown.classList.add('hidden');
     }
 
-    // Click on button always cycles — unless a dropdown option was just picked
-    btn.addEventListener('click', function() {
-      if (optClicked) {
-        optClicked = false;
-        return;
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      toggle();
+    });
+
+    // Close on click outside
+    document.addEventListener('click', function(e) {
+      if (!wrap.contains(e.target)) {
+        hide();
       }
-      clearTimeout(hoverTimer);
-      hideDropdown();
-      cyclePref();
     });
 
-    // Long hover (800ms) reveals dropdown
-    wrap.addEventListener('mouseenter', function() {
-      hoverTimer = setTimeout(showDropdown, 800);
-    });
-
-    wrap.addEventListener('mouseleave', function() {
-      clearTimeout(hoverTimer);
-      hideDropdown();
-    });
-
-    // Dropdown option clicks
+    // Theme option clicks
     dropdown.querySelectorAll('.theme-opt').forEach(function(opt) {
       opt.addEventListener('click', function(e) {
         e.stopPropagation();
-        optClicked = true;
         applyPref(opt.getAttribute('data-theme-val'));
-        hideDropdown();
+        hide();
       });
     });
   });
