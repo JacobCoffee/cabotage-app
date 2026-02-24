@@ -787,7 +787,8 @@
   <div class="pipeline-row">
 
     {# Build stage #}
-    <div class="pipeline-stage">
+    <div class="pipeline-stage
+                {% if application.latest_image and application.latest_image.error %}pipeline-stage-error{% endif %}">
       <div class="pipeline-stage-header">
         <div>
           <span class="text-xs text-base-content/40">Build</span>
@@ -841,7 +842,8 @@
     </div>
 
     {# Package stage #}
-    <div class="pipeline-stage">
+    <div class="pipeline-stage
+                {% if application.latest_release and application.latest_release.error %}pipeline-stage-error{% endif %}">
       <div class="pipeline-stage-header">
         <div>
           <span class="text-xs text-base-content/40">Package</span>
@@ -892,7 +894,8 @@
     </div>
 
     {# Deploy stage #}
-    <div class="pipeline-stage">
+    <div class="pipeline-stage
+                {% if application.latest_deployment and application.latest_deployment.error %}pipeline-stage-error{% endif %}">
       <div class="pipeline-stage-header">
         <div>
           <span class="text-xs text-base-content/40">Deploy</span>
