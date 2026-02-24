@@ -1034,9 +1034,173 @@ function initPipelineTracker() {
   }
 }
 
+/* ---------- Pipeline Toast Notifications ---------- */
+
+function showPipelineToast(pipeline) {
+  var container = document.getElementById('pipeline-toasts');
+  if (!container) return;
+
+  var stageLabel = '';
+  if (pipeline.stages.deploy) stageLabel = 'Deploying';
+  else if (pipeline.stages.release) stageLabel = 'Packaging';
+  else if (pipeline.stages.build) stageLabel = 'Building';
+  else stageLabel = 'Pipeline running';
+
+  var href = '/projects/' + pipeline.org_slug + '/' + pipeline.project_slug
+    + '/applications/' + pipeline.app_slug;
+
+  var toast = document.createElement('a');
+  toast.href = href;
+  toast.className = 'pipeline-toast';
+  toast.setAttribute('data-toast-app', pipeline.app_id);
+  toast.innerHTML = '<span class="pipeline-toast-dot"></span>'
+    + '<span><strong>' + pipeline.app_name + '</strong> '
+    + '<span class="text-base-content/50">' + stageLabel + '</span></span>'
+    + '<span class="pipeline-toast-dismiss" title="Dismiss">'
+    + '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
+    + '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>';
+
+  // Dismiss on X click (don't navigate)
+  toast.querySelector('.pipeline-toast-dismiss').addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dismissToast(toast);
+  });
+
+  container.appendChild(toast);
+
+  // Auto-dismiss after 15 seconds
+  setTimeout(function() { dismissToast(toast); }, 15000);
+}
+
+function dismissToast(toast) {
+  if (!toast || !toast.parentNode) return;
+  toast.classList.add('toast-out');
+  toast.addEventListener('animationend', function() { toast.remove(); });
+}
+
+function DashboardPipelinePoller() {
+  this.knownActive = {};
+  this.pollInterval = null;
+  this.poll();
+  this.startPolling();
+}
+
+DashboardPipelinePoller.prototype.startPolling = function() {
+  var self = this;
+  this.pollInterval = setInterval(function() { self.poll(); }, 5000);
+};
+
+DashboardPipelinePoller.prototype.poll = function() {
+  var self = this;
+  fetch('/active_pipelines', { credentials: 'same-origin' })
+    .then(function(r) {
+      if (!r.ok) throw new Error('active_pipelines ' + r.status);
+      return r.json();
+    })
+    .then(function(data) { self.update(data.pipelines); })
+    .catch(function(err) { console.warn('[DashboardPoller]', err); });
+};
+
+DashboardPipelinePoller.prototype.update = function(pipelines) {
+  var nowActive = {};
+  for (var i = 0; i < pipelines.length; i++) {
+    var p = pipelines[i];
+    nowActive[p.app_id] = p;
+    if (!this.knownActive[p.app_id]) {
+      showPipelineToast(p);
+    }
+  }
+  this.knownActive = nowActive;
+};
+
+function initDashboardPoller() {
+  // Only run on the dashboard (home) page when authenticated
+  var toastContainer = document.getElementById('pipeline-toasts');
+  var isDashboard = document.querySelector('[data-page="dashboard"]');
+  if (toastContainer && isDashboard) {
+    window.dashboardPoller = new DashboardPipelinePoller();
+  }
+}
+
 /* ---------- Init All ---------- */
+/* ---------- Compact Topbar (scroll collapse) ---------- */
+function initCompactTopbar() {
+  var topbar = document.querySelector('[data-topbar]');
+  var tabBarWrapper = document.querySelector('[data-tab-bar-wrapper]');
+  var inlineTabs = document.querySelector('[data-inline-tabs]');
+  var tabBar = document.querySelector('[data-tabs]');
+
+  if (!topbar || !tabBarWrapper || !inlineTabs || !tabBar) return;
+
+  // Clone tab items into the inline container
+  var sourceTabs = tabBar.querySelectorAll('[data-tab]');
+  sourceTabs.forEach(function(tab) {
+    var clone = document.createElement('button');
+    clone.className = 'topbar-inline-tab';
+    clone.setAttribute('data-inline-tab', tab.getAttribute('data-tab'));
+    if (tab.classList.contains('tab-active')) {
+      clone.classList.add('tab-active');
+    }
+    // Copy icon SVG + text
+    var svg = tab.querySelector('svg');
+    if (svg) clone.appendChild(svg.cloneNode(true));
+    // Get text content (label only, not badge)
+    var label = tab.childNodes;
+    for (var i = 0; i < label.length; i++) {
+      if (label[i].nodeType === 3 && label[i].textContent.trim()) {
+        clone.appendChild(document.createTextNode(label[i].textContent.trim()));
+        break;
+      }
+    }
+    // Copy badge if present
+    var badge = tab.querySelector('.badge');
+    if (badge) clone.appendChild(badge.cloneNode(true));
+    inlineTabs.appendChild(clone);
+  });
+
+  // Click handler: sync with real tabs
+  inlineTabs.addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-inline-tab]');
+    if (!btn) return;
+    var tabId = btn.getAttribute('data-inline-tab');
+    var realTab = tabBar.querySelector('[data-tab="' + tabId + '"]');
+    if (realTab) realTab.click();
+  });
+
+  // Keep inline tabs in sync when real tabs change
+  var observer = new MutationObserver(function() {
+    sourceTabs.forEach(function(tab) {
+      var id = tab.getAttribute('data-tab');
+      var inline = inlineTabs.querySelector('[data-inline-tab="' + id + '"]');
+      if (inline) {
+        inline.classList.toggle('tab-active', tab.classList.contains('tab-active'));
+      }
+    });
+  });
+  sourceTabs.forEach(function(tab) {
+    observer.observe(tab, { attributes: true, attributeFilter: ['class'] });
+  });
+
+  // Scroll detection
+  var THRESHOLD = 20;
+  var isCompact = false;
+
+  function checkScroll() {
+    var scrolled = window.scrollY > THRESHOLD;
+    if (scrolled !== isCompact) {
+      isCompact = scrolled;
+      topbar.classList.toggle('topbar-compact', isCompact);
+    }
+  }
+
+  window.addEventListener('scroll', checkScroll, { passive: true });
+  checkScroll();
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   initTabs();
+  initCompactTopbar();
   initCountInputs();
   initEnvReveal();
   initDropdowns();
@@ -1047,6 +1211,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initExpandModal();
   initAccentPicker();
   initPipelineTracker();
+  initDashboardPoller();
   autoExpandCollapsibleCards();
   syncDetailLogHeight();
   window.addEventListener('resize', function() {

@@ -70,6 +70,114 @@ html:not([data-theme-pref]) .theme-icon-system { display: block !important; }
   border-bottom: 1px solid var(--border-color);
 }
 
+/* ---------- Topbar Compact (scroll collapse) ---------- */
+
+/* Tab bar row: slides up and fades when compact */
+[data-tab-bar-wrapper] {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.25s ease;
+  overflow: hidden;
+}
+[data-tab-bar-wrapper] > * {
+  overflow: hidden;
+}
+.topbar-compact [data-tab-bar-wrapper] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Inline tabs: hidden by default, appear in compact mode */
+.topbar-inline-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.3s ease 0.1s;
+  pointer-events: none;
+}
+.topbar-compact .topbar-inline-tabs {
+  max-width: 40rem;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Separator slash before inline tabs */
+.topbar-inline-tabs::before {
+  content: '/';
+  color: var(--text-ghost);
+  font-size: 0.8125rem;
+  margin: 0 0.5rem;
+  flex-shrink: 0;
+  transform: translateY(-0.5px);
+}
+.topbar-inline-tabs:empty::before {
+  display: none;
+}
+
+/* Inline tab items */
+.topbar-inline-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-radius: 0.25rem;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  background: none;
+  transition: color 0.15s ease, background 0.15s ease,
+              transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.3s ease;
+}
+.topbar-inline-tab:hover {
+  color: var(--text-bright);
+  background: var(--hover-overlay-strong);
+}
+.topbar-inline-tab.tab-active {
+  color: var(--accent-text);
+}
+.topbar-inline-tab .badge {
+  font-size: 0.5625rem;
+  height: 1rem;
+  min-width: 1rem;
+}
+
+/* Staggered entrance for each tab */
+.topbar-compact .topbar-inline-tab {
+  animation: tab-slide-in 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.topbar-compact .topbar-inline-tab:nth-child(1) { animation-delay: 0.04s; }
+.topbar-compact .topbar-inline-tab:nth-child(2) { animation-delay: 0.08s; }
+.topbar-compact .topbar-inline-tab:nth-child(3) { animation-delay: 0.12s; }
+.topbar-compact .topbar-inline-tab:nth-child(4) { animation-delay: 0.16s; }
+.topbar-compact .topbar-inline-tab:nth-child(5) { animation-delay: 0.20s; }
+
+@keyframes tab-slide-in {
+  from {
+    opacity: 0;
+    transform: translate(-8px, 6px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+/* Reverse: slide out when expanding back */
+.app-topbar:not(.topbar-compact) .topbar-inline-tab {
+  animation: none;
+}
+
 .app-content {
   flex: 1;
   width: 100%;
@@ -1703,6 +1811,57 @@ a.pipeline-stage-body:hover {
   .pipeline-progress-segments {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---------- Pipeline Toast Notifications ---------- */
+.pipeline-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.5rem;
+  background: var(--surface-card);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  font-size: 0.8125rem;
+  color: var(--color-base-content);
+  animation: toast-in 0.3s ease-out;
+  max-width: 22rem;
+  text-decoration: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pipeline-toast:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+.pipeline-toast-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--color-primary);
+  flex-shrink: 0;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+.pipeline-toast-dismiss {
+  margin-left: auto;
+  padding: 0.125rem;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+.pipeline-toast-dismiss:hover { opacity: 1; }
+.pipeline-toast.toast-out {
+  animation: toast-out 0.25s ease-in forwards;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(1rem); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(1rem); }
 }
 
 /* ---------- Settings Page ---------- */

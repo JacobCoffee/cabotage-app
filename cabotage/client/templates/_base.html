@@ -252,10 +252,11 @@
 
     <div class="app-shell">
       {# ===== TOP BAR ===== #}
-      <header class="app-topbar">
-        <div class="flex items-center justify-between px-4 lg:px-6 h-14">
+      <header class="app-topbar" data-topbar>
+        <div class="topbar-row flex items-center justify-between px-4 lg:px-6 h-14"
+             data-topbar-row>
           {# Left: Logo + resource path #}
-          <div class="flex items-center gap-4">
+          <div class="flex items-center gap-4" data-topbar-left>
             <a href="{{ url_for('main.home') }}"
                class="flex items-center gap-2 text-base-content hover:text-accent transition-colors flex-shrink-0"
                aria-label="Cabotage home">
@@ -276,6 +277,9 @@
             {# Resource path breadcrumb #}
             {% block resource_path %}
             {% endblock resource_path %}
+
+            {# Inline tabs (appear when scrolled, populated by JS) #}
+            <div class="topbar-inline-tabs" data-inline-tabs></div>
           </div>
 
           {# Right: Nav + user #}
@@ -622,8 +626,10 @@
         {% endif %}
 
         {# Tab bar (used by application detail and similar pages) #}
-        {% block tab_bar %}
-        {% endblock tab_bar %}
+        <div data-tab-bar-wrapper>
+          {% block tab_bar %}
+          {% endblock tab_bar %}
+        </div>
       </header>
 
       {# ===== FLASH MESSAGES ===== #}
@@ -712,6 +718,10 @@
         <div class="expand-modal-body overflow-auto flex-1 text-sm"></div>
       </div>
     </div>
+
+    {# ===== Pipeline Toast Notifications ===== #}
+    <div id="pipeline-toasts"
+         class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
   </body>
 </html>

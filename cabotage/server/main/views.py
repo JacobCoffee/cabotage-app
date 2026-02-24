@@ -12,6 +12,7 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_user
+from flask_security import login_required
 
 from cabotage.server.models.auth import User
 
@@ -43,6 +44,46 @@ def home():
             "deploy_count": deploy_count,
         }
     return render_template("main/home.html", **stats)
+
+
+@main_blueprint.route("/active_pipelines")
+@login_required
+def active_pipelines():
+    projects = current_user.projects
+    applications = []
+    for p in projects:
+        applications.extend(p.project_applications)
+
+    active = []
+    for app in applications:
+        building_image = app.latest_image_building
+        building_release = app.latest_release_building
+        running_deployment = app.latest_deployment_running
+
+        if not (building_image or building_release or running_deployment):
+            continue
+
+        stages = {}
+        if building_image:
+            stages["build"] = "in_progress"
+        if building_release:
+            stages["release"] = "in_progress"
+        if running_deployment:
+            stages["deploy"] = "in_progress"
+
+        active.append(
+            {
+                "app_id": str(app.id),
+                "app_name": app.name,
+                "project_name": app.project.name,
+                "org_slug": app.project.organization.slug,
+                "project_slug": app.project.slug,
+                "app_slug": app.slug,
+                "stages": stages,
+            }
+        )
+
+    return jsonify({"pipelines": active})
 
 
 @main_blueprint.route("/about/")
