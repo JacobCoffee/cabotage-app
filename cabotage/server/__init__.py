@@ -95,7 +95,12 @@ def celery_init_app(app):
             "task": "cabotage.celery.tasks.maintain.reap_pods",
             "schedule": crontab(minute="*/5"),
             "args": None,
-        }
+        },
+        "stuck-deployment-completer": {
+            "task": "cabotage.celery.tasks.maintain.complete_stuck_deployments",
+            "schedule": crontab(minute="*/2"),
+            "args": None,
+        },
     }
     app.extensions["celery"] = celery_app
     return celery_app

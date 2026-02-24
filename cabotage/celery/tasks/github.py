@@ -296,7 +296,7 @@ def process_github_hook(hook_id):
     event = hook.headers["X-Github-Event"]
     if event == "deployment":
         if hook.commit_sha is not None:
-            installation_id = hook.payload.get("installation", {}).get("id")
+            installation_id = str(hook.payload.get("installation", {}).get("id"))
             environment = hook.payload.get("deployment", {}).get("environment")
             existing_hooks = (
                 Hook.query.filter(Hook.commit_sha == hook.commit_sha)

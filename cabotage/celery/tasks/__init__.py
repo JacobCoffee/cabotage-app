@@ -8,6 +8,7 @@ from .deploy import (
 )
 
 from .maintain import (
+    complete_stuck_deployments,  # noqa: F401
     reap_pods,  # noqa: F401
 )
 
