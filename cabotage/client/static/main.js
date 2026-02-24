@@ -788,6 +788,12 @@ function PipelineTracker(container) {
   };
   this.settled = false;
 
+  // Live commit indicator state
+  this.commitEl = document.getElementById('liveCommitStatus');
+  this.currentCommit = this.commitEl ? this.commitEl.getAttribute('data-commit-sha') : null;
+  this.githubRepo = this.commitEl ? this.commitEl.getAttribute('data-github-repo') : null;
+  this.commitLastChanged = Date.now();
+
   // Check initial state and start polling if active
   this.poll();
 }
@@ -827,6 +833,9 @@ PipelineTracker.prototype.update = function(data) {
   this.updateSegment('build', data.build);
   this.updateSegment('release', data.release);
   this.updateSegment('deploy', data.deploy);
+
+  // Update live commit indicator
+  this.updateCommitIndicator(data);
 
   // Pipeline just finished — redirect to the relevant stage
   if (!data.pipeline_active && !this.settled && this.pollInterval) {
@@ -915,6 +924,74 @@ PipelineTracker.prototype.updateSegment = function(name, info) {
   if (link && info.id) {
     var base = name === 'build' ? '/image/' : name === 'release' ? '/release/' : '/deployment/';
     link.href = base + info.id;
+  }
+};
+
+PipelineTracker.prototype.updateCommitIndicator = function(data) {
+  if (!this.commitEl) return;
+
+  var sha = data.commit_sha;
+  var repo = data.github_repository || this.githubRepo;
+  var pipelineActive = data.pipeline_active;
+
+  // Detect commit change
+  if (sha && sha !== this.currentCommit) {
+    this.currentCommit = sha;
+    this.commitLastChanged = Date.now();
+    this.commitEl.setAttribute('data-commit-sha', sha);
+  }
+  if (repo) {
+    this.githubRepo = repo;
+    this.commitEl.setAttribute('data-github-repo', repo);
+  }
+
+  // Build the indicator content
+  var dotClass = 'live-commit-dot';
+  var shaHtml = '';
+  var staleSeconds = (Date.now() - this.commitLastChanged) / 1000;
+
+  if (pipelineActive) {
+    dotClass += ' live-commit-dot-active';
+  } else if (sha && staleSeconds > 60 && this._pipelineWasActive) {
+    dotClass += ' live-commit-dot-stale';
+  } else if (sha) {
+    dotClass += ' live-commit-dot-ok';
+  }
+
+  // Track whether pipeline was recently active (for stale detection)
+  if (pipelineActive) this._pipelineWasActive = true;
+  if (!pipelineActive && sha && sha !== this._lastRenderedCommit) {
+    this._pipelineWasActive = false;
+  }
+
+  if (sha) {
+    var shortSha = sha.substring(0, 8);
+    if (repo) {
+      shaHtml = '<a href="https://github.com/' + repo + '/commit/' + sha + '"'
+        + ' target="_blank" rel="noopener"'
+        + ' class="live-commit-sha" title="' + sha + '">' + shortSha + '</a>';
+    } else {
+      shaHtml = '<code class="live-commit-sha" title="' + sha + '">' + shortSha + '</code>';
+    }
+  } else {
+    shaHtml = '<span class="text-[0.625rem] text-success/40">Up to date</span>';
+    dotClass += ' live-commit-dot-ok';
+  }
+
+  // Flash animation on commit change
+  var freshClass = '';
+  if (sha && sha !== this._lastRenderedCommit && this._lastRenderedCommit) {
+    freshClass = ' live-commit-fresh';
+  }
+  this._lastRenderedCommit = sha || this._lastRenderedCommit;
+
+  this.commitEl.className = 'live-commit' + freshClass;
+  this.commitEl.innerHTML = '<span class="' + dotClass + '"></span>' + shaHtml;
+
+  // Remove flash class after animation
+  if (freshClass) {
+    var el = this.commitEl;
+    setTimeout(function() { el.classList.remove('live-commit-fresh'); }, 1500);
   }
 };
 

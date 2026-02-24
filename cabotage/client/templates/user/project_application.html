@@ -54,10 +54,30 @@
       {% if application.github_app_installation_id %}
         <span class="badge badge-sm badge-neutral gap-1">{{ icon('zap', 'w-3 h-3') }} GitHub</span>
       {% endif %}
-      {# Inline "up to date" badge when no pending changes and everything is deployed #}
-      {% if not has_pending and not show_ready_to_deploy and not is_deploying and application.latest_image and application.releases.count() > 0 %}
-        <span class="text-[0.625rem] text-success/40 flex items-center gap-1">{{ icon('check', 'w-3 h-3') }} Up to date</span>
-      {% endif %}
+      {# Live commit status indicator — JS takes over via PipelineTracker #}
+      {% set _deployed = application.latest_deployment_completed %}
+      {% set _rel = _deployed.release_object if _deployed else none %}
+      {% set _sha = _rel.commit_sha if _rel and _rel.commit_sha and _rel.commit_sha != 'null' else none %}
+      <span id="liveCommitStatus"
+            class="live-commit"
+            data-commit-sha="{{ _sha or '' }}"
+            data-github-repo="{{ application.github_repository or '' }}">
+        {% if _sha %}
+          <span class="live-commit-dot live-commit-dot-ok"></span>
+          {% if application.github_repository %}
+            <a href="https://github.com/{{ application.github_repository }}/commit/{{ _sha }}"
+               target="_blank"
+               rel="noopener"
+               class="live-commit-sha"
+               title="{{ _sha }}">{{ _sha[:8] }}</a>
+          {% else %}
+            <code class="live-commit-sha" title="{{ _sha }}">{{ _sha[:8] }}</code>
+          {% endif %}
+        {% elif not has_pending and not show_ready_to_deploy and not is_deploying and application.latest_image and application.releases.count() > 0 %}
+          <span class="live-commit-dot live-commit-dot-ok"></span>
+          <span class="text-[0.625rem] text-success/40">Up to date</span>
+        {% endif %}
+      </span>
     </div>
     <div class="flex flex-wrap items-center gap-1.5">
       {# Primary action: full auto-deploy pipeline (build → package → deploy) #}

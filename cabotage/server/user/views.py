@@ -537,12 +537,23 @@ def application_pipeline_status(application_id):
         ):
             auto_chain_pending = True
 
+    deployed_commit = None
+    completed_deploy = application.latest_deployment_completed
+    if completed_deploy:
+        rel = completed_deploy.release_object
+        if rel:
+            sha = rel.commit_sha
+            if sha and sha != "null":
+                deployed_commit = sha
+
     return jsonify(
         {
             "pipeline_active": any_in_progress or auto_chain_pending,
             "build": build_info,
             "release": release_info,
             "deploy": deploy_info,
+            "commit_sha": deployed_commit,
+            "github_repository": application.github_repository,
         }
     )
 
