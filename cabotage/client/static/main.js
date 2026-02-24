@@ -791,18 +791,29 @@ PipelineTracker.prototype.update = function(data) {
   this.updateSegment('release', data.release);
   this.updateSegment('deploy', data.deploy);
 
-  // Pipeline just finished — redirect to the furthest completed stage
+  // Pipeline just finished — redirect to the relevant stage
   if (!data.pipeline_active && !this.settled && this.pollInterval) {
     this.settled = true;
     this.stopPolling();
     var target = null;
-    // Redirect to the furthest completed stage, or to the errored stage
-    if (data.deploy && (data.deploy.status === 'complete' || data.deploy.status === 'error') && data.deploy.id) {
-      target = '/deployment/' + data.deploy.id;
-    } else if (data.release && (data.release.status === 'complete' || data.release.status === 'error') && data.release.id) {
-      target = '/release/' + data.release.id;
-    } else if (data.build && (data.build.status === 'complete' || data.build.status === 'error') && data.build.id) {
+    // If any stage errored, redirect to the earliest errored stage
+    // (later stages may be stale data from a previous successful run)
+    if (data.build && data.build.status === 'error' && data.build.id) {
       target = '/image/' + data.build.id;
+    } else if (data.release && data.release.status === 'error' && data.release.id) {
+      target = '/release/' + data.release.id;
+    } else if (data.deploy && data.deploy.status === 'error' && data.deploy.id) {
+      target = '/deployment/' + data.deploy.id;
+    }
+    // No errors — redirect to the furthest completed stage
+    if (!target) {
+      if (data.deploy && data.deploy.status === 'complete' && data.deploy.id) {
+        target = '/deployment/' + data.deploy.id;
+      } else if (data.release && data.release.status === 'complete' && data.release.id) {
+        target = '/release/' + data.release.id;
+      } else if (data.build && data.build.status === 'complete' && data.build.id) {
+        target = '/image/' + data.build.id;
+      }
     }
     setTimeout(function() {
       if (target) {
