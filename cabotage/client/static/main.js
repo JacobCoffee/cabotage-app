@@ -919,8 +919,10 @@ PipelineTracker.prototype.refreshLiveSections = function () {
   if (this._refreshing) return;
   this._refreshing = true;
   var self = this;
-  fetch(window.location.pathname, { credentials: 'same-origin', headers: { 'Accept': 'text/html' } })
-    .then(function (r) { return r.text(); })
+  fetch(window.location.pathname, { credentials: 'same-origin', headers: { Accept: 'text/html' } })
+    .then(function (r) {
+      return r.text();
+    })
     .then(function (html) {
       var doc = new DOMParser().parseFromString(html, 'text/html');
       var pairs = [
@@ -936,8 +938,12 @@ PipelineTracker.prototype.refreshLiveSections = function () {
       }
       self.bannersEl = self.container.querySelector('[data-pipeline-banners]');
     })
-    .catch(function (err) { console.warn('[PipelineTracker] refreshLiveSections', err); })
-    .then(function () { self._refreshing = false; });
+    .catch(function (err) {
+      console.warn('[PipelineTracker] refreshLiveSections', err);
+    })
+    .then(function () {
+      self._refreshing = false;
+    });
 };
 
 PipelineTracker.prototype.updateSegment = function (name, info) {
@@ -1135,22 +1141,47 @@ function toggleCommitPopup(el) {
   var author = el.getAttribute('data-commit-author') || '';
 
   // Build popup HTML
-  var html = '<div class="commit-popup-message commit-popup-loading">Loading commit message...</div>';
+  // Header — "Deployed via GitHub" like Railway
+  var html = '<div class="commit-popup-header">';
+  html +=
+    '<svg class="commit-popup-github-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
+  html += '<span class="commit-popup-header-text">Deployed via GitHub</span>';
+  html += '</div>';
+
+  // Commit message area (filled by API fetch)
+  html += '<div class="commit-popup-message commit-popup-loading">';
+  html += '<span class="commit-popup-author-area" data-commit-author-area></span>';
+  html += '<span data-commit-msg-text>Loading...</span>';
+  html += '</div>';
+
+  // Meta rows
   html += '<div class="commit-popup-meta">';
-  if (author) {
-    html += '<div class="commit-popup-row"><span class="commit-popup-label">Author</span><span class="commit-popup-value">' + escapeHtml(author) + '</span></div>';
+  if (repo) {
+    var repoShort = repo.split('/').pop() || repo;
+    html += '<div class="commit-popup-row"><span class="commit-popup-label">' + escapeHtml(repo) + '</span>';
+    if (ref) {
+      html +=
+        '<span class="commit-popup-value commit-popup-ref"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 01-9 9"/></svg> ' +
+        escapeHtml(ref) +
+        '</span>';
+    }
+    html += '</div>';
   }
-  if (ref) {
-    html += '<div class="commit-popup-row"><span class="commit-popup-label">Ref</span><span class="commit-popup-value"><code>' + escapeHtml(ref) + '</code></span></div>';
-  }
-  if (imageVer) {
-    html += '<div class="commit-popup-row"><span class="commit-popup-label">Image</span><span class="commit-popup-value"><code>#' + escapeHtml(imageVer) + '</code></span></div>';
-  }
-  if (releaseVer) {
-    html += '<div class="commit-popup-row"><span class="commit-popup-label">Package</span><span class="commit-popup-value"><code>v' + escapeHtml(releaseVer) + '</code></span></div>';
+  if (imageVer || releaseVer) {
+    html += '<div class="commit-popup-row">';
+    if (imageVer) {
+      html += '<span class="commit-popup-label">Image <code>#' + escapeHtml(imageVer) + '</code></span>';
+    }
+    if (releaseVer) {
+      html += '<span class="commit-popup-value">Package <code>v' + escapeHtml(releaseVer) + '</code></span>';
+    }
+    html += '</div>';
   }
   if (deployTime) {
-    html += '<div class="commit-popup-row"><span class="commit-popup-label">Deployed</span><span class="commit-popup-value">' + escapeHtml(deployTime) + '</span></div>';
+    html +=
+      '<div class="commit-popup-row"><span class="commit-popup-label">Deployed</span><span class="commit-popup-value">' +
+      escapeHtml(deployTime) +
+      '</span></div>';
   }
   html += '</div>';
 
@@ -1158,14 +1189,20 @@ function toggleCommitPopup(el) {
   html += '<div class="commit-popup-sha">';
   html += '<code title="' + sha + '">' + sha + '</code>';
   html += '<button class="commit-popup-copy" title="Copy SHA" data-copy-sha="' + sha + '">';
-  html += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+  html +=
+    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
   html += '</button>';
   html += '</div>';
 
   // Links
   if (repo) {
     html += '<div class="commit-popup-links">';
-    html += '<a href="https://github.com/' + repo + '/commit/' + sha + '" target="_blank" rel="noopener">View on GitHub &rarr;</a>';
+    html +=
+      '<a href="https://github.com/' +
+      repo +
+      '/commit/' +
+      sha +
+      '" target="_blank" rel="noopener">View on GitHub &rarr;</a>';
     html += '</div>';
   }
 
@@ -1181,9 +1218,11 @@ function toggleCommitPopup(el) {
     copyBtn.addEventListener('click', function (e) {
       e.stopPropagation();
       navigator.clipboard.writeText(sha).then(function () {
-        copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+        copyBtn.innerHTML =
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
         setTimeout(function () {
-          copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+          copyBtn.innerHTML =
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
         }, 2000);
       });
     });
@@ -1219,7 +1258,7 @@ function fetchCommitMessage(repo, sha, msgEl) {
   }
 
   fetch('https://api.github.com/repos/' + repo + '/commits/' + sha, {
-    headers: { 'Accept': 'application/vnd.github.v3+json' },
+    headers: { Accept: 'application/vnd.github.v3+json' },
   })
     .then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -1229,6 +1268,8 @@ function fetchCommitMessage(repo, sha, msgEl) {
       var info = {
         message: data.commit.message || '',
         author: data.commit.author.name || '',
+        login: data.author ? data.author.login : '',
+        avatar: data.author ? data.author.avatar_url : '',
         date: data.commit.author.date || '',
       };
       _commitCache[cacheKey] = info;
@@ -1236,7 +1277,12 @@ function fetchCommitMessage(repo, sha, msgEl) {
     })
     .catch(function () {
       if (msgEl) {
-        msgEl.textContent = 'Could not load commit message';
+        var msgText = msgEl.querySelector('[data-commit-msg-text]');
+        if (msgText) {
+          msgText.textContent = 'Could not load commit message';
+        } else {
+          msgEl.textContent = 'Could not load commit message';
+        }
       }
     });
 }
@@ -1244,26 +1290,34 @@ function fetchCommitMessage(repo, sha, msgEl) {
 function renderCommitMessage(el, info) {
   if (!el) return;
   el.classList.remove('commit-popup-loading');
-  // Show first line prominently, rest dimmer
-  var lines = info.message.split('\n');
-  var firstLine = lines[0] || '';
-  var rest = lines.slice(1).join('\n').trim();
-  var html = escapeHtml(firstLine);
-  if (rest) {
-    html += '<div style="font-size:0.6875rem;font-weight:400;color:oklch(0.6 0 0);margin-top:0.25rem;white-space:pre-wrap">' + escapeHtml(rest) + '</div>';
-  }
-  // Add author + date below
-  if (info.author || info.date) {
-    var meta = '';
-    if (info.author) meta += escapeHtml(info.author);
+
+  // Author avatar + name in the author area
+  var authorArea = el.querySelector('[data-commit-author-area]');
+  if (authorArea && (info.avatar || info.author)) {
+    var avatarHtml = '';
+    if (info.avatar) {
+      avatarHtml += '<img src="' + info.avatar + '&s=32" class="commit-popup-avatar" alt="" />';
+    }
+    avatarHtml += '<span class="commit-popup-author-name">' + escapeHtml(info.login || info.author) + '</span>';
     if (info.date) {
       var d = new Date(info.date);
       var dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-      meta += (meta ? ' \u00b7 ' : '') + dateStr;
+      avatarHtml += '<span class="commit-popup-author-date">' + dateStr + '</span>';
     }
-    html += '<div style="font-size:0.625rem;color:oklch(0.5 0 0);margin-top:0.25rem">' + meta + '</div>';
+    authorArea.innerHTML = avatarHtml;
   }
-  el.innerHTML = html;
+
+  // Commit message text
+  var msgText = el.querySelector('[data-commit-msg-text]');
+  var target = msgText || el;
+  var lines = info.message.split('\n');
+  var firstLine = lines[0] || '';
+  var rest = lines.slice(1).join('\n').trim();
+  var html = '<div class="commit-popup-first-line">' + escapeHtml(firstLine) + '</div>';
+  if (rest) {
+    html += '<div class="commit-popup-body">' + escapeHtml(rest) + '</div>';
+  }
+  target.innerHTML = html;
 }
 
 function escapeHtml(str) {
@@ -1345,8 +1399,9 @@ function dismissToast(toast) {
   });
 }
 
-function DashboardPipelinePoller() {
+function DashboardPipelinePoller(excludeAppId) {
   this.knownActive = {};
+  this.excludeAppId = excludeAppId || null;
   this.pollInterval = null;
   this.poll();
   this.startPolling();
@@ -1379,6 +1434,8 @@ DashboardPipelinePoller.prototype.update = function (pipelines) {
   for (var i = 0; i < pipelines.length; i++) {
     var p = pipelines[i];
     nowActive[p.app_id] = p;
+    // Skip toast for the app already tracked inline on this page
+    if (p.app_id === this.excludeAppId) continue;
     if (!this.knownActive[p.app_id]) {
       showPipelineToast(p);
     }
@@ -1387,12 +1444,15 @@ DashboardPipelinePoller.prototype.update = function (pipelines) {
 };
 
 function initDashboardPoller() {
-  // Only run on the dashboard (home) page when authenticated
+  // Run on any authenticated page that has the toast container
   var toastContainer = document.getElementById('pipeline-toasts');
-  var isDashboard = document.querySelector('[data-page="dashboard"]');
-  if (toastContainer && isDashboard) {
-    window.dashboardPoller = new DashboardPipelinePoller();
-  }
+  if (!toastContainer) return;
+  // Skip pages that already have a PipelineTracker (app overview) —
+  // those apps are already tracked inline, avoid duplicate toasts
+  var trackedAppId = null;
+  var trackerEl = document.querySelector('[data-pipeline-tracker]');
+  if (trackerEl) trackedAppId = trackerEl.getAttribute('data-application-id');
+  window.dashboardPoller = new DashboardPipelinePoller(trackedAppId);
 }
 
 /* ---------- Init All ---------- */
