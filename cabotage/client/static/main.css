@@ -4149,15 +4149,15 @@ a.obs-pod-link:hover {
 .dpl-list .tooltip::before {
   font-size: 0.6875rem;
   padding: 0.375rem 0.625rem;
-  background: oklch(var(--b1));
-  color: oklch(var(--bc));
+  background: var(--color-base-300);
+  color: var(--color-base-content);
   border: 1px solid var(--border-color);
   border-radius: 0.375rem;
   box-shadow: 0 4px 12px rgba(0,0,0,0.12);
   white-space: nowrap;
 }
 .dpl-list .tooltip::after {
-  border-top-color: oklch(var(--b1));
+  border-top-color: var(--color-base-300);
 }
 
 /* --- Section header --- */
