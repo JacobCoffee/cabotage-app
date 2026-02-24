@@ -117,7 +117,7 @@
            class="btn btn-ghost btn-sm gap-1.5">{{ icon('terminal', 'w-3.5 h-3.5') }} Shell</a>
       {% endif %}
       {% if application.github_repository %}
-        <a href="https://github.com/{{ application.github_repository }}"
+        <a href="https://github.com/{{ application.github_repository }}{%- if application.auto_deploy_branch -%}/tree/{{ application.auto_deploy_branch }}{%- endif -%}"
            target="_blank"
            rel="noopener"
            class="btn btn-ghost btn-sm gap-1.5">{{ icon('github', 'w-3.5 h-3.5') }} Code</a>
