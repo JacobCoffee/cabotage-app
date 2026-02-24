@@ -1613,7 +1613,7 @@ ObservabilityPanel.prototype.deactivate = function () {
 
 ObservabilityPanel.prototype.fetch = function () {
   var self = this;
-  var url = '/user/applications/' + this.appId + '/observability?range=' + this.range;
+  var url = '/applications/' + this.appId + '/observability?range=' + this.range;
   fetch(url, { credentials: 'same-origin' })
     .then(function (r) { return r.json(); })
     .then(function (data) { self.render(data); })
