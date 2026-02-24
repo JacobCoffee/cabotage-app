@@ -456,7 +456,7 @@
                         </p>
                       {% else %}
                         <p class="text-xs text-base-content/40">
-                          <time data-timestamp="{{ application.latest_release.updated.isoformat() }}">{{ application.latest_release.updated|humanize }}</time>
+                          <time data-timestamp="{{ application.latest_release.updated|isoformat_utc }}">{{ application.latest_release.updated|humanize }}</time>
                         </p>
                       {% endif %}
                     </div>
@@ -703,7 +703,7 @@
                                  height:5px"></span>
                   {% endif %}
                   <code class="text-xs text-accent/70">#{{ img.version }}</code>
-                <span class="text-xs text-base-content/25 ml-auto"><time data-timestamp="{{ img.updated.isoformat() }}">{{ img.updated|humanize }}</time>
+                <span class="text-xs text-base-content/25 ml-auto"><time data-timestamp="{{ img.updated|isoformat_utc }}">{{ img.updated|humanize }}</time>
                 {% if img.built %}<span class="text-base-content/15">({{ img|duration }})</span>{% endif %}
               </span>
             </a>
@@ -734,7 +734,7 @@
                              height:5px"></span>
               {% endif %}
               <code class="text-xs text-accent/70">v{{ rel.version }}</code>
-            <span class="text-xs text-base-content/25 ml-auto"><time data-timestamp="{{ rel.updated.isoformat() }}">{{ rel.updated|humanize }}</time>
+            <span class="text-xs text-base-content/25 ml-auto"><time data-timestamp="{{ rel.updated|isoformat_utc }}">{{ rel.updated|humanize }}</time>
             {% if rel.built %}<span class="text-base-content/15">({{ rel|duration }})</span>{% endif %}
           </span>
         </a>
@@ -765,7 +765,7 @@
                          height:5px"></span>
           {% endif %}
           <code class="text-xs text-accent/70">v{{ dep.release_object.version if dep.release_object else '?' }}</code>
-        <span class="text-xs text-base-content/25 ml-auto"><time data-timestamp="{{ dep.updated.isoformat() }}">{{ dep.updated|humanize }}</time>
+        <span class="text-xs text-base-content/25 ml-auto"><time data-timestamp="{{ dep.updated|isoformat_utc }}">{{ dep.updated|humanize }}</time>
         {% if dep.complete %}<span class="text-base-content/15">({{ dep|duration }})</span>{% endif %}
       </span>
     </a>
@@ -810,7 +810,7 @@
            class="pipeline-stage-body group">
           <code class="text-sm text-accent">#{{ application.latest_image.version }}</code>
           <p class="text-xs text-base-content/40">
-            <time data-timestamp="{{ application.latest_image.updated.isoformat() }}">{{ application.latest_image.updated|humanize }}</time>
+            <time data-timestamp="{{ application.latest_image.updated|isoformat_utc }}">{{ application.latest_image.updated|humanize }}</time>
           </p>
         </a>
       {% else %}
@@ -864,7 +864,7 @@
            class="pipeline-stage-body group">
           <code class="text-sm text-accent">v{{ application.latest_release.version }}</code>
           <p class="text-xs text-base-content/40">
-            <time data-timestamp="{{ application.latest_release.updated.isoformat() }}">{{ application.latest_release.updated|humanize }}</time>
+            <time data-timestamp="{{ application.latest_release.updated|isoformat_utc }}">{{ application.latest_release.updated|humanize }}</time>
           </p>
         </a>
       {% else %}
@@ -923,7 +923,7 @@
             {% endif %}
           </span>
           <p class="text-xs text-base-content/40">
-            <time data-timestamp="{{ application.latest_deployment.updated.isoformat() }}">{{ application.latest_deployment.updated|humanize }}</time>
+            <time data-timestamp="{{ application.latest_deployment.updated|isoformat_utc }}">{{ application.latest_deployment.updated|humanize }}</time>
           </p>
         </a>
       {% else %}
@@ -1395,7 +1395,7 @@
           </div>
 
           {# Timestamp #}
-          <span class="dpl-row-time"><time data-timestamp="{{ image.updated.isoformat() }}">{{ image.updated|humanize }}</time></span>
+          <span class="dpl-row-time"><time data-timestamp="{{ image.updated|isoformat_utc }}">{{ image.updated|humanize }}</time></span>
         </a>
       {% endfor %}
     </div>
@@ -1541,7 +1541,7 @@
           </div>
 
           {# Timestamp #}
-          <span class="dpl-row-time"><time data-timestamp="{{ release.updated.isoformat() }}">{{ release.updated|humanize }}</time></span>
+          <span class="dpl-row-time"><time data-timestamp="{{ release.updated|isoformat_utc }}">{{ release.updated|humanize }}</time></span>
         </a>
       {% endfor %}
     </div>
@@ -1624,7 +1624,7 @@
               {% endif %}
               <span class="dpl-meta-chip dpl-meta-chip-dim">
                 {{ icon('clock', 'w-3 h-3') }}
-                <span><time data-timestamp="{{ active_deploy.updated.isoformat() }}">{{ active_deploy.updated|humanize }}</time></span>
+                <span><time data-timestamp="{{ active_deploy.updated|isoformat_utc }}">{{ active_deploy.updated|humanize }}</time></span>
                 {% if active_deploy.complete %}<span class="dpl-meta-duration">({{ active_deploy|duration }})</span>{% endif %}
               </span>
             </div>
@@ -1739,7 +1739,7 @@
           </div>
 
           {# Timestamp #}
-          <span class="dpl-row-time"><time data-timestamp="{{ deployment.updated.isoformat() }}">{{ deployment.updated|humanize }}</time></span>
+          <span class="dpl-row-time"><time data-timestamp="{{ deployment.updated|isoformat_utc }}">{{ deployment.updated|humanize }}</time></span>
         </a>
       {% endfor %}
     </div>

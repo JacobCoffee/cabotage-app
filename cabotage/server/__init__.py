@@ -206,6 +206,12 @@ def create_app():
     def humanize_filter(value):
         return humanize_lib.naturaltime(value)
 
+    @app.template_filter("isoformat_utc")
+    def isoformat_utc_filter(value):
+        if value is None:
+            return ""
+        return value.isoformat() + "Z"
+
     @app.template_filter("duration")
     def duration_filter(obj):
         if not getattr(obj, "created", None) or not getattr(obj, "updated", None):
