@@ -1032,13 +1032,24 @@ def build_image_buildkit(image=None):
     }
 
 
-@shared_task()
+@shared_task(acks_late=True)
 def run_image_build(image_id=None, buildkit=False):
     current_app.config["REGISTRY_AUTH_SECRET"]
     current_app.config["REGISTRY_BUILD"]
     image = Image.query.filter_by(id=image_id).first()
     if image is None:
         raise KeyError(f"Image with ID {image_id} not found!")
+
+    if image.built:
+        logger.info(
+            "Image %s already built, skipping (idempotent re-delivery)", image_id
+        )
+        return
+    if image.error:
+        logger.info(
+            "Image %s already errored, skipping (idempotent re-delivery)", image_id
+        )
+        return
 
     image.build_job_id = secrets.token_hex(4)
     db.session.add(image)
@@ -1121,7 +1132,7 @@ def run_image_build(image_id=None, buildkit=False):
         run_release_build.delay(release_id=release.id)
 
 
-@shared_task()
+@shared_task(acks_late=True)
 def run_release_build(release_id=None):
     try:
         current_app.config["REGISTRY_AUTH_SECRET"]
@@ -1129,6 +1140,19 @@ def run_release_build(release_id=None):
         release = Release.query.filter_by(id=release_id).first()
         if release is None:
             raise KeyError(f"Release with ID {release_id} not found!")
+
+        if release.built:
+            logger.info(
+                "Release %s already built, skipping (idempotent re-delivery)",
+                release_id,
+            )
+            return
+        if release.error:
+            logger.info(
+                "Release %s already errored, skipping (idempotent re-delivery)",
+                release_id,
+            )
+            return
 
         if release.release_metadata is None:
             release.release_metadata = {}

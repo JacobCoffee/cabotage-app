@@ -1442,6 +1442,20 @@ def run_deploy(deployment_id=None):
     deployment = Deployment.query.filter_by(id=deployment_id).first()
     if deployment is None:
         raise KeyError(f"Deployment with ID {deployment_id} not found!")
+
+    if deployment.complete:
+        logger.info(
+            "Deployment %s already complete, skipping (idempotent re-delivery)",
+            deployment_id,
+        )
+        return
+    if deployment.error:
+        logger.info(
+            "Deployment %s already errored, skipping (idempotent re-delivery)",
+            deployment_id,
+        )
+        return
+
     error_detail = ""
     try:
         deploy_release(deployment)

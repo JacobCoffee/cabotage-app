@@ -618,8 +618,11 @@
 
     {# ── SECTION 2.5: CONFIGURATION AT A GLANCE ── #}
 
-    <div class="mb-4">
-      <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Configuration</h2>
+    <details class="mb-4">
+      <summary class="cursor-pointer select-none inline-flex items-center gap-1.5 text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3 hover:text-base-content/60 transition-colors">
+        <span class="collapse-icon">{{ icon('chevron-right', 'w-3 h-3') }}</span>
+        Configuration
+      </summary>
       <div class="card bg-base-200 border border-base-300">
         <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-base-content/5">
           <div class="p-4">
@@ -667,15 +670,11 @@
                   <span class="deploy-meta-value text-base-content/50">{{ application.deployment_timeout }}s</span>
                 </div>
               {% endif %}
-              <div class="deploy-meta-row">
-                <span class="deploy-meta-label">Replicas</span>
-                <span class="deploy-meta-value text-base-content/50">{{ application.process_counts.values() |sum }}</span>
-              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </details>
 
     {# ── SECTION 3: RECENT ACTIVITY ── #}
 
@@ -1381,6 +1380,11 @@
   <div data-tab-panel="releases" class="tab-panel">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-base font-medium text-base-content">Packages</h2>
+      <form action="{{ url_for('user.application_release_create', application_id=application.id) }}"
+            method="post"
+            class="inline">
+        <button class="btn btn-primary btn-sm gap-1.5" type="submit">{{ icon('play', 'w-3.5 h-3.5') }} Build Package</button>
+      </form>
     </div>
 
     {% if releases|default([])|length > 0 %}
@@ -1453,6 +1457,13 @@
   <div data-tab-panel="deployments" class="tab-panel">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-base font-medium text-base-content">Deploys</h2>
+      {% if application.latest_release and application.latest_release.built %}
+        <form action="{{ url_for('user.release_deploy', release_id=application.latest_release.id) }}"
+              method="post"
+              class="inline">
+          <button class="btn btn-primary btn-sm gap-1.5" type="submit">{{ icon('deploy', 'w-3.5 h-3.5') }} Deploy Latest</button>
+        </form>
+      {% endif %}
     </div>
 
     {% if deployments|default([])|length > 0 %}
