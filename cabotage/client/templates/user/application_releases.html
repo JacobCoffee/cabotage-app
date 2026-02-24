@@ -88,15 +88,26 @@
               {% if rel_ref %}
                 <span class="dpl-meta-chip">
                   {{ icon('git-branch', 'w-3 h-3') }}
-                  <span>{{ rel_ref }}</span>
+                  {% if app.github_repository %}
+                    <a href="https://github.com/{{ app.github_repository }}/tree/{{ rel_ref }}"
+                       target="_blank"
+                       rel="noopener"
+                       class="dpl-meta-chip-link"
+                       onclick="event.stopPropagation()">{{ rel_ref }}</a>
+                  {% else %}
+                    <span>{{ rel_ref }}</span>
+                  {% endif %}
                 </span>
               {% endif %}
               {% if rel_sha %}
                 <span class="dpl-meta-chip">
                   {{ icon('git-commit', 'w-3 h-3') }}
                   {% if app.github_repository %}
-                    <span class="dpl-row-sha-link"
-                          data-href="https://github.com/{{ app.github_repository }}/commit/{{ rel_sha }}">{{ rel_sha[:7] }}</span>
+                    <a href="https://github.com/{{ app.github_repository }}/commit/{{ rel_sha }}"
+                       target="_blank"
+                       rel="noopener"
+                       class="dpl-row-sha-link"
+                       onclick="event.stopPropagation()">{{ rel_sha[:7] }}</a>
                   {% else %}
                     <code>{{ rel_sha[:7] }}</code>
                   {% endif %}
@@ -105,7 +116,9 @@
               {% if rel_img %}
                 <span class="dpl-meta-chip">
                   {{ icon('image', 'w-3 h-3') }}
-                  <span>#{{ rel_img.version }}</span>
+                  <a href="{{ url_for('user.image_detail', image_id=rel_img.id) }}"
+                     class="dpl-meta-chip-link"
+                     onclick="event.stopPropagation()">#{{ rel_img.version }}</a>
                 </span>
               {% endif %}
               {% if cfg_count > 0 %}

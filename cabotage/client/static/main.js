@@ -1179,6 +1179,8 @@ PipelineTracker.prototype.updateCommitIndicator = function (data) {
     if (ci.image_version) this.commitEl.setAttribute('data-image-version', ci.image_version);
     if (ci.ref) this.commitEl.setAttribute('data-commit-ref', ci.ref);
     if (ci.author) this.commitEl.setAttribute('data-commit-author', ci.author);
+    if (ci.release_id) this.commitEl.setAttribute('data-release-id', ci.release_id);
+    if (ci.image_id) this.commitEl.setAttribute('data-image-id', ci.image_id);
   }
 
   // Build the indicator content
@@ -1318,6 +1320,9 @@ function toggleCommitPopup(el) {
   var imageVer = el.getAttribute('data-image-version') || '';
   var ref = el.getAttribute('data-commit-ref') || '';
   var author = el.getAttribute('data-commit-author') || '';
+  var releaseId = el.getAttribute('data-release-id') || '';
+  var imageId = el.getAttribute('data-image-id') || '';
+  var deploysUrl = el.getAttribute('data-deploys-url') || '';
 
   // Build popup HTML
   // Header — "Deployed via GitHub" like Railway
@@ -1349,10 +1354,18 @@ function toggleCommitPopup(el) {
   if (imageVer || releaseVer) {
     html += '<div class="commit-popup-row">';
     if (imageVer) {
-      html += '<span class="commit-popup-label">Image <code>#' + escapeHtml(imageVer) + '</code></span>';
+      if (imageId) {
+        html += '<span class="commit-popup-label">Image <a href="/image/' + escapeHtml(imageId) + '" class="dpl-meta-chip-link" onclick="event.stopPropagation()"><code>#' + escapeHtml(imageVer) + '</code></a></span>';
+      } else {
+        html += '<span class="commit-popup-label">Image <code>#' + escapeHtml(imageVer) + '</code></span>';
+      }
     }
     if (releaseVer) {
-      html += '<span class="commit-popup-value">Package <code>v' + escapeHtml(releaseVer) + '</code></span>';
+      if (releaseId) {
+        html += '<span class="commit-popup-value">Package <a href="/release/' + escapeHtml(releaseId) + '" class="dpl-meta-chip-link" onclick="event.stopPropagation()"><code>v' + escapeHtml(releaseVer) + '</code></a></span>';
+      } else {
+        html += '<span class="commit-popup-value">Package <code>v' + escapeHtml(releaseVer) + '</code></span>';
+      }
     }
     html += '</div>';
   }
@@ -1374,16 +1387,19 @@ function toggleCommitPopup(el) {
   html += '</div>';
 
   // Links
+  html += '<div class="commit-popup-links">';
   if (repo) {
-    html += '<div class="commit-popup-links">';
     html +=
       '<a href="https://github.com/' +
       repo +
       '/commit/' +
       sha +
       '" target="_blank" rel="noopener">View on GitHub &rarr;</a>';
-    html += '</div>';
   }
+  if (deploysUrl) {
+    html += '<a href="' + escapeHtml(deploysUrl) + '">View Pipeline &rarr;</a>';
+  }
+  html += '</div>';
 
   var popup = document.createElement('div');
   popup.className = 'commit-popup';

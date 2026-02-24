@@ -67,7 +67,10 @@
             <div class="dpl-hero-info">
               <div class="dpl-hero-title-row">
                 <span class="dpl-badge dpl-badge-active">Active</span>
-                {% if active_rel %}<code class="dpl-hero-version">v{{ active_rel.version }}</code>{% endif %}
+                {% if active_rel %}
+                  <a href="{{ url_for('user.release_detail', release_id=active_rel.id) }}"
+                     class="dpl-hero-version dpl-meta-chip-link">v{{ active_rel.version }}</a>
+                {% endif %}
                 <span class="dpl-hero-status dpl-hero-status-ok">Deployment successful</span>
               </div>
               <div class="dpl-hero-meta">
@@ -88,13 +91,21 @@
                 {% if active_ref %}
                   <span class="dpl-meta-chip">
                     {{ icon('git-branch', 'w-3 h-3') }}
-                    <span>{{ active_ref }}</span>
+                    {% if app.github_repository %}
+                      <a href="https://github.com/{{ app.github_repository }}/tree/{{ active_ref }}"
+                         target="_blank"
+                         rel="noopener"
+                         class="dpl-meta-chip-link">{{ active_ref }}</a>
+                    {% else %}
+                      <span>{{ active_ref }}</span>
+                    {% endif %}
                   </span>
                 {% endif %}
                 {% if active_img %}
                   <span class="dpl-meta-chip">
                     {{ icon('image', 'w-3 h-3') }}
-                    <span>#{{ active_img.version }}</span>
+                    <a href="{{ url_for('user.image_detail', image_id=active_img.id) }}"
+                       class="dpl-meta-chip-link">#{{ active_img.version }}</a>
                   </span>
                 {% endif %}
                 <span class="dpl-meta-chip dpl-meta-chip-dim">
@@ -172,15 +183,26 @@
               {% if dep_ref %}
                 <span class="dpl-meta-chip">
                   {{ icon('git-branch', 'w-3 h-3') }}
-                  <span>{{ dep_ref }}</span>
+                  {% if app.github_repository %}
+                    <a href="https://github.com/{{ app.github_repository }}/tree/{{ dep_ref }}"
+                       target="_blank"
+                       rel="noopener"
+                       class="dpl-meta-chip-link"
+                       onclick="event.stopPropagation()">{{ dep_ref }}</a>
+                  {% else %}
+                    <span>{{ dep_ref }}</span>
+                  {% endif %}
                 </span>
               {% endif %}
               {% if dep_sha %}
                 <span class="dpl-meta-chip">
                   {{ icon('git-commit', 'w-3 h-3') }}
                   {% if app.github_repository %}
-                    <span class="dpl-row-sha-link"
-                          data-href="https://github.com/{{ app.github_repository }}/commit/{{ dep_sha }}">{{ dep_sha[:7] }}</span>
+                    <a href="https://github.com/{{ app.github_repository }}/commit/{{ dep_sha }}"
+                       target="_blank"
+                       rel="noopener"
+                       class="dpl-row-sha-link"
+                       onclick="event.stopPropagation()">{{ dep_sha[:7] }}</a>
                   {% else %}
                     <code>{{ dep_sha[:7] }}</code>
                   {% endif %}
@@ -189,7 +211,9 @@
               {% if dep_img %}
                 <span class="dpl-meta-chip">
                   {{ icon('image', 'w-3 h-3') }}
-                  <span>#{{ dep_img.version }}</span>
+                  <a href="{{ url_for('user.image_detail', image_id=dep_img.id) }}"
+                     class="dpl-meta-chip-link"
+                     onclick="event.stopPropagation()">#{{ dep_img.version }}</a>
                 </span>
               {% endif %}
             </div>
