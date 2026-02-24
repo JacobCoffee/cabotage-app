@@ -426,31 +426,97 @@ function syncDetailLogHeight() {
 }
 
 /* ---------- Build Progress Tracker ---------- */
-function BuildProgressTracker(barFill, phaseLabel, type) {
+function BuildProgressTracker(barFill, phaseLabel, type, stepsContainer, elapsedEl) {
   this.barFill = barFill;
   this.phaseLabel = phaseLabel;
-  this.type = type || 'build'; // 'build' or 'deploy'
+  this.stepsContainer = stepsContainer;
+  this.elapsedEl = elapsedEl;
+  this.type = type || 'build';
   this.progress = 0;
   this.maxStep = 0;
   this.totalSteps = 0;
   this.activated = false;
+  this.currentStepIdx = -1;
+  this.startTime = Date.now();
+  this.timerInterval = null;
 
-  // Deploy phase definitions with cumulative progress targets
-  this.deployPhases = [
-    { pattern: /Constructing API Clients/i, label: 'Constructing API clients', progress: 5 },
-    { pattern: /Fetching Namespace/i, label: 'Fetching namespace', progress: 10 },
-    { pattern: /Fetching ServiceAccount/i, label: 'Fetching service account', progress: 15 },
-    { pattern: /Fetching CabotageEnrollment/i, label: 'Fetching enrollment', progress: 20 },
-    { pattern: /Fetching ImagePullSecrets/i, label: 'Fetching pull secrets', progress: 30 },
-    { pattern: /Patching ServiceAccount/i, label: 'Patching service account', progress: 35 },
-    { pattern: /Running release command/i, label: 'Running release command', progress: 45 },
-    { pattern: /Creating deployment for/i, label: 'Creating deployment', progress: 55 },
-    { pattern: /Creating Service for/i, label: 'Creating services', progress: 60 },
-    { pattern: /Waiting on deployment to rollout/i, label: 'Waiting for rollout', progress: 70 },
-    { pattern: /Running postdeploy/i, label: 'Running postdeploy', progress: 85 },
-    { pattern: /Deployment .* complete/i, label: 'Deployment complete', progress: 100 },
-  ];
+  // Define step pipelines
+  if (this.type === 'deploy') {
+    this.steps = [
+      { id: 'setup', label: 'Setup', patterns: [/Constructing API Clients/i], progress: 5 },
+      { id: 'namespace', label: 'Namespace', patterns: [/Fetching Namespace/i], progress: 10 },
+      { id: 'account', label: 'Account', patterns: [/Fetching ServiceAccount/i, /Patching ServiceAccount/i], progress: 20 },
+      { id: 'enrollment', label: 'Enrollment', patterns: [/Fetching CabotageEnrollment/i], progress: 25 },
+      { id: 'secrets', label: 'Secrets', patterns: [/Fetching ImagePullSecrets/i], progress: 32 },
+      { id: 'release', label: 'Release', patterns: [/Running release command/i], progress: 45 },
+      { id: 'deploy', label: 'Deploy', patterns: [/Creating deployment for/i, /Creating Service for/i], progress: 58 },
+      { id: 'rollout', label: 'Rollout', patterns: [/Waiting on deployment to rollout/i], progress: 72 },
+      { id: 'postdeploy', label: 'Post-deploy', patterns: [/Running postdeploy/i], progress: 88 },
+      { id: 'complete', label: 'Done', patterns: [/Deployment .* complete/i], progress: 100 },
+    ];
+  } else {
+    this.steps = [
+      { id: 'resolve', label: 'Resolve', patterns: [/load build definition/i, /resolve image config/i], progress: 5 },
+      { id: 'build', label: 'Build', patterns: [/\[\d+\/\d+\]/], progress: 40, substep: true },
+      { id: 'export', label: 'Export', patterns: [/exporting to image/i], progress: 78 },
+      { id: 'push', label: 'Push', patterns: [/pushing manifest/i, /pushing layers/i], progress: 92 },
+      { id: 'complete', label: 'Done', patterns: [], progress: 100 },
+    ];
+  }
+
+  this.renderSteps();
+  this.startTimer();
 }
+
+BuildProgressTracker.prototype.renderSteps = function() {
+  if (!this.stepsContainer) return;
+  this.stepsContainer.innerHTML = '';
+  var checkSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  for (var i = 0; i < this.steps.length; i++) {
+    var step = this.steps[i];
+    var el = document.createElement('div');
+    el.className = 'progress-step';
+    el.setAttribute('data-step', step.id);
+    el.innerHTML =
+      '<div class="step-dot">' + checkSvg + '<div class="step-dot-spinner"></div></div>' +
+      '<span class="step-label">' + step.label + '</span>' +
+      (step.substep ? '<span class="step-substep" data-substep></span>' : '');
+    this.stepsContainer.appendChild(el);
+  }
+  this.stepEls = this.stepsContainer.querySelectorAll('.progress-step');
+};
+
+BuildProgressTracker.prototype.startTimer = function() {
+  if (!this.elapsedEl) return;
+  var self = this;
+  this.timerInterval = setInterval(function() {
+    var elapsed = Math.floor((Date.now() - self.startTime) / 1000);
+    var min = Math.floor(elapsed / 60);
+    var sec = elapsed % 60;
+    self.elapsedEl.textContent = (min < 10 ? '0' : '') + min + ':' + (sec < 10 ? '0' : '') + sec;
+  }, 1000);
+};
+
+BuildProgressTracker.prototype.stopTimer = function() {
+  if (this.timerInterval) {
+    clearInterval(this.timerInterval);
+    this.timerInterval = null;
+  }
+};
+
+BuildProgressTracker.prototype.setStep = function(idx) {
+  if (idx <= this.currentStepIdx) return;
+  this.currentStepIdx = idx;
+  if (!this.stepEls) return;
+  for (var i = 0; i < this.stepEls.length; i++) {
+    this.stepEls[i].classList.remove('step-done', 'step-active');
+    if (i < idx) {
+      this.stepEls[i].classList.add('step-done');
+    } else if (i === idx) {
+      this.stepEls[i].classList.add('step-active');
+    }
+  }
+};
 
 BuildProgressTracker.prototype.activate = function() {
   if (this.activated) return;
@@ -460,7 +526,6 @@ BuildProgressTracker.prototype.activate = function() {
 };
 
 BuildProgressTracker.prototype.setProgress = function(pct) {
-  // Never go backwards
   if (pct <= this.progress) return;
   this.progress = pct;
   this.barFill.style.width = Math.min(pct, 100) + '%';
@@ -481,7 +546,6 @@ BuildProgressTracker.prototype.processLine = function(line) {
 };
 
 BuildProgressTracker.prototype.processBuildLine = function(line) {
-  // Detect [M/N] step pattern from BuildKit
   var stepMatch = line.match(/\[(\d+)\/(\d+)\]/);
   if (stepMatch) {
     this.activate();
@@ -489,53 +553,58 @@ BuildProgressTracker.prototype.processBuildLine = function(line) {
     var total = parseInt(stepMatch[2], 10);
     if (total > this.totalSteps) this.totalSteps = total;
     if (current > this.maxStep) this.maxStep = current;
-    // Steps occupy 5-75% range
     var pct = 5 + (this.maxStep / this.totalSteps) * 70;
     this.setProgress(pct);
-    this.setPhase('Building step ' + this.maxStep + '/' + this.totalSteps);
+    this.setPhase('Building step ' + this.maxStep + ' of ' + this.totalSteps);
+    this.setStep(1);
+    var sub = this.stepsContainer && this.stepsContainer.querySelector('[data-substep]');
+    if (sub) sub.textContent = this.maxStep + '/' + this.totalSteps;
     return;
   }
 
-  // Detect exporting phase
   if (/exporting to image/i.test(line)) {
     this.activate();
     this.setProgress(78);
     this.setPhase('Exporting image');
+    this.setStep(2);
     return;
   }
 
-  // Detect pushing phase
   if (/pushing manifest/i.test(line) || /pushing layers/i.test(line)) {
     this.activate();
-    this.setProgress(90);
-    this.setPhase('Pushing image');
+    this.setProgress(92);
+    this.setPhase('Pushing image to registry');
+    this.setStep(3);
     return;
   }
 
-  // Detect early setup phases (activate bar but low progress)
   if (/load build definition/i.test(line) || /resolve image config/i.test(line)) {
     this.activate();
     this.setProgress(2);
-    this.setPhase('Resolving build');
+    this.setPhase('Resolving build definition');
+    this.setStep(0);
     return;
   }
 };
 
 BuildProgressTracker.prototype.processDeployLine = function(line) {
-  for (var i = 0; i < this.deployPhases.length; i++) {
-    if (this.deployPhases[i].pattern.test(line)) {
-      this.activate();
-      this.setProgress(this.deployPhases[i].progress);
-      this.setPhase(this.deployPhases[i].label);
-      return;
+  for (var i = 0; i < this.steps.length; i++) {
+    var step = this.steps[i];
+    for (var j = 0; j < step.patterns.length; j++) {
+      if (step.patterns[j].test(line)) {
+        this.activate();
+        this.setProgress(step.progress);
+        this.setPhase(step.label === 'Done' ? 'Deployment complete' : step.label + '\u2026');
+        this.setStep(i);
+        return;
+      }
     }
   }
 
-  // Activate on any log line if not yet activated
   if (!this.activated && line.trim().length > 0) {
     this.activate();
     this.setProgress(2);
-    this.setPhase('Starting deployment');
+    this.setPhase('Starting deployment\u2026');
   }
 };
 
@@ -543,7 +612,148 @@ BuildProgressTracker.prototype.complete = function() {
   this.activate();
   this.setProgress(100);
   this.setPhase('Complete');
+  this.setStep(this.steps.length - 1);
+  if (this.stepEls) {
+    for (var i = 0; i < this.stepEls.length; i++) {
+      this.stepEls[i].classList.remove('step-active');
+      this.stepEls[i].classList.add('step-done');
+    }
+  }
+  this.stopTimer();
 };
+
+/* ---------- Pipeline Tracker (Overview Page) ---------- */
+function PipelineTracker(container) {
+  this.container = container;
+  this.appId = container.getAttribute('data-application-id');
+  this.statusUrl = '/applications/' + this.appId + '/pipeline_status';
+  this.pollInterval = null;
+  this.bannersEl = container.querySelector('[data-pipeline-banners]');
+  this.progressEl = container.querySelector('[data-pipeline-progress]');
+  this.segments = {
+    build: container.querySelector('[data-segment="build"]'),
+    release: container.querySelector('[data-segment="release"]'),
+    deploy: container.querySelector('[data-segment="deploy"]'),
+  };
+  this.settled = false;
+
+  // Check initial state and start polling if active
+  this.poll();
+}
+
+PipelineTracker.prototype.poll = function() {
+  var self = this;
+  fetch(this.statusUrl, { credentials: 'same-origin' })
+    .then(function(r) { return r.json(); })
+    .then(function(data) { self.update(data); })
+    .catch(function() { /* silent */ });
+};
+
+PipelineTracker.prototype.startPolling = function() {
+  if (this.pollInterval) return;
+  var self = this;
+  this.pollInterval = setInterval(function() { self.poll(); }, 3000);
+};
+
+PipelineTracker.prototype.stopPolling = function() {
+  if (this.pollInterval) {
+    clearInterval(this.pollInterval);
+    this.pollInterval = null;
+  }
+};
+
+PipelineTracker.prototype.update = function(data) {
+  if (!data) return;
+
+  if (data.pipeline_active) {
+    this.showProgress();
+    this.startPolling();
+  }
+
+  this.updateSegment('build', data.build);
+  this.updateSegment('release', data.release);
+  this.updateSegment('deploy', data.deploy);
+
+  // Pipeline just finished — reload to get fresh server-rendered content
+  if (!data.pipeline_active && !this.settled && this.pollInterval) {
+    this.settled = true;
+    this.stopPolling();
+    var self = this;
+    setTimeout(function() { window.location.reload(); }, 2000);
+  }
+};
+
+PipelineTracker.prototype.showProgress = function() {
+  if (this.bannersEl) this.bannersEl.style.display = 'none';
+  if (this.progressEl) this.progressEl.style.display = '';
+};
+
+PipelineTracker.prototype.updateSegment = function(name, info) {
+  var seg = this.segments[name];
+  if (!seg) return;
+
+  var dot = seg.querySelector('.pipe-seg-dot');
+  var label = seg.querySelector('.pipe-seg-status');
+  var version = seg.querySelector('.pipe-seg-version');
+  var fill = seg.querySelector('.pipe-seg-fill');
+  var link = seg.querySelector('a[data-seg-link]');
+
+  if (!info) {
+    seg.className = 'pipe-segment pipe-seg-waiting';
+    if (dot) dot.className = 'pipe-seg-dot';
+    if (label) label.textContent = 'Waiting';
+    if (version) version.textContent = '';
+    if (fill) fill.style.width = '0%';
+    return;
+  }
+
+  var versionText = name === 'build' ? '#' + info.version : 'v' + info.version;
+  if (version) version.textContent = versionText;
+
+  if (info.status === 'complete') {
+    seg.className = 'pipe-segment pipe-seg-complete';
+    if (dot) dot.className = 'pipe-seg-dot pipe-seg-dot-success';
+    if (label) label.textContent = 'Complete';
+    if (fill) { fill.style.width = '100%'; fill.className = 'pipe-seg-fill pipe-seg-fill-success'; }
+  } else if (info.status === 'error') {
+    seg.className = 'pipe-segment pipe-seg-error';
+    if (dot) dot.className = 'pipe-seg-dot pipe-seg-dot-error';
+    if (label) label.textContent = info.error_detail ? 'Failed' : 'Error';
+    if (fill) { fill.style.width = '100%'; fill.className = 'pipe-seg-fill pipe-seg-fill-error'; }
+  } else if (info.status === 'in_progress') {
+    seg.className = 'pipe-segment pipe-seg-active';
+    if (dot) dot.className = 'pipe-seg-dot pipe-seg-dot-active';
+    if (label) label.textContent = name === 'build' ? 'Building' : name === 'release' ? 'Packaging' : 'Deploying';
+    if (fill) { fill.className = 'pipe-seg-fill pipe-seg-fill-active'; }
+  }
+
+  // Update detail link
+  if (link && info.id) {
+    var base = name === 'build' ? '/image/' : name === 'release' ? '/release/' : '/deployment/';
+    link.href = base + info.id;
+  }
+};
+
+function initPipelineTracker() {
+  var container = document.querySelector('[data-pipeline-tracker]');
+  if (container) {
+    window.pipelineTracker = new PipelineTracker(container);
+  }
+
+  // Intercept the Deploy button to start polling immediately
+  var deployBtn = document.querySelector('[data-full-deploy-form]');
+  if (deployBtn && container) {
+    deployBtn.addEventListener('submit', function() {
+      // Start polling after a short delay to let the POST redirect
+      setTimeout(function() {
+        if (window.pipelineTracker) {
+          window.pipelineTracker.showProgress();
+          window.pipelineTracker.startPolling();
+        }
+      }, 1500);
+    });
+  }
+}
 
 /* ---------- Init All ---------- */
 document.addEventListener('DOMContentLoaded', function() {
@@ -556,6 +766,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initRawEditor();
   initAddVarModal();
   initExpandModal();
+  initPipelineTracker();
   autoExpandCollapsibleCards();
   syncDetailLogHeight();
   window.addEventListener('resize', function() {

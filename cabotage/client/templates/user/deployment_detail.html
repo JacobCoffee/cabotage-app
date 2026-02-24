@@ -101,17 +101,20 @@
   {# ===== IN-PROGRESS BANNER ===== #}
   {% if not deployment.complete and not deployment.error %}
     <div class="deploy-progress-banner mb-6">
-      <div class="flex items-center gap-3">
-        <div class="deploy-progress-spinner"></div>
-        <div>
-          <p class="text-sm font-medium text-base-content">Deployment in progress</p>
-          <p class="text-xs text-base-content/40">Streaming logs below. Page will refresh on completion.</p>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="deploy-progress-spinner"></div>
+          <div>
+            <p class="text-sm font-medium text-base-content" id="deployPhase">Waiting for logs…</p>
+            <p class="text-xs text-base-content/40">Streaming logs below. Page will refresh on completion.</p>
+          </div>
         </div>
+        <span class="progress-elapsed" id="deployElapsed">00:00</span>
       </div>
       <div class="deploy-progress-bar mt-3">
         <div class="deploy-progress-bar-fill" id="deployProgressFill"></div>
       </div>
-      <p class="build-progress-phase" id="deployPhase">Waiting for logs...</p>
+      <div class="progress-steps" id="deploySteps"></div>
     </div>
   {% endif %}
 
@@ -407,7 +410,9 @@
     logsPre.innerHTML = '';
     var barFill = document.getElementById('deployProgressFill');
     var phaseLabel = document.getElementById('deployPhase');
-    var tracker = (barFill) ? new BuildProgressTracker(barFill, phaseLabel, 'deploy') : null;
+    var stepsEl = document.getElementById('deploySteps');
+    var elapsedEl = document.getElementById('deployElapsed');
+    var tracker = (barFill) ? new BuildProgressTracker(barFill, phaseLabel, 'deploy', stepsEl, elapsedEl) : null;
     var protocol = (window.location.protocol === 'https:') ? 'wss://' : 'ws://';
     var socket = new WebSocket(protocol + window.location.host + window.location.pathname + '/livelogs');
     socket.addEventListener('message', function(ev) {

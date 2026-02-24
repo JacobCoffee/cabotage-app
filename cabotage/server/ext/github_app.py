@@ -89,6 +89,8 @@ class GitHubApp(object):
             self.app_id = app.config["GITHUB_APP_ID"]
 
         # Support loading key from file (GITHUB_APP_KEY_FILE) or base64 env var
+        # Try file first, fall back to base64 env var if file not found
+        key_loaded = False
         key_file = app.config.get("GITHUB_APP_KEY_FILE")
         if key_file:
             try:
@@ -96,13 +98,14 @@ class GitHubApp(object):
                     pem_data = f.read()
                 self.app_private_key_pem = pem_data.decode()
                 self._private_key_obj = _load_private_key(pem_data)
+                key_loaded = True
             except FileNotFoundError:
                 logger.warning(
                     "GITHUB_APP_KEY_FILE=%s not found; "
-                    "GitHub App integration will be unavailable.",
+                    "falling back to GITHUB_APP_PRIVATE_KEY env var.",
                     key_file,
                 )
-        elif app.config["GITHUB_APP_PRIVATE_KEY"]:
+        if not key_loaded and app.config.get("GITHUB_APP_PRIVATE_KEY"):
             try:
                 pem_data = base64.b64decode(app.config["GITHUB_APP_PRIVATE_KEY"])
                 self.app_private_key_pem = pem_data.decode()

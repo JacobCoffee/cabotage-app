@@ -1282,11 +1282,13 @@ a.pipeline-stage-body:hover {
   flex-shrink: 0;
 }
 @keyframes detail-spin { to { transform: rotate(360deg); } }
+
+/* --- Main progress bar (wider, 4px) --- */
 .build-progress-bar,
 .deploy-progress-bar {
-  height: 2px;
+  height: 4px;
   background: rgba(59, 130, 246, 0.1);
-  border-radius: 1px;
+  border-radius: 2px;
   overflow: hidden;
 }
 .build-progress-bar-fill,
@@ -1294,7 +1296,7 @@ a.pipeline-stage-body:hover {
   height: 100%;
   width: 30%;
   background: #3b82f6;
-  border-radius: 1px;
+  border-radius: 2px;
   animation: progress-indeterminate 1.5s ease-in-out infinite;
 }
 @keyframes progress-indeterminate {
@@ -1302,19 +1304,284 @@ a.pipeline-stage-body:hover {
   50% { width: 60%; }
   100% { transform: translateX(400%); width: 30%; }
 }
-/* Determinate mode: JS drives width, smooth transition */
 .build-progress-bar-determinate {
   animation: none;
   width: 0%;
   transition: width 0.5s ease;
 }
-/* Phase label below the progress bar */
+
+/* --- Current phase label --- */
 .build-progress-phase {
   font-size: 0.6875rem;
   color: var(--text-faint);
   margin-top: 0.375rem;
   min-height: 1rem;
   transition: color 0.15s ease;
+}
+
+/* --- Elapsed timer --- */
+.progress-elapsed {
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+  letter-spacing: 0.025em;
+}
+
+/* --- Stepped pipeline --- */
+.progress-steps {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  margin-top: 0.75rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.progress-steps::-webkit-scrollbar { display: none; }
+
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+}
+
+/* Connector line between steps */
+.progress-step::before {
+  content: '';
+  position: absolute;
+  top: 0.5rem;
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: rgba(59, 130, 246, 0.1);
+  z-index: 0;
+}
+.progress-step:first-child::before { display: none; }
+.progress-step.step-done::before,
+.progress-step.step-active::before {
+  background: #3b82f6;
+}
+
+/* Step dot */
+.step-dot {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  border: 2px solid rgba(59, 130, 246, 0.15);
+  background: var(--surface-card, #1d232a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  transition: border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+  flex-shrink: 0;
+}
+.step-done .step-dot {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+.step-done .step-dot svg {
+  display: block;
+}
+.step-active .step-dot {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  animation: step-pulse 2s ease-in-out infinite;
+}
+@keyframes step-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+  50% { box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.25); }
+}
+
+/* Step label */
+.step-label {
+  font-size: 0.5625rem;
+  line-height: 1.1;
+  color: var(--text-faint);
+  text-align: center;
+  margin-top: 0.375rem;
+  max-width: 5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.5;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+.step-done .step-label {
+  opacity: 0.7;
+  color: #3b82f6;
+}
+.step-active .step-label {
+  opacity: 1;
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+/* Checkmark inside done dots */
+.step-dot svg {
+  display: none;
+  width: 0.625rem;
+  height: 0.625rem;
+  color: white;
+}
+
+/* Active dot inner spinner */
+.step-dot-spinner {
+  width: 0.5rem;
+  height: 0.5rem;
+  border: 1.5px solid rgba(59, 130, 246, 0.3);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: detail-spin 0.8s linear infinite;
+  display: none;
+}
+.step-active .step-dot-spinner { display: block; }
+
+/* Build sub-step counter (e.g. "Step 3/10") */
+.step-substep {
+  font-size: 0.5rem;
+  color: #3b82f6;
+  margin-top: 0.125rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.step-active .step-substep { opacity: 1; }
+
+/* ---------- Pipeline Progress (Overview Page) ---------- */
+.pipeline-progress {
+  border-radius: 0.75rem;
+  background: rgba(59, 130, 246, 0.03);
+  border: 1px solid rgba(59, 130, 246, 0.1);
+  padding: 1rem 1.25rem;
+}
+.pipeline-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.pipeline-progress-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-bright, #e5e7eb);
+}
+.pipeline-progress-title .action-banner-spinner {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+.pipeline-progress-segments {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.5rem;
+}
+.pipe-segment {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--surface-card, #1d232a);
+  border: 1px solid var(--border-color-subtle, rgba(255,255,255,0.05));
+  transition: border-color 0.3s ease, background 0.3s ease;
+}
+.pipe-segment a { text-decoration: none; }
+.pipe-seg-active {
+  border-color: rgba(59, 130, 246, 0.25);
+  background: rgba(59, 130, 246, 0.04);
+}
+.pipe-seg-complete {
+  border-color: rgba(34, 197, 94, 0.2);
+}
+.pipe-seg-error {
+  border-color: rgba(239, 68, 68, 0.2);
+}
+.pipe-seg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.375rem;
+}
+.pipe-seg-name {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint, #9ca3af);
+}
+.pipe-seg-version {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.6875rem;
+  color: var(--accent-text, #a78bfa);
+}
+.pipe-seg-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.pipe-seg-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--text-faintest, #4b5563);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+.pipe-seg-dot-success {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+}
+.pipe-seg-dot-error {
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+}
+.pipe-seg-dot-active {
+  background: #3b82f6;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.4);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+.pipe-seg-status {
+  font-size: 0.6875rem;
+  color: var(--text-muted, #9ca3af);
+}
+.pipe-seg-track {
+  height: 3px;
+  background: rgba(59, 130, 246, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.pipe-seg-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 2px;
+  transition: width 0.6s ease, background 0.3s ease;
+}
+.pipe-seg-fill-success {
+  background: #22c55e;
+}
+.pipe-seg-fill-error {
+  background: #ef4444;
+}
+.pipe-seg-fill-active {
+  background: #3b82f6;
+  animation: pipe-fill-pulse 2s ease-in-out infinite;
+  width: 40%;
+}
+@keyframes pipe-fill-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@media (max-width: 639px) {
+  .pipeline-progress-segments {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ---------- Settings Page ---------- */

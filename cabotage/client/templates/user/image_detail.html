@@ -107,17 +107,20 @@
   {# ===== BUILDING BANNER ===== #}
   {% if not image.built and not image.error %}
     <div class="build-progress-banner mb-6">
-      <div class="flex items-center gap-3">
-        <div class="build-progress-spinner"></div>
-        <div>
-          <p class="text-sm font-medium text-base-content">Build in progress</p>
-          <p class="text-xs text-base-content/40">Streaming logs below. Page will refresh on completion.</p>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="build-progress-spinner"></div>
+          <div>
+            <p class="text-sm font-medium text-base-content" id="buildPhase">Waiting for logs…</p>
+            <p class="text-xs text-base-content/40">Streaming logs below. Page will refresh on completion.</p>
+          </div>
         </div>
+        <span class="progress-elapsed" id="buildElapsed">00:00</span>
       </div>
       <div class="build-progress-bar mt-3">
         <div class="build-progress-bar-fill" id="buildProgressFill"></div>
       </div>
-      <p class="build-progress-phase" id="buildPhase">Waiting for logs...</p>
+      <div class="progress-steps" id="buildSteps"></div>
     </div>
   {% endif %}
 
@@ -457,7 +460,9 @@
     logsPre.innerHTML = '';
     var barFill = document.getElementById('buildProgressFill');
     var phaseLabel = document.getElementById('buildPhase');
-    var tracker = (barFill) ? new BuildProgressTracker(barFill, phaseLabel, 'build') : null;
+    var stepsEl = document.getElementById('buildSteps');
+    var elapsedEl = document.getElementById('buildElapsed');
+    var tracker = (barFill) ? new BuildProgressTracker(barFill, phaseLabel, 'build', stepsEl, elapsedEl) : null;
     var protocol = (window.location.protocol === 'https:') ? 'wss://' : 'ws://';
     var socket = new WebSocket(protocol + window.location.host + '/image/' + '{{ image.id }}' + '/livelogs');
     socket.addEventListener('message', function(ev) {
