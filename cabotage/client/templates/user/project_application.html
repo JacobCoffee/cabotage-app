@@ -521,7 +521,13 @@
             <div class="dpl-hero-orb">{{ icon('check', 'w-4 h-4') }}</div>
             <div class="dpl-hero-info">
               <div class="dpl-hero-title-row">
-                <span class="dpl-badge dpl-badge-active">Live</span>
+                <span class="dpl-badge dpl-badge-active dpl-badge-live-tip">
+                  Live
+                  <div class="dpl-badge-live-popup">
+                    {{ icon('radio', 'w-3 h-3 text-success') }}
+                    <span>Current production deployment</span>
+                  </div>
+                </span>
                 {% if _arel %}
                   <a href="{{ url_for('user.release_detail', release_id=_arel.id) }}"
                      class="dpl-hero-version dpl-meta-chip-link">v{{ _arel.version }}</a>
