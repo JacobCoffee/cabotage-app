@@ -80,6 +80,9 @@ html:not([data-theme-pref]) .theme-icon-system { display: block !important; }
               opacity 0.25s ease;
   overflow: hidden;
 }
+[data-tab-bar-wrapper]:not(:has(.tab-bar)) {
+  display: none;
+}
 [data-tab-bar-wrapper] > * {
   overflow: hidden;
 }
