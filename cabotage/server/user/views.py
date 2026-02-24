@@ -1625,6 +1625,7 @@ def application_deployments(application_id):
         page=page,
         application=application,
         deployments=deployments.items,
+        deploy_form=ReleaseDeployForm(),
     )
 
 

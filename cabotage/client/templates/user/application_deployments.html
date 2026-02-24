@@ -23,6 +23,15 @@
 
   <div class="flex items-center justify-between mb-4">
     <h1 class="text-xl font-semibold text-base-content">Deployments</h1>
+    {% if app.latest_release and app.latest_release.built %}
+      <form action="{{ url_for('user.release_deploy', release_id=app.latest_release.id) }}"
+            method="post"
+            enctype="multipart/form-data"
+            class="inline">
+        {{ deploy_form.hidden_tag() }}
+        <button class="btn btn-primary btn-sm gap-1.5" type="submit">{{ icon('upload', 'w-3.5 h-3.5') }} Push Live</button>
+      </form>
+    {% endif %}
   </div>
 
   {% if deployments|length > 0 %}
@@ -91,6 +100,15 @@
           <div class="text-base-content/15 mb-4">{{ icon('deploy', 'w-12 h-12') }}</div>
           <h3 class="text-base font-medium text-base-content/60 mb-1">No deployments yet</h3>
           <p class="text-sm text-base-content/40 max-w-sm">Deployments are created when you deploy a package.</p>
+          {% if app.latest_release and app.latest_release.built %}
+            <form action="{{ url_for('user.release_deploy', release_id=app.latest_release.id) }}"
+                  method="post"
+                  enctype="multipart/form-data"
+                  class="inline mt-4">
+              {{ deploy_form.hidden_tag() }}
+              <button class="btn btn-primary btn-sm gap-2" type="submit">{{ icon('upload', 'w-4 h-4') }} Push Live</button>
+            </form>
+          {% endif %}
         </div>
       </div>
     </div>

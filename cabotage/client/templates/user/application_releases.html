@@ -94,6 +94,8 @@
           <div class="text-base-content/15 mb-4">{{ icon('layers', 'w-12 h-12') }}</div>
           <h3 class="text-base font-medium text-base-content/60 mb-1">No packages yet</h3>
           <p class="text-sm text-base-content/40 max-w-sm">Packages are created when you cut a package from pending changes.</p>
+          <a href="{{ url_for('user.application_release_create', application_id=app.id) }}"
+             class="btn btn-primary btn-sm gap-2 mt-4">{{ icon('scissors', 'w-4 h-4') }} Create Package</a>
         </div>
       </div>
     </div>
