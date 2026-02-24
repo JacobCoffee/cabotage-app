@@ -732,6 +732,12 @@ details[open] summary .collapse-icon { transform: rotate(90deg); }
   border: 1px solid var(--border-color);
   background: var(--surface-card);
   transition: background 0.15s ease, border-color 0.15s ease;
+  flex: 1 1 0;
+  min-width: 12rem;
+  max-width: calc(20% - 0.375rem);
+}
+@media (max-width: 639px) {
+  .process-card { max-width: 100%; }
 }
 .process-card:hover {
   background: var(--hover-overlay, rgba(124, 58, 237, 0.04));
