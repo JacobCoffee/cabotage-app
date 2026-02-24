@@ -1905,6 +1905,24 @@ def project_application_settings(application_id):
     form.application_id.data = str(application.id)
 
     if form.validate_on_submit():
+        if (
+            form.github_repository_is_private.data
+            and not form.github_app_installation_id.data
+        ):
+            flash(
+                "Private repository requires a GitHub App Installation ID.",
+                "error",
+            )
+            return render_template(
+                "user/project_application_settings.html",
+                form=form,
+                application=application,
+                app_url=current_app.config.get("GITHUB_APP_URL", "https://github.com"),
+            )
+        health_changed = (
+            form.health_check_path.data != application.health_check_path
+            or form.health_check_host.data != application.health_check_host
+        )
         form.populate_obj(application)
         db.session.flush()
         activity = Activity(
@@ -1917,6 +1935,21 @@ def project_application_settings(application_id):
         )
         db.session.add(activity)
         db.session.commit()
+        if health_changed:
+            deploy_url = url_for(
+                "user.application_full_deploy",
+                application_id=str(application.id),
+            )
+            flash(
+                "Health check settings updated — build a new package for changes to take effect. "
+                f'<form action="{deploy_url}" method="post" class="inline ml-2">'
+                '<button type="submit" class="btn btn-warning btn-xs gap-1">'
+                '<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>'
+                " Build &amp; Deploy</button></form>",
+                "warning",
+            )
+        else:
+            flash("Settings saved.", "success")
         return redirect(
             url_for(
                 "user.project_application",
@@ -1929,6 +1962,7 @@ def project_application_settings(application_id):
     return render_template(
         "user/project_application_settings.html",
         form=form,
+        application=application,
         app_url=current_app.config.get("GITHUB_APP_URL", "https://github.com"),
     )
 
