@@ -3262,7 +3262,7 @@ a.pipeline-stage-body:hover {
 
 /* --- Row: icon + info body + timestamp --- */
 .dpl-row {
-  display: flex;
+  display: flex !important;
   align-items: flex-start;
   gap: 0.625rem;
   padding: 0.75rem 1.25rem;
