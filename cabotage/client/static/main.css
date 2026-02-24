@@ -419,6 +419,13 @@ html:not([data-theme-pref]) .theme-icon-system {
   gap: 0.375rem;
   font-size: 0.75rem;
   line-height: 1;
+  padding: 0.25rem 0.375rem;
+  margin: -0.25rem -0.375rem;
+  border-radius: 0.375rem;
+  transition: background 0.15s ease;
+}
+.live-commit:hover {
+  background: var(--hover-overlay, rgba(124, 58, 237, 0.06));
 }
 .live-commit-dot {
   width: 0.375rem;
@@ -466,6 +473,7 @@ a.live-commit-sha:hover {
 /* ---------- Commit Popup ---------- */
 .commit-popup-anchor {
   position: relative;
+  cursor: pointer;
 }
 .commit-popup {
   position: absolute;
@@ -1393,6 +1401,29 @@ details[open] summary .collapse-icon {
   background: var(--surface-card);
   border: 1px solid var(--border-color);
   overflow: hidden;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Flash animation for pipeline event alerts */
+@keyframes pipeline-card-flash {
+  0% {
+    border-color: var(--border-color);
+    box-shadow: 0 0 0 0 transparent;
+  }
+  15% {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 30%, transparent);
+  }
+  100% {
+    border-color: var(--border-color);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+.pipeline-stage-flash {
+  animation: pipeline-card-flash 1.2s ease-out;
+}
+.pipe-segment-flash {
+  animation: pipeline-card-flash 1.2s ease-out;
 }
 .pipeline-stage-header {
   display: flex;
@@ -2972,5 +3003,322 @@ a.pipeline-stage-body:hover {
   .full-bleed {
     margin-left: -1.5rem;
     margin-right: -1.5rem;
+  }
+}
+
+/* ========================================================================== */
+/* Deploy List (Vercel/Railway-style)                                         */
+/* ========================================================================== */
+
+/* --- Hero card for active deployment --- */
+.dpl-hero {
+  background: color-mix(in srgb, var(--color-success, #22c55e) 4%, oklch(var(--b2)));
+  border: 1px solid color-mix(in srgb, var(--color-success, #22c55e) 15%, oklch(var(--b3)));
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.dpl-hero-inner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.dpl-hero-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.dpl-hero-orb {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+}
+.dpl-hero-info {
+  min-width: 0;
+}
+.dpl-hero-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.dpl-hero-version {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-accent, oklch(var(--a)));
+}
+.dpl-hero-status {
+  font-size: 0.75rem;
+}
+.dpl-hero-status-ok {
+  color: #22c55e;
+}
+.dpl-hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-top: 0.375rem;
+  flex-wrap: wrap;
+}
+.dpl-hero-action {
+  flex-shrink: 0;
+}
+
+/* --- Shared meta chips --- */
+.dpl-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+.dpl-meta-chip code {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.6875rem;
+}
+.dpl-meta-chip svg {
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+.dpl-meta-chip-dim {
+  color: var(--text-faintest);
+}
+.dpl-meta-chip-dim svg {
+  opacity: 0.3;
+}
+.dpl-meta-duration {
+  color: var(--text-faintest);
+}
+.dpl-meta-link {
+  color: var(--color-accent, oklch(var(--a)));
+  text-decoration: none;
+}
+.dpl-meta-link:hover {
+  text-decoration: underline;
+}
+
+/* --- Badges --- */
+.dpl-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.125rem 0.4rem;
+  border-radius: 0.25rem;
+  line-height: 1.4;
+}
+.dpl-badge-active {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+.dpl-badge-auto {
+  background: color-mix(in srgb, var(--color-accent, oklch(var(--a))) 10%, transparent);
+  color: var(--color-accent, oklch(var(--a)));
+  border: 1px solid color-mix(in srgb, var(--color-accent, oklch(var(--a))) 18%, transparent);
+}
+
+/* --- History header --- */
+.dpl-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.625rem;
+}
+.dpl-history-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+.dpl-history-title svg {
+  opacity: 0.5;
+}
+.dpl-history-count {
+  font-size: 0.6875rem;
+  color: var(--text-faintest);
+}
+
+/* --- Deploy list container --- */
+.dpl-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid oklch(var(--b3));
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: oklch(var(--b2));
+}
+
+/* --- Individual deploy row --- */
+.dpl-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 1px solid color-mix(in srgb, oklch(var(--bc)) 5%, transparent);
+  transition: background 0.12s ease;
+}
+.dpl-row:last-child {
+  border-bottom: none;
+}
+.dpl-row:hover {
+  background: color-mix(in srgb, oklch(var(--bc)) 3%, transparent);
+}
+.dpl-row-active {
+  background: color-mix(in srgb, var(--color-success, #22c55e) 3%, transparent);
+}
+.dpl-row-active:hover {
+  background: color-mix(in srgb, var(--color-success, #22c55e) 5%, transparent);
+}
+
+/* --- Row status icon --- */
+.dpl-row-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+.dpl-row-icon-ok {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+.dpl-row-icon-err {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+.dpl-row-icon-run {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+}
+
+/* --- Row body --- */
+.dpl-row-body {
+  flex: 1;
+  min-width: 0;
+}
+.dpl-row-primary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.dpl-row-primary-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.dpl-row-version {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-accent, oklch(var(--a)));
+}
+.dpl-row-version-none {
+  color: var(--text-faintest);
+}
+.dpl-row-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+.dpl-row-label-ok {
+  color: #22c55e;
+}
+.dpl-row-label-err {
+  color: #ef4444;
+}
+.dpl-row-label-run {
+  color: var(--color-primary);
+}
+
+/* --- Row secondary info (git, image) --- */
+.dpl-row-secondary {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-top: 0.25rem;
+  flex-wrap: wrap;
+}
+
+/* --- Error detail preview --- */
+.dpl-row-error-detail {
+  font-size: 0.6875rem;
+  color: rgba(239, 68, 68, 0.5);
+  margin-top: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 28rem;
+}
+
+/* --- Row timing (right side) --- */
+.dpl-row-timing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  gap: 0.125rem;
+  padding-top: 0.125rem;
+}
+.dpl-row-time {
+  font-size: 0.6875rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.dpl-row-duration {
+  font-size: 0.625rem;
+  color: var(--text-faintest);
+  white-space: nowrap;
+}
+
+/* --- Error row accent --- */
+.dpl-row-error {
+  border-left: 2px solid rgba(239, 68, 68, 0.3);
+}
+.dpl-row-deploying {
+  border-left: 2px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+/* --- Responsive: stack timing below on small screens --- */
+@media (max-width: 639px) {
+  .dpl-row {
+    flex-wrap: wrap;
+  }
+  .dpl-row-timing {
+    flex-direction: row;
+    gap: 0.5rem;
+    width: 100%;
+    padding-left: 2.25rem;
+    align-items: center;
+  }
+  .dpl-hero-inner {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .dpl-hero-action {
+    align-self: flex-start;
+    margin-left: 2.75rem;
   }
 }

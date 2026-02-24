@@ -938,6 +938,7 @@ PipelineTracker.prototype.update = function (data) {
 
   if (this._lastFingerprint && fp !== this._lastFingerprint) {
     this.refreshLiveSections();
+    this.flashPipelineCards();
   }
   this._lastFingerprint = fp;
 
@@ -958,6 +959,27 @@ PipelineTracker.prototype.showProgress = function () {
 PipelineTracker.prototype.hideProgress = function () {
   if (this.progressEl) this.progressEl.style.display = 'none';
   if (this.bannersEl) this.bannersEl.style.display = '';
+};
+
+/* Flash pipeline card borders to alert on state changes. */
+PipelineTracker.prototype.flashPipelineCards = function () {
+  var cards = document.querySelectorAll('.pipeline-stage');
+  var segments = document.querySelectorAll('.pipe-segment');
+  function flash(el, cls) {
+    el.classList.remove(cls);
+    // Force reflow so removing+adding the class restarts the animation
+    void el.offsetWidth;
+    el.classList.add(cls);
+    el.addEventListener(
+      'animationend',
+      function () {
+        el.classList.remove(cls);
+      },
+      { once: true },
+    );
+  }
+  for (var i = 0; i < cards.length; i++) flash(cards[i], 'pipeline-stage-flash');
+  for (var j = 0; j < segments.length; j++) flash(segments[j], 'pipe-segment-flash');
 };
 
 /* Fetch the full page HTML and swap in server-rendered sections so
@@ -1109,13 +1131,11 @@ PipelineTracker.prototype.updateCommitIndicator = function (data) {
         sha +
         '"' +
         ' target="_blank" rel="noopener"' +
-        ' class="live-commit-sha" title="' +
-        sha +
-        '">' +
+        ' class="live-commit-sha">' +
         shortSha +
         '</a>';
     } else {
-      shaHtml = '<code class="live-commit-sha" title="' + sha + '">' + shortSha + '</code>';
+      shaHtml = '<code class="live-commit-sha">' + shortSha + '</code>';
     }
   } else {
     shaHtml = '<span class="text-[0.625rem] text-success/40">Up to date</span>';
@@ -1129,7 +1149,7 @@ PipelineTracker.prototype.updateCommitIndicator = function (data) {
   }
   this._lastRenderedCommit = sha || this._lastRenderedCommit;
 
-  this.commitEl.className = 'live-commit' + freshClass;
+  this.commitEl.className = 'live-commit commit-popup-anchor' + freshClass;
   this.commitEl.innerHTML = '<span class="' + dotClass + '"></span>' + shaHtml;
 
   // Remove flash class after animation
@@ -1150,7 +1170,6 @@ function initCommitPopup() {
   if (!commitEl) return;
 
   commitEl.classList.add('commit-popup-anchor');
-  commitEl.style.cursor = 'pointer';
 
   var hoverTimeout = null;
   var leaveTimeout = null;
@@ -1170,7 +1189,7 @@ function initCommitPopup() {
     }, 300);
   }
 
-  // Hover on the SHA element opens popup
+  // Hover on the commit area opens popup
   commitEl.addEventListener('mouseenter', showPopup);
   commitEl.addEventListener('mouseleave', hidePopup);
 
@@ -1181,17 +1200,17 @@ function initCommitPopup() {
     }
   });
 
-  // Click SHA opens popup immediately (and prevents navigation)
-  var shaLink = commitEl.querySelector('a.live-commit-sha');
-  if (shaLink) {
-    shaLink.addEventListener('click', function (e) {
-      if (e.ctrlKey || e.metaKey) return;
+  // Delegated click: intercept any .live-commit-sha link (survives innerHTML rebuilds)
+  commitEl.addEventListener('click', function (e) {
+    if (e.ctrlKey || e.metaKey) return;
+    var link = e.target.closest('a.live-commit-sha');
+    if (link) {
       e.preventDefault();
       e.stopPropagation();
       clearTimeout(hoverTimeout);
       if (!_commitPopup) toggleCommitPopup(commitEl);
-    });
-  }
+    }
+  });
 
   // Close on click outside or Escape
   document.addEventListener('click', function (e) {
