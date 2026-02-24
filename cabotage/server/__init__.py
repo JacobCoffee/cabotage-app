@@ -124,6 +124,10 @@ def celery_init_app(app):
     try:
         from redbeat import RedBeatSchedulerEntry
 
+        # Ensure RedBeat can find its Redis (defaults to broker URL)
+        if not celery_app.conf.get("redbeat_redis_url"):
+            celery_app.conf.redbeat_redis_url = app.config["CELERY_BROKER_URL"]
+
         for name, entry in beat_schedule.items():
             rbe = RedBeatSchedulerEntry(
                 name=name,
@@ -134,7 +138,9 @@ def celery_init_app(app):
                 app=celery_app,
             )
             rbe.save()
-    except Exception:  # nosec B110
+        print(f"[cabotage] RedBeat schedules synced: {list(beat_schedule.keys())}")
+    except Exception as exc:
+        print(f"[cabotage] RedBeat schedule sync failed (non-fatal): {exc}")
         # Don't block app startup if Redis is unreachable (e.g. local dev)
         pass
 
