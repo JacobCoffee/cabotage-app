@@ -224,12 +224,12 @@
     for (var i = 0; i < str.length; i++) {
       hash = str.charCodeAt(i) + ((hash << 5) - hash);
     }
-    var colour = '#';
-    for (var i = 0; i < 3; i++) {
-      var value = (hash >> (i * 8)) & 0xFF;
-      colour += ('00' + value.toString(16)).substr(-2);
-    }
-    return colour;
+    // Use HSL with constrained lightness (65-78%) and saturation (55-80%)
+    // to guarantee readable colors on the dark background
+    var hue = ((hash % 360) + 360) % 360;
+    var sat = 55 + (((hash >> 8) & 0xFF) % 26);   // 55-80%
+    var lit = 65 + (((hash >> 16) & 0xFF) % 14);   // 65-78%
+    return 'hsl(' + hue + ',' + sat + '%,' + lit + '%)';
   }
 
   function renderLogLine(logLine) {
