@@ -58,10 +58,16 @@
       {% set _deployed = application.latest_deployment_completed %}
       {% set _rel = _deployed.release_object if _deployed else none %}
       {% set _sha = _rel.commit_sha if _rel and _rel.commit_sha and _rel.commit_sha != 'null' else none %}
+      {% set _img = _rel.image_object if _rel else none %}
       <span id="liveCommitStatus"
             class="live-commit"
             data-commit-sha="{{ _sha or '' }}"
-            data-github-repo="{{ application.github_repository or '' }}">
+            data-github-repo="{{ application.github_repository or '' }}"
+            data-deploy-time="{{ _deployed.created|humanize if _deployed else '' }}"
+            data-release-version="{{ _rel.version if _rel else '' }}"
+            data-image-version="{{ _img.version if _img else '' }}"
+            data-commit-ref="{{ (_rel.release_metadata or {}).get('ref', (_img.image_metadata or {}).get('ref', '')) if _rel else '' }}"
+            data-commit-author="{{ ((_img.image_metadata or {}).get('creator', {}) or {}).get('login', '') if _img else '' }}">
         {% if _sha %}
           <span class="live-commit-dot live-commit-dot-ok"></span>
           {% if application.github_repository %}
@@ -486,7 +492,7 @@
     {# ── SECTION 2: PROCESSES ── #}
 
     {% if application.releases.count() > 0 and application.latest_release.built %}
-      <div class="mb-4">
+      <div class="mb-4" data-live-processes>
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-1.5">
             <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider">Processes</h2>
@@ -614,7 +620,7 @@
 
     {% set has_any_activity = images[:3]|length > 0 or releases[:3]|length > 0 or deployments[:3]|length > 0 %}
 
-    <div class="mb-4">
+    <div class="mb-4" data-live-activity>
       <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Recent Activity</h2>
       {% if has_any_activity %}
         <div class="card bg-base-200 border border-base-300">
@@ -713,9 +719,9 @@
       {% endif %}
     </div>
 
-    {# ── SECTION 3: PIPELINE STATUS (image → package → deploy) ── #}
+    {# ── SECTION 4: PIPELINE STATUS (image → package → deploy) ── #}
 
-    <div class="mb-4">
+    <div class="mb-4" data-live-pipeline>
       <h2 class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-3">Pipeline</h2>
       <div class="pipeline-row">
 

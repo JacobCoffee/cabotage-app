@@ -816,6 +816,8 @@ function PipelineTracker(container) {
     deploy: container.querySelector('[data-segment="deploy"]'),
   };
   this.settled = false;
+  this._lastFingerprint = ''; // track state changes for live section refresh
+  this._refreshing = false;
 
   // Live commit indicator state
   this.commitEl = document.getElementById('liveCommitStatus');
@@ -880,43 +882,62 @@ PipelineTracker.prototype.update = function (data) {
   // Update live commit indicator
   this.updateCommitIndicator(data);
 
-  // Pipeline just finished — redirect to the relevant stage
+  // Build a fingerprint of the current state to detect changes
+  var fp = [
+    data.build ? data.build.status + ':' + data.build.id + ':' + data.build.version : '-',
+    data.release ? data.release.status + ':' + data.release.id + ':' + data.release.version : '-',
+    data.deploy ? data.deploy.status + ':' + data.deploy.id + ':' + data.deploy.version : '-',
+  ].join('|');
+
+  if (this._lastFingerprint && fp !== this._lastFingerprint) {
+    this.refreshLiveSections();
+  }
+  this._lastFingerprint = fp;
+
+  // Pipeline just finished — hide progress bar, refresh page sections, drop to idle
   if (!data.pipeline_active && !this.settled && this.pollRate === 3000) {
     this.settled = true;
     this.startPolling(10000); // back to idle polling
-    var target = null;
-    // If any stage errored, redirect to the earliest errored stage
-    // (later stages may be stale data from a previous successful run)
-    if (data.build && data.build.status === 'error' && data.build.id) {
-      target = '/image/' + data.build.id;
-    } else if (data.release && data.release.status === 'error' && data.release.id) {
-      target = '/release/' + data.release.id;
-    } else if (data.deploy && data.deploy.status === 'error' && data.deploy.id) {
-      target = '/deployment/' + data.deploy.id;
-    }
-    // No errors — redirect to the furthest completed stage
-    if (!target) {
-      if (data.deploy && data.deploy.status === 'complete' && data.deploy.id) {
-        target = '/deployment/' + data.deploy.id;
-      } else if (data.release && data.release.status === 'complete' && data.release.id) {
-        target = '/release/' + data.release.id;
-      } else if (data.build && data.build.status === 'complete' && data.build.id) {
-        target = '/image/' + data.build.id;
-      }
-    }
-    setTimeout(function () {
-      if (target) {
-        window.location.href = target;
-      } else {
-        window.location.reload();
-      }
-    }, 2000);
+    this.hideProgress();
+    this.refreshLiveSections();
   }
 };
 
 PipelineTracker.prototype.showProgress = function () {
   if (this.bannersEl) this.bannersEl.style.display = 'none';
   if (this.progressEl) this.progressEl.style.display = '';
+};
+
+PipelineTracker.prototype.hideProgress = function () {
+  if (this.progressEl) this.progressEl.style.display = 'none';
+  if (this.bannersEl) this.bannersEl.style.display = '';
+};
+
+/* Fetch the full page HTML and swap in server-rendered sections so
+   pipeline cards, recent activity, processes, and banners stay current. */
+PipelineTracker.prototype.refreshLiveSections = function () {
+  if (this._refreshing) return;
+  this._refreshing = true;
+  var self = this;
+  fetch(window.location.pathname, { credentials: 'same-origin', headers: { 'Accept': 'text/html' } })
+    .then(function (r) { return r.text(); })
+    .then(function (html) {
+      var doc = new DOMParser().parseFromString(html, 'text/html');
+      var pairs = [
+        ['[data-pipeline-banners]', '[data-pipeline-banners]'],
+        ['[data-live-processes]', '[data-live-processes]'],
+        ['[data-live-activity]', '[data-live-activity]'],
+        ['[data-live-pipeline]', '[data-live-pipeline]'],
+      ];
+      for (var i = 0; i < pairs.length; i++) {
+        var fresh = doc.querySelector(pairs[i][0]);
+        var stale = document.querySelector(pairs[i][1]);
+        if (fresh && stale) stale.innerHTML = fresh.innerHTML;
+      }
+      self.bannersEl = self.container.querySelector('[data-pipeline-banners]');
+    })
+    .catch(function (err) { console.warn('[PipelineTracker] refreshLiveSections', err); })
+    .then(function () { self._refreshing = false; });
 };
 
 PipelineTracker.prototype.updateSegment = function (name, info) {
@@ -996,6 +1017,16 @@ PipelineTracker.prototype.updateCommitIndicator = function (data) {
     this.commitEl.setAttribute('data-github-repo', repo);
   }
 
+  // Sync commit_info data attrs for the popup
+  var ci = data.commit_info;
+  if (ci) {
+    if (ci.deploy_time) this.commitEl.setAttribute('data-deploy-time', ci.deploy_time);
+    if (ci.release_version) this.commitEl.setAttribute('data-release-version', ci.release_version);
+    if (ci.image_version) this.commitEl.setAttribute('data-image-version', ci.image_version);
+    if (ci.ref) this.commitEl.setAttribute('data-commit-ref', ci.ref);
+    if (ci.author) this.commitEl.setAttribute('data-commit-author', ci.author);
+  }
+
   // Build the indicator content
   var dotClass = 'live-commit-dot';
   var shaHtml = '';
@@ -1056,6 +1087,190 @@ PipelineTracker.prototype.updateCommitIndicator = function (data) {
     }, 1500);
   }
 };
+
+/* ---------- Commit Popup ---------- */
+var _commitPopup = null;
+var _commitCache = {};
+
+function initCommitPopup() {
+  var commitEl = document.getElementById('liveCommitStatus');
+  if (!commitEl) return;
+
+  commitEl.classList.add('commit-popup-anchor');
+  commitEl.style.cursor = 'pointer';
+
+  commitEl.addEventListener('click', function (e) {
+    // Don't intercept ctrl/cmd+click (let it open GitHub link)
+    if (e.ctrlKey || e.metaKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    toggleCommitPopup(commitEl);
+  });
+
+  document.addEventListener('click', function (e) {
+    if (_commitPopup && !commitEl.contains(e.target)) {
+      closeCommitPopup();
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && _commitPopup) closeCommitPopup();
+  });
+}
+
+function toggleCommitPopup(el) {
+  if (_commitPopup) {
+    closeCommitPopup();
+    return;
+  }
+
+  var sha = el.getAttribute('data-commit-sha');
+  var repo = el.getAttribute('data-github-repo');
+  if (!sha) return;
+
+  var deployTime = el.getAttribute('data-deploy-time') || '';
+  var releaseVer = el.getAttribute('data-release-version') || '';
+  var imageVer = el.getAttribute('data-image-version') || '';
+  var ref = el.getAttribute('data-commit-ref') || '';
+  var author = el.getAttribute('data-commit-author') || '';
+
+  // Build popup HTML
+  var html = '<div class="commit-popup-message commit-popup-loading">Loading commit message...</div>';
+  html += '<div class="commit-popup-meta">';
+  if (author) {
+    html += '<div class="commit-popup-row"><span class="commit-popup-label">Author</span><span class="commit-popup-value">' + escapeHtml(author) + '</span></div>';
+  }
+  if (ref) {
+    html += '<div class="commit-popup-row"><span class="commit-popup-label">Ref</span><span class="commit-popup-value"><code>' + escapeHtml(ref) + '</code></span></div>';
+  }
+  if (imageVer) {
+    html += '<div class="commit-popup-row"><span class="commit-popup-label">Image</span><span class="commit-popup-value"><code>#' + escapeHtml(imageVer) + '</code></span></div>';
+  }
+  if (releaseVer) {
+    html += '<div class="commit-popup-row"><span class="commit-popup-label">Package</span><span class="commit-popup-value"><code>v' + escapeHtml(releaseVer) + '</code></span></div>';
+  }
+  if (deployTime) {
+    html += '<div class="commit-popup-row"><span class="commit-popup-label">Deployed</span><span class="commit-popup-value">' + escapeHtml(deployTime) + '</span></div>';
+  }
+  html += '</div>';
+
+  // Full SHA + copy
+  html += '<div class="commit-popup-sha">';
+  html += '<code title="' + sha + '">' + sha + '</code>';
+  html += '<button class="commit-popup-copy" title="Copy SHA" data-copy-sha="' + sha + '">';
+  html += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+  html += '</button>';
+  html += '</div>';
+
+  // Links
+  if (repo) {
+    html += '<div class="commit-popup-links">';
+    html += '<a href="https://github.com/' + repo + '/commit/' + sha + '" target="_blank" rel="noopener">View on GitHub &rarr;</a>';
+    html += '</div>';
+  }
+
+  var popup = document.createElement('div');
+  popup.className = 'commit-popup';
+  popup.innerHTML = html;
+  el.appendChild(popup);
+  _commitPopup = popup;
+
+  // Copy button handler
+  var copyBtn = popup.querySelector('[data-copy-sha]');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      navigator.clipboard.writeText(sha).then(function () {
+        copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+        setTimeout(function () {
+          copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+        }, 2000);
+      });
+    });
+  }
+
+  // Animate in
+  requestAnimationFrame(function () {
+    popup.classList.add('commit-popup-open');
+  });
+
+  // Fetch commit message from GitHub API
+  if (repo && sha) {
+    fetchCommitMessage(repo, sha, popup.querySelector('.commit-popup-message'));
+  }
+}
+
+function closeCommitPopup() {
+  if (_commitPopup) {
+    _commitPopup.classList.remove('commit-popup-open');
+    var el = _commitPopup;
+    setTimeout(function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 150);
+    _commitPopup = null;
+  }
+}
+
+function fetchCommitMessage(repo, sha, msgEl) {
+  var cacheKey = repo + '/' + sha;
+  if (_commitCache[cacheKey]) {
+    renderCommitMessage(msgEl, _commitCache[cacheKey]);
+    return;
+  }
+
+  fetch('https://api.github.com/repos/' + repo + '/commits/' + sha, {
+    headers: { 'Accept': 'application/vnd.github.v3+json' },
+  })
+    .then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function (data) {
+      var info = {
+        message: data.commit.message || '',
+        author: data.commit.author.name || '',
+        date: data.commit.author.date || '',
+      };
+      _commitCache[cacheKey] = info;
+      renderCommitMessage(msgEl, info);
+    })
+    .catch(function () {
+      if (msgEl) {
+        msgEl.textContent = 'Could not load commit message';
+      }
+    });
+}
+
+function renderCommitMessage(el, info) {
+  if (!el) return;
+  el.classList.remove('commit-popup-loading');
+  // Show first line prominently, rest dimmer
+  var lines = info.message.split('\n');
+  var firstLine = lines[0] || '';
+  var rest = lines.slice(1).join('\n').trim();
+  var html = escapeHtml(firstLine);
+  if (rest) {
+    html += '<div style="font-size:0.6875rem;font-weight:400;color:oklch(0.6 0 0);margin-top:0.25rem;white-space:pre-wrap">' + escapeHtml(rest) + '</div>';
+  }
+  // Add author + date below
+  if (info.author || info.date) {
+    var meta = '';
+    if (info.author) meta += escapeHtml(info.author);
+    if (info.date) {
+      var d = new Date(info.date);
+      var dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      meta += (meta ? ' \u00b7 ' : '') + dateStr;
+    }
+    html += '<div style="font-size:0.625rem;color:oklch(0.5 0 0);margin-top:0.25rem">' + meta + '</div>';
+  }
+  el.innerHTML = html;
+}
+
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
 
 function initPipelineTracker() {
   var container = document.querySelector('[data-pipeline-tracker]');
@@ -1295,6 +1510,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initAddVarModal();
   initExpandModal();
   initAccentPicker();
+  initCommitPopup();
   initPipelineTracker();
   initDashboardPoller();
   autoExpandCollapsibleCards();
