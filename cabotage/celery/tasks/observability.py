@@ -73,9 +73,9 @@ def collect_observability_snapshots():
 def _collect_for_app(app, custom_api, core_api):
     namespace = app.project.organization.slug
     label_selector = (
-        f"cabotage.io/organization={app.project.organization.slug},"
-        f"cabotage.io/project={app.project.slug},"
-        f"cabotage.io/application={app.slug}"
+        f"organization={app.project.organization.slug},"
+        f"project={app.project.slug},"
+        f"application={app.slug}"
     )
 
     total_cpu_m = 0
