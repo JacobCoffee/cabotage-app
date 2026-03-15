@@ -1109,7 +1109,6 @@ def run_image_build(image_id=None, buildkit=False):
         raise KeyError(f"Image with ID {image_id} not found!")
 
     image.build_job_id = secrets.token_hex(4)
-    image.started_at = datetime.datetime.utcnow()
 
     # Create a GitHub check run at the start of the pipeline
     application = image.application
@@ -1179,7 +1178,6 @@ def run_image_build(image_id=None, buildkit=False):
             db.session.add(image)
             image.error = True
             image.error_detail = str(exc)
-            image.completed_at = datetime.datetime.utcnow()
             db.session.commit()
             from cabotage.celery.metrics import record_image_metrics
 
@@ -1207,8 +1205,6 @@ def run_image_build(image_id=None, buildkit=False):
         except Exception:  # nosec B110
             pass
         db.session.add(image)
-        if not image.completed_at:
-            image.completed_at = datetime.datetime.utcnow()
         if not image.error:
             image.error = True
             image.error_detail = "Image build failed due to an internal error"
@@ -1228,7 +1224,6 @@ def run_image_build(image_id=None, buildkit=False):
     image.image_id = build_metadata["image_id"]
     image.processes = build_metadata["processes"]
     image.built = True
-    image.completed_at = datetime.datetime.utcnow()
     if image.image_metadata is None:
         image.image_metadata = {
             "dockerfile_env_vars": build_metadata["dockerfile_env_vars"]
@@ -1300,7 +1295,6 @@ def run_release_build(release_id=None):
             release.release_metadata = {}
 
         release.build_job_id = secrets.token_hex(4)
-        release.started_at = datetime.datetime.utcnow()
         db.session.add(release)
         db.session.commit()
 
@@ -1316,7 +1310,6 @@ def run_release_build(release_id=None):
             build_metadata = build_release_buildkit(release)
             release.release_id = build_metadata["release_id"]
             release.built = True
-            release.completed_at = datetime.datetime.utcnow()
             if (
                 "installation_id" in release.release_metadata
                 and "statuses_url" in release.release_metadata
@@ -1333,7 +1326,6 @@ def run_release_build(release_id=None):
         except (BuildError, TemplateResolutionError) as exc:
             release.error = True
             release.error_detail = str(exc)
-            release.completed_at = datetime.datetime.utcnow()
             try:
                 log_key = stream_key("release", release.build_job_id)
                 redis_client = get_redis_client(current_app.config["CELERY_BROKER_URL"])
@@ -1373,7 +1365,6 @@ def run_release_build(release_id=None):
                 pass
             release.error = True
             release.error_detail = "Release build failed due to an internal error"
-            release.completed_at = datetime.datetime.utcnow()
             db.session.add(release)
             db.session.commit()
             if (

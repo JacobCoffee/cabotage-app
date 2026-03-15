@@ -686,15 +686,13 @@ class Deployment(db.Model, Timestamp):
         db.String(64),
         nullable=True,
     )
-    started_at = db.Column(db.DateTime, nullable=True)
-    completed_at = db.Column(db.DateTime, nullable=True)
 
     __mapper_args__ = {"version_id_col": version_id}
 
     @property
     def duration_seconds(self):
-        if self.started_at and self.completed_at:
-            return (self.completed_at - self.started_at).total_seconds()
+        if (self.complete or self.error) and self.created and self.updated:
+            return (self.updated - self.created).total_seconds()
         return None
 
     @property
@@ -800,15 +798,13 @@ class Release(db.Model, Timestamp):
         nullable=True,
         server_default=None,
     )
-    started_at = db.Column(db.DateTime, nullable=True)
-    completed_at = db.Column(db.DateTime, nullable=True)
 
     __mapper_args__ = {"version_id_col": version_id}
 
     @property
     def duration_seconds(self):
-        if self.started_at and self.completed_at:
-            return (self.completed_at - self.started_at).total_seconds()
+        if (self.built or self.error) and self.created and self.updated:
+            return (self.updated - self.created).total_seconds()
         return None
 
     @property
@@ -1246,8 +1242,6 @@ class Image(db.Model, Timestamp):
         db.String(64),
         nullable=True,
     )
-    started_at = db.Column(db.DateTime, nullable=True)
-    completed_at = db.Column(db.DateTime, nullable=True)
 
     __mapper_args__ = {"version_id_col": version_id}
     __table_args__ = (
@@ -1259,8 +1253,8 @@ class Image(db.Model, Timestamp):
 
     @property
     def duration_seconds(self):
-        if self.started_at and self.completed_at:
-            return (self.completed_at - self.started_at).total_seconds()
+        if (self.built or self.error) and self.created and self.updated:
+            return (self.updated - self.created).total_seconds()
         return None
 
     @property
